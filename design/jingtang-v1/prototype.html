@@ -1,0 +1,1022 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JINGTANG V1 — D1-UI-R2 Bilingual Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;family=Noto+Sans+SC:wght@400;500&amp;family=Noto+Serif+SC:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --jt-canvas: #f3f1ea;
+      --jt-surface: #fcfcf9;
+      --jt-surface-strong: #ffffff;
+      --jt-ink: #111513;
+      --jt-ink-soft: #45504a;
+      --jt-muted: #727a74;
+      --jt-line: #d8dcd5;
+      --jt-brand: #155d4e;
+      --jt-brand-deep: #0c332c;
+      --jt-brand-soft: #e5efeb;
+      --jt-gold: #a97d3e;
+      --jt-success: #1e684d;
+      --jt-success-soft: #e4f0ea;
+      --jt-warning: #875a17;
+      --jt-warning-soft: #f5eddf;
+      --jt-danger: #a23832;
+      --jt-danger-soft: #f7e8e6;
+      --jt-info: #315e86;
+      --jt-info-soft: #e8eef4;
+      --jt-shadow: 0 22px 70px rgba(17, 21, 19, .14);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--jt-canvas); color: var(--jt-ink); font-family: Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; min-width: 320px; background: var(--jt-canvas); }
+    button, input, textarea, select { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--jt-brand); outline-offset: 3px; }
+    button { color: inherit; }
+    a { color: inherit; }
+    [hidden] { display: none !important; }
+
+    .jt-review-root { min-height: 100vh; }
+    .jt-review-bar { position: sticky; top: 0; z-index: 50; display: grid; grid-template-columns: minmax(190px, 1fr) auto auto; gap: 20px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #2e3431; background: #111513; color: #f7f6f1; }
+    .jt-review-meta { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .jt-review-kicker { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; white-space: nowrap; }
+    .jt-review-note { color: #aeb6b1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .jt-review-tabs, .jt-review-size { display: flex; align-items: center; gap: 4px; }
+    .jt-review-tabs button, .jt-review-size button { border: 0; border-radius: 6px; padding: 8px 10px; background: transparent; color: #bac1bd; cursor: pointer; font-size: 12px; white-space: nowrap; }
+    .jt-review-tabs button[aria-selected="true"], .jt-review-size button[aria-pressed="true"] { background: #f2f0e9; color: #111513; }
+    .jt-review-divider { width: 1px; height: 20px; margin: 0 4px; background: #39413d; }
+    .jt-review-stage { padding: 24px; }
+    .jt-review-frame { width: min(100%, 1440px); margin: 0 auto; overflow: hidden; border: 1px solid #cdd1cb; border-radius: 14px; background: var(--jt-surface); box-shadow: 0 12px 45px rgba(17, 21, 19, .08); transition: width .2s ease; }
+    .jt-review-frame.jt-mobile-preview { width: min(100%, 390px); }
+    .jt-view-label { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; padding: 9px 16px; border-bottom: 1px solid var(--jt-line); background: #ebe9e2; color: var(--jt-ink-soft); font-size: 11px; }
+    .jt-view-label strong { color: var(--jt-ink); font-weight: 500; }
+
+    .jt-public { background: var(--jt-canvas); }
+    .jt-public-shell { width: min(100% - 48px, 1240px); margin: 0 auto; }
+    .jt-public-header { height: 80px; display: flex; align-items: center; gap: 40px; }
+    .jt-wordmark { flex: 0 0 auto; font-size: 14px; font-weight: 500; letter-spacing: .18em; text-decoration: none; }
+    .jt-public-nav { display: flex; align-items: center; gap: 26px; margin-left: auto; }
+    .jt-public-nav a { color: var(--jt-ink-soft); font-size: 13px; text-decoration: none; }
+    .jt-public-actions { display: flex; align-items: center; gap: 12px; margin-left: 10px; }
+    .jt-product-locale { min-width: 44px; border: 0; background: transparent; color: var(--jt-ink-soft); cursor: pointer; font-size: 12px; }
+    .jt-text-link { border: 0; background: none; padding: 10px 8px; text-decoration: none; font-size: 13px; cursor: pointer; }
+    .jt-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: 1px solid var(--jt-line); border-radius: 8px; background: var(--jt-surface-strong); color: var(--jt-ink); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; }
+    .jt-button-primary { border-color: var(--jt-ink); background: var(--jt-ink); color: #fff; }
+    .jt-button-brand { border-color: var(--jt-brand); background: var(--jt-brand); color: #fff; }
+    .jt-button-ghost { border-color: transparent; background: transparent; }
+    .jt-button-danger { border-color: #d8aaa6; background: #fff; color: var(--jt-danger); }
+    .jt-button[disabled] { border-color: var(--jt-line); background: #efefe9; color: #8a918c; cursor: not-allowed; }
+    .jt-menu-button { display: none; }
+
+    .jt-locale-zh { font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+    .jt-locale-zh .jt-display,
+    .jt-locale-zh .jt-section-title,
+    .jt-locale-zh .jt-public-cta h2,
+    .jt-locale-zh .jt-onboarding-message h1,
+    .jt-locale-zh .jt-onboarding-panel h2,
+    .jt-locale-zh .jt-system-head h1,
+    .jt-locale-zh .jt-type-display { font-family: "Noto Serif SC", "Songti SC", serif; letter-spacing: 0; line-height: 1.16; }
+    .jt-locale-zh .jt-eyebrow,
+    .jt-locale-zh .jt-workspace-picker small { letter-spacing: .05em; text-transform: none; }
+    .jt-locale-zh .jt-mobile-preview .jt-app-top::before { content: "菜单"; }
+
+    .jt-hero { display: grid; grid-template-columns: 7fr 5fr; gap: 72px; align-items: center; min-height: 670px; padding: 88px 0 112px; }
+    .jt-eyebrow { margin: 0 0 22px; color: var(--jt-brand); font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; }
+    .jt-display { max-width: 780px; margin: 0; font-family: Newsreader, Georgia, serif; font-size: clamp(54px, 6.1vw, 88px); font-weight: 400; line-height: .98; letter-spacing: -.035em; }
+    .jt-display em { color: var(--jt-brand); font-weight: 400; }
+    .jt-hero-copy { max-width: 610px; margin: 28px 0 0; color: var(--jt-ink-soft); font-size: 17px; line-height: 1.75; }
+    .jt-hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+    .jt-hero-footnote { margin-top: 18px; color: var(--jt-muted); font-size: 11px; }
+    .jt-workflow-panel { position: relative; padding: 28px; border-radius: 20px; background: var(--jt-brand-deep); color: #f9faf7; box-shadow: var(--jt-shadow); }
+    .jt-workflow-panel::after { position: absolute; inset: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; content: ""; pointer-events: none; }
+    .jt-panel-top { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
+    .jt-panel-top span:first-child { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .jt-preview-tag { padding: 5px 8px; border: 1px solid rgba(255,255,255,.18); border-radius: 4px; color: #c7d8d2; font-size: 10px; }
+    .jt-flow-list { position: relative; z-index: 1; display: grid; gap: 0; }
+    .jt-flow-row { display: grid; grid-template-columns: 30px 1fr auto; gap: 14px; align-items: center; min-height: 68px; border-top: 1px solid rgba(255,255,255,.12); }
+    .jt-flow-index { color: #88aa9f; font-family: Newsreader, Georgia, serif; font-size: 19px; }
+    .jt-flow-row strong { display: block; font-size: 14px; font-weight: 500; }
+    .jt-flow-row small { color: #9fb5ae; font-size: 11px; }
+    .jt-flow-state { display: inline-flex; align-items: center; gap: 7px; color: #dfeae6; font-size: 11px; }
+    .jt-state-dot { width: 7px; height: 7px; border-radius: 50%; background: #76ad9b; }
+    .jt-state-dot.jt-pending { background: #caa76c; }
+    .jt-state-dot.jt-neutral { border: 1px solid #95a9a2; background: transparent; }
+
+    .jt-editorial-section { padding: 112px 0; border-top: 1px solid var(--jt-line); }
+    .jt-editorial-heading { display: grid; grid-template-columns: 4fr 8fr; gap: 48px; align-items: start; }
+    .jt-section-number { color: var(--jt-muted); font-family: Newsreader, Georgia, serif; font-size: 17px; }
+    .jt-section-title { margin: 0; max-width: 800px; font-family: Newsreader, Georgia, serif; font-size: clamp(40px, 4.3vw, 60px); font-weight: 400; line-height: 1.05; letter-spacing: -.025em; }
+    .jt-feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 72px; border-top: 1px solid var(--jt-line); }
+    .jt-feature { min-height: 250px; padding: 30px 28px 30px 0; border-bottom: 1px solid var(--jt-line); }
+    .jt-feature + .jt-feature { padding-left: 28px; border-left: 1px solid var(--jt-line); }
+    .jt-feature-mark { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--jt-line); border-radius: 50%; color: var(--jt-brand); font-family: Newsreader, Georgia, serif; }
+    .jt-feature h3 { margin: 44px 0 12px; font-size: 17px; font-weight: 500; }
+    .jt-feature p { margin: 0; color: var(--jt-ink-soft); font-size: 13px; line-height: 1.75; }
+    .jt-integration-list { margin-top: 64px; border-top: 1px solid var(--jt-ink); }
+    .jt-integration-row { display: grid; grid-template-columns: 2fr 4fr 2fr auto; gap: 24px; align-items: center; min-height: 82px; border-bottom: 1px solid var(--jt-line); }
+    .jt-integration-row strong { font-size: 15px; font-weight: 500; }
+    .jt-integration-row p { margin: 0; color: var(--jt-ink-soft); font-size: 12px; }
+    .jt-status { display: inline-flex; align-items: center; gap: 7px; width: fit-content; padding: 5px 8px; border-radius: 4px; background: #eaeae4; color: var(--jt-ink-soft); font-size: 10px; font-weight: 500; white-space: nowrap; }
+    .jt-status::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; content: ""; }
+    .jt-status-success { background: var(--jt-success-soft); color: var(--jt-success); }
+    .jt-status-warning { background: var(--jt-warning-soft); color: var(--jt-warning); }
+    .jt-status-danger { background: var(--jt-danger-soft); color: var(--jt-danger); }
+    .jt-status-info { background: var(--jt-info-soft); color: var(--jt-info); }
+    .jt-public-cta { margin-top: 112px; padding: 72px; border-radius: 20px; background: var(--jt-brand-deep); color: #f8faf7; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 40px; }
+    .jt-public-cta h2 { max-width: 700px; margin: 0; font-family: Newsreader, Georgia, serif; font-size: clamp(38px, 4vw, 58px); font-weight: 400; line-height: 1.04; }
+    .jt-public-cta .jt-button { border-color: #fff; background: #fff; color: var(--jt-brand-deep); }
+    .jt-public-footer { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 40px; padding: 72px 0 40px; color: var(--jt-ink-soft); font-size: 11px; }
+    .jt-footer-col strong { display: block; margin-bottom: 14px; color: var(--jt-ink); font-weight: 500; }
+    .jt-footer-col a { display: block; margin: 9px 0; text-decoration: none; }
+
+    .jt-onboarding { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(0, 1.15fr); min-height: 760px; background: var(--jt-surface); }
+    .jt-onboarding-brand { display: flex; flex-direction: column; padding: 42px; background: var(--jt-brand-deep); color: #f8faf7; }
+    .jt-onboarding-brand .jt-wordmark { color: #fff; }
+    .jt-onboarding-message { margin: auto 0; }
+    .jt-onboarding-message p { color: #a9c2ba; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+    .jt-onboarding-message h1 { max-width: 500px; margin: 18px 0; font-family: Newsreader, Georgia, serif; font-size: 48px; font-weight: 400; line-height: 1.03; }
+    .jt-onboarding-message span { max-width: 440px; display: block; color: #bfd1cb; font-size: 11px; line-height: 1.8; }
+    .jt-onboarding-proof { color: #86a69b; font-size: 9px; }
+    .jt-onboarding-main { padding: 34px 46px 54px; background: var(--jt-canvas); }
+    .jt-onboarding-steps { display: flex; gap: 6px; margin-bottom: 52px; }
+    .jt-onboarding-steps button { width: 34px; height: 34px; border: 1px solid var(--jt-line); border-radius: 50%; background: transparent; color: var(--jt-muted); font-size: 9px; cursor: pointer; }
+    .jt-onboarding-steps button[aria-selected="true"], .jt-onboarding-steps button.jt-complete { border-color: var(--jt-brand); background: var(--jt-brand); color: #fff; }
+    .jt-onboarding-panel { max-width: 520px; margin: 0 auto; }
+    .jt-onboarding-panel h2 { margin: 0; font-family: Newsreader, Georgia, serif; font-size: 38px; font-weight: 400; }
+    .jt-onboarding-panel > p { margin: 10px 0 26px; color: var(--jt-ink-soft); font-size: 11px; line-height: 1.7; }
+    .jt-consent-row { display: flex; gap: 10px; align-items: flex-start; color: var(--jt-ink-soft); font-size: 9px; line-height: 1.55; }
+    .jt-role-list { display: grid; gap: 9px; }
+    .jt-role-row { display: grid; grid-template-columns: 1fr 170px; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--jt-line); border-radius: 9px; background: #fff; }
+    .jt-role-row strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-role-row small { color: var(--jt-muted); font-size: 9px; }
+    .jt-onboard-success { padding: 22px; border: 1px solid #b8cdc5; border-radius: 12px; background: #f6faf8; }
+    .jt-onboard-success strong { display: block; font-size: 13px; font-weight: 500; }
+    .jt-onboard-success p { margin: 8px 0 0; color: var(--jt-ink-soft); font-size: 10px; line-height: 1.7; }
+
+    .jt-app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 820px; background: #f7f7f3; }
+    .jt-rail { display: flex; flex-direction: column; border-right: 1px solid var(--jt-line); background: #efeee8; }
+    .jt-rail-brand { height: 70px; display: flex; align-items: center; padding: 0 22px; border-bottom: 1px solid var(--jt-line); font-size: 12px; font-weight: 500; letter-spacing: .18em; }
+    .jt-workspace-picker { margin: 16px 14px 12px; padding: 12px; border: 1px solid var(--jt-line); border-radius: 8px; background: rgba(255,255,255,.65); }
+    .jt-workspace-picker small { display: block; color: var(--jt-muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+    .jt-workspace-picker strong { display: block; margin-top: 5px; font-size: 12px; font-weight: 500; }
+    .jt-rail-nav { display: grid; gap: 3px; padding: 6px 10px; }
+    .jt-rail-nav button { position: relative; width: 100%; min-height: 42px; display: flex; align-items: center; gap: 11px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--jt-ink-soft); font-size: 12px; text-align: left; cursor: pointer; }
+    .jt-rail-nav button::before { width: 18px; color: var(--jt-muted); font-size: 12px; text-align: center; content: attr(data-icon); }
+    .jt-rail-nav button.jt-active { background: var(--jt-surface-strong); color: var(--jt-ink); }
+    .jt-rail-nav button.jt-active::after { position: absolute; left: 0; width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--jt-brand); content: ""; }
+    .jt-rail-bottom { margin-top: auto; border-top: 1px solid var(--jt-line); padding: 10px; }
+    .jt-app-main { min-width: 0; }
+    .jt-app-top { height: 70px; display: flex; align-items: center; gap: 16px; padding: 0 28px; border-bottom: 1px solid var(--jt-line); background: rgba(252,252,249,.86); }
+    .jt-app-top strong { font-size: 13px; font-weight: 500; }
+    .jt-top-spacer { flex: 1; }
+    .jt-search { min-width: 220px; padding: 9px 12px; border: 1px solid var(--jt-line); border-radius: 8px; background: #fff; color: var(--jt-muted); font-size: 11px; }
+    .jt-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--jt-brand-deep); color: #fff; font-size: 10px; }
+    .jt-page { padding: 30px; }
+    .jt-page-header { display: flex; align-items: flex-start; gap: 24px; margin-bottom: 28px; }
+    .jt-page-header h1 { margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -.025em; }
+    .jt-page-header p { margin: 7px 0 0; color: var(--jt-muted); font-size: 12px; }
+    .jt-page-actions { display: flex; gap: 8px; margin-left: auto; }
+    .jt-attention { display: grid; grid-template-columns: 38px 1fr auto; gap: 14px; align-items: center; margin-bottom: 24px; padding: 16px; border: 1px solid #dfcfb4; border-radius: 10px; background: #fbf6ed; }
+    .jt-attention-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--jt-warning-soft); color: var(--jt-warning); font-size: 13px; }
+    .jt-attention strong { display: block; font-size: 12px; font-weight: 500; }
+    .jt-attention small { color: var(--jt-ink-soft); font-size: 11px; }
+    .jt-dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: 20px; }
+    .jt-panel { border: 1px solid var(--jt-line); border-radius: 12px; background: var(--jt-surface-strong); }
+    .jt-panel-header { min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--jt-line); }
+    .jt-panel-header h2 { margin: 0; font-size: 13px; font-weight: 500; }
+    .jt-panel-header span { margin-left: auto; color: var(--jt-muted); font-size: 10px; }
+    .jt-list { margin: 0; padding: 0; list-style: none; }
+    .jt-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; min-height: 72px; padding: 12px 18px; border-bottom: 1px solid var(--jt-line); }
+    .jt-list-row:last-child { border-bottom: 0; }
+    .jt-list-primary { min-width: 0; }
+    .jt-list-primary strong { display: block; overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .jt-list-primary small { color: var(--jt-muted); font-size: 10px; }
+    .jt-list-side { display: flex; align-items: center; gap: 12px; }
+    .jt-channel-mark { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--jt-line); border-radius: 7px; color: var(--jt-brand); font-size: 9px; font-weight: 500; }
+    .jt-activity-row { display: grid; grid-template-columns: 9px minmax(0, 1fr); gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--jt-line); }
+    .jt-activity-row:last-child { border-bottom: 0; }
+    .jt-activity-dot { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: var(--jt-brand); }
+    .jt-activity-row p { margin: 0; font-size: 11px; line-height: 1.5; }
+    .jt-activity-row time { color: var(--jt-muted); font-size: 9px; }
+
+    .jt-composer-page { display: grid; gap: 22px; }
+    .jt-stepper { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--jt-line); border-radius: 10px; background: #fff; overflow: hidden; }
+    .jt-step { min-height: 62px; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: center; padding: 12px 14px; border: 0; border-right: 1px solid var(--jt-line); background: #fff; color: var(--jt-muted); text-align: left; cursor: pointer; }
+    .jt-step:last-child { border-right: 0; }
+    .jt-step[aria-selected="true"] { background: var(--jt-brand-soft); color: var(--jt-brand-deep); }
+    .jt-step.jt-complete { color: var(--jt-ink); }
+    .jt-step-index { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid var(--jt-line); border-radius: 50%; font-size: 9px; }
+    .jt-step[aria-selected="true"] .jt-step-index, .jt-step.jt-complete .jt-step-index { border-color: var(--jt-brand); background: var(--jt-brand); color: #fff; }
+    .jt-step strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-step small { display: block; margin-top: 2px; font-size: 9px; }
+    .jt-composer-grid { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 20px; align-items: start; }
+    .jt-form-panel { padding: 22px; border: 1px solid var(--jt-line); border-radius: 12px; background: #fff; }
+    .jt-form-panel h2 { margin: 0; font-size: 16px; font-weight: 500; }
+    .jt-form-panel > p { margin: 7px 0 24px; color: var(--jt-muted); font-size: 11px; }
+    .jt-field { display: grid; gap: 7px; margin: 18px 0; }
+    .jt-field label, .jt-field legend { color: var(--jt-ink); font-size: 11px; font-weight: 500; }
+    .jt-field small { color: var(--jt-muted); font-size: 9px; }
+    .jt-input, .jt-select, .jt-textarea { width: 100%; border: 1px solid var(--jt-line); border-radius: 8px; background: #fff; color: var(--jt-ink); padding: 11px 12px; font-size: 12px; }
+    .jt-textarea { min-height: 110px; resize: vertical; }
+    .jt-upload { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px; border: 1px solid #b8cdc5; border-radius: 10px; background: #f6faf8; }
+    .jt-upload-thumb { width: 58px; height: 44px; display: grid; place-items: center; border-radius: 6px; background: var(--jt-brand-deep); color: #d9e8e3; font-size: 9px; }
+    .jt-upload strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-upload small { color: var(--jt-muted); font-size: 9px; }
+    .jt-platform-list { display: grid; gap: 10px; }
+    .jt-platform-choice { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 64px; padding: 12px; border: 1px solid var(--jt-line); border-radius: 9px; background: #fff; }
+    .jt-platform-choice.jt-selected { border-color: var(--jt-brand); box-shadow: inset 0 0 0 1px var(--jt-brand); }
+    .jt-platform-choice.jt-disabled { background: #f2f2ed; color: var(--jt-muted); }
+    .jt-platform-choice strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-platform-choice small { color: var(--jt-muted); font-size: 9px; }
+    .jt-checkbox { width: 16px; height: 16px; accent-color: var(--jt-brand); }
+    .jt-preview { position: sticky; top: 22px; overflow: hidden; border: 1px solid var(--jt-line); border-radius: 12px; background: #fff; }
+    .jt-preview-header { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border-bottom: 1px solid var(--jt-line); }
+    .jt-preview-header strong { font-size: 11px; font-weight: 500; }
+    .jt-preview-header span { margin-left: auto; color: var(--jt-muted); font-size: 9px; }
+    .jt-video-frame { aspect-ratio: 16 / 9; display: grid; place-items: center; background: var(--jt-brand-deep); color: #dbe9e4; }
+    .jt-play { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; font-size: 11px; }
+    .jt-preview-body { padding: 15px; }
+    .jt-preview-body h3 { margin: 0 0 7px; font-size: 12px; font-weight: 500; }
+    .jt-preview-body p { margin: 0; color: var(--jt-ink-soft); font-size: 10px; line-height: 1.6; }
+    .jt-preview-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .jt-preview-meta span { padding: 4px 6px; border-radius: 4px; background: #efefe9; color: var(--jt-ink-soft); font-size: 8px; }
+    .jt-review-summary { display: grid; gap: 12px; }
+    .jt-summary-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--jt-line); }
+    .jt-summary-row span:first-child { color: var(--jt-muted); font-size: 10px; }
+    .jt-summary-row strong, .jt-summary-row span:last-child { font-size: 11px; font-weight: 500; }
+    .jt-form-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--jt-line); }
+
+    .jt-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }
+    .jt-content-cover { aspect-ratio: 16 / 7; display: grid; place-items: center; border-radius: 10px; background: var(--jt-brand-deep); color: #dfeae6; font-family: Newsreader, Georgia, serif; font-size: 25px; }
+    .jt-detail-tabs { display: flex; gap: 22px; margin: 22px 0 0; border-bottom: 1px solid var(--jt-line); }
+    .jt-detail-tabs button { min-height: 42px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--jt-muted); font-size: 11px; cursor: pointer; }
+    .jt-detail-tabs button.jt-active { border-color: var(--jt-brand); color: var(--jt-ink); }
+    .jt-approval-card { padding: 20px; border: 1px solid var(--jt-line); border-radius: 12px; background: #fff; }
+    .jt-approval-card h2 { margin: 0; font-size: 14px; font-weight: 500; }
+    .jt-approval-card > p { margin: 7px 0 20px; color: var(--jt-muted); font-size: 10px; }
+    .jt-approval-meta { display: grid; gap: 10px; margin: 16px 0; }
+    .jt-approval-meta div { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 9px; border-bottom: 1px solid var(--jt-line); font-size: 10px; }
+    .jt-approval-meta span { color: var(--jt-muted); }
+    .jt-approval-actions { display: grid; gap: 8px; }
+    .jt-execution { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-top: 16px; padding: 15px; border: 1px solid var(--jt-line); border-radius: 9px; }
+    .jt-execution strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-execution small { color: var(--jt-muted); font-size: 9px; }
+    .jt-comment { margin-top: 16px; }
+    .jt-reject-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--jt-line); }
+
+    .jt-trust-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; }
+    .jt-state-menu { display: grid; align-content: start; border: 1px solid var(--jt-line); border-radius: 10px; background: #fff; overflow: hidden; }
+    .jt-state-menu button { min-height: 48px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--jt-line); background: #fff; color: var(--jt-ink-soft); font-size: 11px; text-align: left; cursor: pointer; }
+    .jt-state-menu button:last-child { border-bottom: 0; }
+    .jt-state-menu button[aria-selected="true"] { background: var(--jt-brand-soft); color: var(--jt-brand-deep); font-weight: 500; }
+    .jt-trust-surface { min-height: 540px; padding: 28px; border: 1px solid var(--jt-line); border-radius: 12px; background: #fff; }
+    .jt-trust-surface h2 { margin: 0; font-size: 19px; font-weight: 500; }
+    .jt-trust-surface > p { max-width: 660px; margin: 9px 0 24px; color: var(--jt-ink-soft); font-size: 11px; line-height: 1.7; }
+    .jt-channel-hero { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 18px; border: 1px solid var(--jt-line); border-radius: 10px; background: #fafaf7; }
+    .jt-channel-hero strong { display: block; font-size: 12px; font-weight: 500; }
+    .jt-channel-hero small { color: var(--jt-muted); font-size: 9px; }
+    .jt-trust-list { margin: 22px 0; padding: 0; list-style: none; }
+    .jt-trust-list li { position: relative; margin: 12px 0; padding-left: 22px; color: var(--jt-ink-soft); font-size: 11px; line-height: 1.6; }
+    .jt-trust-list li::before { position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border: 1px solid var(--jt-brand); border-radius: 50%; content: ""; }
+    .jt-inline-notice { margin: 18px 0; padding: 14px; border-left: 3px solid var(--jt-brand); background: var(--jt-brand-soft); color: var(--jt-brand-deep); font-size: 10px; line-height: 1.6; }
+    .jt-destructive-box { padding: 20px; border: 1px solid #e0bebb; border-radius: 10px; background: #fdf8f7; }
+    .jt-destructive-box h3 { margin: 0 0 8px; color: var(--jt-danger); font-size: 13px; font-weight: 500; }
+    .jt-destructive-box p { margin: 0 0 18px; color: var(--jt-ink-soft); font-size: 10px; line-height: 1.7; }
+    .jt-progress { height: 6px; overflow: hidden; border-radius: 3px; background: #e6e8e3; }
+    .jt-progress > span { display: block; width: 62%; height: 100%; background: var(--jt-warning); }
+
+    .jt-system { padding: 32px; background: var(--jt-canvas); }
+    .jt-system-head { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-bottom: 42px; }
+    .jt-system-head h1 { margin: 0; font-family: Newsreader, Georgia, serif; font-size: 50px; font-weight: 400; line-height: 1; }
+    .jt-system-head p { margin: 0; color: var(--jt-ink-soft); font-size: 12px; line-height: 1.8; }
+    .jt-system-section { padding: 34px 0; border-top: 1px solid var(--jt-line); }
+    .jt-system-title { margin: 0 0 22px; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
+    .jt-swatch-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .jt-swatch { min-height: 110px; display: flex; flex-direction: column; justify-content: flex-end; padding: 12px; border: 1px solid rgba(17,21,19,.12); border-radius: 9px; font-size: 9px; }
+    .jt-swatch strong { display: block; margin-bottom: 4px; font-size: 10px; font-weight: 500; }
+    .jt-swatch-canvas { background: var(--jt-canvas); }
+    .jt-swatch-surface { background: var(--jt-surface-strong); }
+    .jt-swatch-ink { background: var(--jt-ink); color: #fff; }
+    .jt-swatch-brand { background: var(--jt-brand); color: #fff; }
+    .jt-swatch-deep { background: var(--jt-brand-deep); color: #fff; }
+    .jt-swatch-gold { background: var(--jt-gold); color: #fff; }
+    .jt-type-specimen { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+    .jt-type-display { margin: 0; font-family: Newsreader, Georgia, serif; font-size: 46px; font-weight: 400; line-height: 1.05; }
+    .jt-type-product { display: grid; gap: 10px; align-content: start; }
+    .jt-type-product strong { font-size: 20px; font-weight: 500; }
+    .jt-type-product span { color: var(--jt-ink-soft); font-size: 13px; }
+    .jt-component-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .jt-status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .jt-state-card { min-height: 100px; padding: 14px; border: 1px solid var(--jt-line); border-radius: 9px; background: #fff; }
+    .jt-state-card strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-state-card p { margin: 7px 0 0; color: var(--jt-muted); font-size: 9px; line-height: 1.5; }
+
+    .jt-library { padding: 32px; background: var(--jt-canvas); }
+    .jt-library-head { display: flex; align-items: flex-end; gap: 32px; margin-bottom: 30px; }
+    .jt-library-head h1 { margin: 0; font-family: Newsreader, Georgia, serif; font-size: 44px; font-weight: 400; line-height: 1; }
+    .jt-library-head p { max-width: 560px; margin: 0 0 2px auto; color: var(--jt-ink-soft); font-size: 10px; line-height: 1.7; }
+    .jt-library-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .jt-mini-screen { min-height: 260px; overflow: hidden; border: 1px solid var(--jt-line); border-radius: 10px; background: var(--jt-surface-strong); }
+    .jt-mini-bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 11px; border-bottom: 1px solid var(--jt-line); background: #f0efe9; color: var(--jt-muted); font-size: 8px; }
+    .jt-mini-body { padding: 16px; }
+    .jt-mini-body h2 { margin: 0; font-size: 13px; font-weight: 500; }
+    .jt-mini-body > p { margin: 6px 0 16px; color: var(--jt-muted); font-size: 8px; line-height: 1.5; }
+    .jt-mini-hero { height: 54px; margin-bottom: 14px; border-radius: 7px; background: var(--jt-brand-deep); }
+    .jt-mini-line { height: 7px; margin: 8px 0; border-radius: 4px; background: #e4e5df; }
+    .jt-mini-line.jt-short { width: 58%; }
+    .jt-mini-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; min-height: 38px; border-top: 1px solid var(--jt-line); font-size: 8px; }
+    .jt-mini-calendar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+    .jt-mini-calendar span { aspect-ratio: 1; border: 1px solid var(--jt-line); border-radius: 4px; background: #fafaf7; }
+    .jt-mini-calendar span:nth-child(7), .jt-mini-calendar span:nth-child(13) { background: var(--jt-brand-soft); border-color: #abc6bc; }
+
+    .jt-dialog { width: min(calc(100% - 32px), 620px); padding: 0; border: 0; border-radius: 12px; background: #fff; color: var(--jt-ink); box-shadow: var(--jt-shadow); }
+    .jt-dialog::backdrop { background: rgba(12, 18, 15, .48); }
+    .jt-dialog-head { padding: 22px 24px 18px; border-bottom: 1px solid var(--jt-line); }
+    .jt-dialog-head h2 { margin: 0; font-size: 18px; font-weight: 500; }
+    .jt-dialog-head p { margin: 7px 0 0; color: var(--jt-muted); font-size: 10px; }
+    .jt-dialog-body { padding: 20px 24px; }
+    .jt-dialog-account { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--jt-line); border-radius: 9px; }
+    .jt-dialog-account strong { display: block; font-size: 11px; font-weight: 500; }
+    .jt-dialog-account small { color: var(--jt-muted); font-size: 9px; }
+    .jt-dialog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .jt-dialog-field { padding: 12px; border-radius: 8px; background: #f4f4ef; }
+    .jt-dialog-field span { display: block; color: var(--jt-muted); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+    .jt-dialog-field strong { display: block; margin-top: 5px; font-size: 10px; font-weight: 500; }
+    .jt-dialog-foot { display: flex; justify-content: flex-end; gap: 9px; padding: 16px 24px 22px; border-top: 1px solid var(--jt-line); }
+
+    @media (max-width: 1100px) {
+      .jt-review-bar { grid-template-columns: 1fr; gap: 9px; }
+      .jt-review-tabs { overflow-x: auto; padding-bottom: 2px; }
+      .jt-review-size { position: absolute; right: 18px; top: 9px; }
+      .jt-review-note { max-width: 520px; }
+      .jt-hero { gap: 40px; }
+      .jt-public-nav { display: none; }
+      .jt-menu-button { display: inline-flex; margin-left: auto; }
+      .jt-composer-grid { grid-template-columns: 1fr; }
+      .jt-preview { position: static; }
+      .jt-detail-layout { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .jt-review-bar { padding-top: 52px; }
+      .jt-review-size { left: 18px; right: auto; }
+      .jt-review-stage { padding: 10px; }
+      .jt-review-frame { border-radius: 9px; }
+      .jt-review-note { display: none; }
+      .jt-public-shell { width: min(100% - 40px, 1240px); }
+      .jt-public-header { height: 64px; gap: 12px; }
+      .jt-public-actions .jt-text-link { display: none; }
+      .jt-public-actions .jt-button { display: none; }
+      .jt-hero { grid-template-columns: 1fr; min-height: 0; padding: 70px 0 80px; }
+      .jt-display { font-size: clamp(43px, 14vw, 60px); }
+      .jt-hero-copy { font-size: 15px; }
+      .jt-hero-actions { display: grid; }
+      .jt-hero-actions .jt-button { width: 100%; }
+      .jt-workflow-panel { padding: 22px; }
+      .jt-editorial-section { padding: 72px 0; }
+      .jt-editorial-heading { grid-template-columns: 1fr; gap: 18px; }
+      .jt-section-title { font-size: 38px; }
+      .jt-feature-grid { grid-template-columns: 1fr; margin-top: 44px; }
+      .jt-feature { min-height: 0; padding: 24px 0; }
+      .jt-feature + .jt-feature { padding-left: 0; border-left: 0; }
+      .jt-feature h3 { margin-top: 24px; }
+      .jt-integration-row { grid-template-columns: 1fr auto; gap: 8px; padding: 16px 0; }
+      .jt-integration-row p { grid-column: 1 / -1; grid-row: 2; }
+      .jt-integration-row > span:last-child { grid-column: 1 / -1; }
+      .jt-public-cta { grid-template-columns: 1fr; margin-top: 72px; padding: 34px 26px; }
+      .jt-public-footer { grid-template-columns: 1fr 1fr; }
+
+      .jt-onboarding { grid-template-columns: 1fr; }
+      .jt-onboarding-brand { min-height: 260px; padding: 28px; }
+      .jt-onboarding-message { margin: 50px 0; }
+      .jt-onboarding-message h1 { font-size: 38px; }
+      .jt-onboarding-main { padding: 28px 20px 42px; }
+      .jt-onboarding-steps { margin-bottom: 32px; }
+      .jt-role-row { grid-template-columns: 1fr; }
+
+      .jt-app { grid-template-columns: 1fr; min-height: 0; }
+      .jt-rail { display: none; }
+      .jt-app-top { height: 58px; padding: 0 16px; }
+      .jt-app-top::before { content: "Menu"; color: var(--jt-brand); font-size: 10px; }
+      .jt-search { display: none; }
+      .jt-page { padding: 18px 14px 26px; }
+      .jt-page-header { align-items: stretch; flex-direction: column; }
+      .jt-page-actions { margin-left: 0; }
+      .jt-page-actions .jt-button { flex: 1; }
+      .jt-attention { grid-template-columns: 32px 1fr; }
+      .jt-attention .jt-button { grid-column: 1 / -1; }
+      .jt-dashboard-grid { grid-template-columns: 1fr; }
+      .jt-list-row { grid-template-columns: 1fr; }
+      .jt-list-side { justify-content: space-between; }
+      .jt-stepper { grid-template-columns: 1fr 1fr; }
+      .jt-step:nth-child(2) { border-right: 0; }
+      .jt-step:nth-child(-n+2) { border-bottom: 1px solid var(--jt-line); }
+      .jt-summary-row { grid-template-columns: 1fr; gap: 4px; }
+      .jt-form-footer { flex-direction: column-reverse; }
+      .jt-form-footer .jt-button { width: 100%; }
+      .jt-trust-grid { grid-template-columns: 1fr; }
+      .jt-state-menu { grid-template-columns: 1fr 1fr; }
+      .jt-state-menu button { border-right: 1px solid var(--jt-line); }
+      .jt-trust-surface { min-height: 0; padding: 20px; }
+      .jt-channel-hero { grid-template-columns: 42px 1fr; }
+      .jt-channel-hero .jt-status { grid-column: 1 / -1; }
+      .jt-system { padding: 22px 16px; }
+      .jt-system-head, .jt-type-specimen { grid-template-columns: 1fr; gap: 20px; }
+      .jt-system-head h1 { font-size: 40px; }
+      .jt-swatch-grid { grid-template-columns: 1fr 1fr; }
+      .jt-status-grid { grid-template-columns: 1fr 1fr; }
+      .jt-library { padding: 24px 14px; }
+      .jt-library-head { align-items: flex-start; flex-direction: column; }
+      .jt-library-head p { margin-left: 0; }
+      .jt-library-grid { grid-template-columns: 1fr; }
+      .jt-dialog-grid { grid-template-columns: 1fr; }
+      .jt-dialog-foot { flex-direction: column-reverse; }
+      .jt-dialog-foot .jt-button { width: 100%; }
+    }
+
+    .jt-mobile-preview .jt-public-shell { width: calc(100% - 36px); }
+    .jt-mobile-preview .jt-public-header { height: 64px; gap: 12px; }
+    .jt-mobile-preview .jt-public-nav, .jt-mobile-preview .jt-public-actions .jt-text-link, .jt-mobile-preview .jt-public-actions .jt-button { display: none; }
+    .jt-mobile-preview .jt-menu-button { flex: 0 0 auto; min-width: 56px; display: inline-flex; margin-left: auto; white-space: nowrap; }
+    .jt-mobile-preview .jt-hero { grid-template-columns: 1fr; min-height: 0; gap: 44px; padding: 64px 0 74px; }
+    .jt-mobile-preview .jt-display { font-size: 46px; }
+    .jt-mobile-preview .jt-hero-copy { font-size: 14px; }
+    .jt-mobile-preview .jt-hero-actions { display: grid; }
+    .jt-mobile-preview .jt-hero-actions .jt-button { width: 100%; }
+    .jt-mobile-preview .jt-editorial-section { padding: 68px 0; }
+    .jt-mobile-preview .jt-editorial-heading, .jt-mobile-preview .jt-feature-grid, .jt-mobile-preview .jt-public-cta, .jt-mobile-preview .jt-public-footer { grid-template-columns: 1fr; }
+    .jt-mobile-preview .jt-editorial-heading { gap: 16px; }
+    .jt-mobile-preview .jt-feature { min-height: 0; padding: 24px 0; border-left: 0; }
+    .jt-mobile-preview .jt-feature + .jt-feature { padding-left: 0; }
+    .jt-mobile-preview .jt-integration-row { grid-template-columns: 1fr auto; padding: 14px 0; }
+    .jt-mobile-preview .jt-integration-row p, .jt-mobile-preview .jt-integration-row > span:last-child { grid-column: 1 / -1; }
+    .jt-mobile-preview .jt-public-cta { padding: 30px 24px; }
+    .jt-mobile-preview .jt-onboarding { grid-template-columns: 1fr; }
+    .jt-mobile-preview .jt-onboarding-brand { min-height: 260px; padding: 26px; }
+    .jt-mobile-preview .jt-onboarding-message { margin: 48px 0; }
+    .jt-mobile-preview .jt-onboarding-message h1 { font-size: 37px; }
+    .jt-mobile-preview .jt-onboarding-main { padding: 26px 18px 40px; }
+    .jt-mobile-preview .jt-onboarding-steps { margin-bottom: 30px; }
+    .jt-mobile-preview .jt-role-row { grid-template-columns: 1fr; }
+    .jt-mobile-preview .jt-app { grid-template-columns: 1fr; min-height: 0; }
+    .jt-mobile-preview .jt-rail { display: none; }
+    .jt-mobile-preview .jt-app-top { height: 58px; padding: 0 14px; }
+    .jt-mobile-preview .jt-app-top::before { content: "Menu"; color: var(--jt-brand); font-size: 10px; }
+    .jt-mobile-preview .jt-search { display: none; }
+    .jt-mobile-preview .jt-page { padding: 18px 13px 26px; }
+    .jt-mobile-preview .jt-page-header { flex-direction: column; }
+    .jt-mobile-preview .jt-page-actions { margin-left: 0; }
+    .jt-mobile-preview .jt-page-actions .jt-button { flex: 1; }
+    .jt-mobile-preview .jt-dashboard-grid, .jt-mobile-preview .jt-composer-grid, .jt-mobile-preview .jt-detail-layout, .jt-mobile-preview .jt-trust-grid, .jt-mobile-preview .jt-system-head, .jt-mobile-preview .jt-type-specimen { grid-template-columns: 1fr; }
+    .jt-mobile-preview .jt-attention { grid-template-columns: 32px 1fr; }
+    .jt-mobile-preview .jt-attention .jt-button { grid-column: 1 / -1; }
+    .jt-mobile-preview .jt-list-row { grid-template-columns: 1fr; }
+    .jt-mobile-preview .jt-stepper { grid-template-columns: 1fr 1fr; }
+    .jt-mobile-preview .jt-step:nth-child(2) { border-right: 0; }
+    .jt-mobile-preview .jt-step:nth-child(-n+2) { border-bottom: 1px solid var(--jt-line); }
+    .jt-mobile-preview .jt-preview { position: static; }
+    .jt-mobile-preview .jt-summary-row { grid-template-columns: 1fr; gap: 4px; }
+    .jt-mobile-preview .jt-form-footer { flex-direction: column-reverse; }
+    .jt-mobile-preview .jt-form-footer .jt-button { width: 100%; }
+    .jt-mobile-preview .jt-state-menu { grid-template-columns: 1fr 1fr; }
+    .jt-mobile-preview .jt-trust-surface { min-height: 0; padding: 18px; }
+    .jt-mobile-preview .jt-channel-hero { grid-template-columns: 42px 1fr; }
+    .jt-mobile-preview .jt-channel-hero .jt-status { grid-column: 1 / -1; }
+    .jt-mobile-preview .jt-system { padding: 20px 14px; }
+    .jt-mobile-preview .jt-swatch-grid, .jt-mobile-preview .jt-status-grid { grid-template-columns: 1fr 1fr; }
+    .jt-mobile-preview .jt-library { padding: 22px 12px; }
+    .jt-mobile-preview .jt-library-head { align-items: flex-start; flex-direction: column; }
+    .jt-mobile-preview .jt-library-head p { margin-left: 0; }
+    .jt-mobile-preview .jt-library-grid { grid-template-columns: 1fr; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="jt-review-root" id="jt-design-review">
+    <header class="jt-review-bar">
+      <div class="jt-review-meta">
+        <span class="jt-review-kicker">D1 · UI R2</span>
+        <span class="jt-review-note">Approved D1 design · mock data · not production capability evidence</span>
+      </div>
+      <nav class="jt-review-tabs" aria-label="Review screens">
+        <button type="button" data-review-screen="website" aria-selected="true">Website</button>
+        <button type="button" data-review-screen="onboarding" aria-selected="false">Onboarding</button>
+        <button type="button" data-review-screen="home" aria-selected="false">SaaS Home</button>
+        <button type="button" data-review-screen="composer" aria-selected="false">Composer</button>
+        <button type="button" data-review-screen="approval" aria-selected="false">Approval &amp; Publish</button>
+        <button type="button" data-review-screen="trust" aria-selected="false">Trust States</button>
+        <button type="button" data-review-screen="library" aria-selected="false">Screen Library</button>
+        <button type="button" data-review-screen="system" aria-selected="false">Design System</button>
+      </nav>
+      <div class="jt-review-size" aria-label="Preview locale and width">
+        <button type="button" data-review-locale="en" aria-pressed="true">EN</button>
+        <button type="button" data-review-locale="zh-CN" aria-pressed="false">中文</button>
+        <span class="jt-review-divider" aria-hidden="true"></span>
+        <button type="button" data-review-width="desktop" aria-pressed="true">Desktop</button>
+        <button type="button" data-review-width="mobile" aria-pressed="false">Mobile</button>
+      </div>
+    </header>
+
+    <main class="jt-review-stage">
+      <div class="jt-review-frame" id="jt-review-frame">
+        <div class="jt-view-label"><strong id="jt-current-view">Website Home</strong><span>D1-UI-R2 · Approved · English / 简体中文</span></div>
+
+        <section data-review-view="website">
+          <div class="jt-public">
+            <div class="jt-public-shell">
+              <header class="jt-public-header">
+                <a class="jt-wordmark" href="#">JINGTANG</a>
+                <nav class="jt-public-nav" aria-label="Public navigation">
+                  <a href="#platform">Platform</a><a href="#integrations">Integrations</a><a href="#solutions">Solutions</a><a href="#security">Security</a><a href="#company">Company</a>
+                </nav>
+                <div class="jt-public-actions"><button class="jt-product-locale" type="button" data-review-locale-toggle aria-label="Switch to Simplified Chinese">中文</button><a class="jt-text-link" href="#signin">Sign in</a><a class="jt-button jt-button-primary" href="#demo">Book a Demo</a></div>
+                <button class="jt-button jt-button-ghost jt-menu-button" type="button" aria-label="Open navigation">Menu</button>
+              </header>
+
+              <section class="jt-hero">
+                <div>
+                  <p class="jt-eyebrow">Global marketing infrastructure</p>
+                  <h1 class="jt-display">Publish globally.<br><em>Stay in control.</em></h1>
+                  <p class="jt-hero-copy">A composed workspace for enterprise teams to prepare, approve, publish, and track social content—with every account, decision, and external action made explicit.</p>
+                  <div class="jt-hero-actions"><a class="jt-button jt-button-primary" href="#demo">Book a Demo</a><a class="jt-button" href="#platform">Explore the platform</a></div>
+                  <p class="jt-hero-footnote">English-first · Enterprise approvals · User-controlled publishing</p>
+                </div>
+                <aside class="jt-workflow-panel" aria-label="JINGTANG product workflow concept">
+                  <div class="jt-panel-top"><span>One controlled workflow</span><span class="jt-preview-tag">Design concept</span></div>
+                  <div class="jt-flow-list">
+                    <div class="jt-flow-row"><span class="jt-flow-index">01</span><div><strong>Create</strong><small>User-owned source asset</small></div><span class="jt-flow-state"><span class="jt-state-dot"></span>Ready</span></div>
+                    <div class="jt-flow-row"><span class="jt-flow-index">02</span><div><strong>Approve</strong><small>Exact revision · clear roles</small></div><span class="jt-flow-state"><span class="jt-state-dot jt-pending"></span>Pending</span></div>
+                    <div class="jt-flow-row"><span class="jt-flow-index">03</span><div><strong>Confirm</strong><small>Channel · fields · privacy</small></div><span class="jt-flow-state"><span class="jt-state-dot jt-neutral"></span>User action</span></div>
+                    <div class="jt-flow-row"><span class="jt-flow-index">04</span><div><strong>Track</strong><small>Real platform execution</small></div><span class="jt-flow-state"><span class="jt-state-dot jt-neutral"></span>Per channel</span></div>
+                  </div>
+                </aside>
+              </section>
+
+              <section class="jt-editorial-section" id="platform">
+                <div class="jt-editorial-heading"><span class="jt-section-number">01 / Platform</span><h2 class="jt-section-title">Infrastructure for teams that value clarity over automation noise.</h2></div>
+                <div class="jt-feature-grid">
+                  <article class="jt-feature"><span class="jt-feature-mark">A</span><h3>One source. Clear versions.</h3><p>Keep a user-owned source asset and create independent, platform-specific versions without silently changing the original.</p></article>
+                  <article class="jt-feature"><span class="jt-feature-mark">B</span><h3>Approval stays human.</h3><p>Editors submit an exact revision. Approvers decide. Publishing remains a separate, explicit confirmation.</p></article>
+                  <article class="jt-feature"><span class="jt-feature-mark">C</span><h3>Every result stays honest.</h3><p>Publishing, Processing, Published, Failed, and Needs Attention remain visible per platform execution.</p></article>
+                </div>
+              </section>
+
+              <section class="jt-editorial-section" id="integrations">
+                <div class="jt-editorial-heading"><span class="jt-section-number">02 / Integrations</span><h2 class="jt-section-title">Official authorization. Minimum access. Truthful status.</h2></div>
+                <div class="jt-integration-list">
+                  <div class="jt-integration-row"><strong>YouTube</strong><p>First planned production channel for controlled video publishing.</p><span class="jt-status">Coming Soon</span><span>Learn about the planned integration →</span></div>
+                  <div class="jt-integration-row"><strong>Facebook</strong><p>Wave 1 direction; no connection or publishing in this Delivery.</p><span class="jt-status">Coming Soon</span><span>Join the waitlist →</span></div>
+                  <div class="jt-integration-row"><strong>Instagram</strong><p>Wave 1 direction; no connection or publishing in this Delivery.</p><span class="jt-status">Coming Soon</span><span>Join the waitlist →</span></div>
+                </div>
+              </section>
+
+              <section class="jt-editorial-section" id="security">
+                <div class="jt-editorial-heading"><span class="jt-section-number">03 / Trust</span><h2 class="jt-section-title">Control is visible at every trust boundary.</h2></div>
+                <div class="jt-feature-grid">
+                  <article class="jt-feature"><span class="jt-feature-mark">01</span><h3>Official connection</h3><p>Authentication happens with the platform. JINGTANG never asks for a platform password.</p></article>
+                  <article class="jt-feature"><span class="jt-feature-mark">02</span><h3>Exact confirmation</h3><p>See the account, final fields, privacy choice, and publishing mode before an external write begins.</p></article>
+                  <article class="jt-feature"><span class="jt-feature-mark">03</span><h3>Real disconnect</h3><p>Stop future operations, revoke authorization, remove tokens, and track cleanup as a product action.</p></article>
+                </div>
+                <div class="jt-public-cta" id="demo"><h2>Bring a calmer publishing operation to your global team.</h2><a class="jt-button" href="#book">Book a Demo</a></div>
+              </section>
+
+              <footer class="jt-public-footer" id="company">
+                <div><a class="jt-wordmark" href="#">JINGTANG</a><p>Global Marketing Technology Company<br>Legal entity expression pending D3 freeze.</p></div>
+                <div class="jt-footer-col"><strong>Platform</strong><a href="#">Social Publishing</a><a href="#">Workflow &amp; Approvals</a><a href="#">Integrations</a></div>
+                <div class="jt-footer-col"><strong>Company</strong><a href="#">About</a><a href="#">Contact</a><a href="#">Security</a></div>
+                <div class="jt-footer-col"><strong>Legal</strong><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Data Deletion</a></div>
+              </footer>
+            </div>
+          </div>
+        </section>
+
+        <section data-review-view="onboarding" hidden>
+          <div class="jt-onboarding">
+            <aside class="jt-onboarding-brand"><span class="jt-wordmark">JINGTANG</span><div class="jt-onboarding-message"><p>Enterprise setup</p><h1>Start with a Workspace your team can trust.</h1><span>Identity, membership, role, consent, and channel ownership become visible before any publishing workflow begins.</span></div><span class="jt-onboarding-proof">D1 prototype · no account is created</span></aside>
+            <main class="jt-onboarding-main">
+              <nav class="jt-onboarding-steps" aria-label="Onboarding prototype steps"><button type="button" data-onboard-step="account" aria-selected="true">1</button><button type="button" data-onboard-step="workspace" aria-selected="false">2</button><button type="button" data-onboard-step="team" aria-selected="false">3</button><button type="button" data-onboard-step="ready" aria-selected="false">4</button></nav>
+              <section class="jt-onboarding-panel" data-onboard-panel="account"><p class="jt-eyebrow">Step 1 of 4</p><h2>Create your account</h2><p>Use your work identity. Terms and Privacy consent is explicit and never preselected.</p><div class="jt-field"><label for="signup-name">Full name</label><input class="jt-input" id="signup-name" value="Lina Cho"></div><div class="jt-field"><label for="signup-email">Work email</label><input class="jt-input" id="signup-email" type="email" value="lina@example.com"></div><div class="jt-field"><label for="signup-password">Password</label><input class="jt-input" id="signup-password" type="password" value="prototype-only"></div><label class="jt-consent-row"><input class="jt-checkbox" type="checkbox"><span>I agree to the current <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a>.</span></label><div class="jt-form-footer"><button class="jt-button" type="button">Sign in instead</button><button class="jt-button jt-button-primary" type="button" data-onboard-next="workspace">Continue</button></div></section>
+              <section class="jt-onboarding-panel" data-onboard-panel="workspace" hidden><p class="jt-eyebrow">Step 2 of 4</p><h2>Create your Workspace</h2><p>The Workspace is the boundary for members, roles, channels, content, approvals, publishing, and audit.</p><div class="jt-field"><label for="workspace-name">Workspace name</label><input class="jt-input" id="workspace-name" value="Northstar Global"></div><div class="jt-field"><label for="workspace-timezone">Default timezone</label><select class="jt-select" id="workspace-timezone"><option selected>Asia / Shanghai (UTC+08:00)</option><option>Asia / Singapore (UTC+08:00)</option><option>Europe / London</option></select></div><div class="jt-form-footer"><button class="jt-button" type="button" data-onboard-next="account">Back</button><button class="jt-button jt-button-primary" type="button" data-onboard-next="team">Create Workspace</button></div></section>
+              <section class="jt-onboarding-panel" data-onboard-panel="team" hidden><p class="jt-eyebrow">Step 3 of 4</p><h2>Invite your core team</h2><p>Roles explain what each person can do. Owner/Admin remains the administrative super-role; approval and publish stay distinct actions.</p><div class="jt-role-list"><div class="jt-role-row"><div><strong>mei.chen@example.com</strong><small>Content operations</small></div><select class="jt-select" aria-label="Role for Mei Chen"><option>Owner / Admin</option><option selected>Editor</option><option>Approver / Publisher</option><option>Viewer</option></select></div><div class="jt-role-row"><div><strong>daniel.park@example.com</strong><small>Regional brand lead</small></div><select class="jt-select" aria-label="Role for Daniel Park"><option>Owner / Admin</option><option>Editor</option><option selected>Approver / Publisher</option><option>Viewer</option></select></div></div><button class="jt-button jt-button-ghost" type="button" style="margin-top:12px">+ Invite another member</button><div class="jt-form-footer"><button class="jt-button" type="button" data-onboard-next="workspace">Back</button><button class="jt-button jt-button-primary" type="button" data-onboard-next="ready">Send invites</button></div></section>
+              <section class="jt-onboarding-panel" data-onboard-panel="ready" hidden><p class="jt-eyebrow">Step 4 of 4</p><h2>Your Workspace is ready.</h2><p>Next, an Owner/Admin can connect a channel through the single Channels-owned authorization flow.</p><div class="jt-onboard-success"><strong>Northstar Global</strong><p>Owner/Admin: Lina Cho<br>Editor invited: Mei Chen<br>Approver/Publisher invited: Daniel Park<br>Channels connected: 0</p></div><div class="jt-form-footer"><button class="jt-button" type="button" data-onboard-next="team">Back</button><button class="jt-button jt-button-primary" type="button">Go to Home</button></div></section>
+            </main>
+          </div>
+        </section>
+
+        <section data-review-view="home" hidden>
+          <div class="jt-app">
+            <aside class="jt-rail"><div class="jt-rail-brand">JINGTANG</div><div class="jt-workspace-picker"><small>Workspace</small><strong>Northstar Global</strong></div><nav class="jt-rail-nav" aria-label="SaaS navigation"><button class="jt-active" data-icon="⌂">Home</button><button data-icon="□">Content</button><button data-icon="✓">Approvals</button><button data-icon="◇">Calendar</button><button data-icon="◎">Channels</button><button data-icon="↗">Activity</button></nav><div class="jt-rail-bottom"><nav class="jt-rail-nav"><button data-icon="⚙">Settings</button></nav></div></aside>
+            <div class="jt-app-main">
+              <header class="jt-app-top"><strong>Northstar Global</strong><span class="jt-top-spacer"></span><button class="jt-product-locale" type="button" data-review-locale-toggle aria-label="Switch to Simplified Chinese">中文</button><span class="jt-search">Search content or activity</span><span class="jt-avatar" aria-label="User profile">LC</span></header>
+              <main class="jt-page">
+                <header class="jt-page-header"><div><h1>Good morning, Lina.</h1><p>Here is what needs attention in your Workspace.</p></div><div class="jt-page-actions"><button class="jt-button jt-button-primary" type="button">Create content</button></div></header>
+                <section class="jt-attention"><span class="jt-attention-icon">!</span><div><strong>YouTube needs reauthorization</strong><small>Publishing is paused for Northstar Studio until an Owner/Admin reconnects it.</small></div><button class="jt-button" type="button">Resolve</button></section>
+                <div class="jt-dashboard-grid">
+                  <section class="jt-panel"><header class="jt-panel-header"><h2>Pending approvals</h2><span>3 items</span></header><ul class="jt-list"><li class="jt-list-row"><div class="jt-list-primary"><strong>Q3 product story — APAC</strong><small>Submitted by Mei Chen · Revision 4</small></div><div class="jt-list-side"><span class="jt-status jt-status-warning">Pending approval</span><button class="jt-button jt-button-ghost" type="button">Review</button></div></li><li class="jt-list-row"><div class="jt-list-primary"><strong>Customer education series 02</strong><small>Submitted by Daniel Park · Revision 2</small></div><div class="jt-list-side"><span class="jt-status jt-status-warning">Pending approval</span><button class="jt-button jt-button-ghost" type="button">Review</button></div></li><li class="jt-list-row"><div class="jt-list-primary"><strong>Global team interview</strong><small>Submitted by Mei Chen · Revision 1</small></div><div class="jt-list-side"><span class="jt-status jt-status-warning">Pending approval</span><button class="jt-button jt-button-ghost" type="button">Review</button></div></li></ul></section>
+                  <section class="jt-panel"><header class="jt-panel-header"><h2>Connected channels</h2><span>Prototype data</span></header><ul class="jt-list"><li class="jt-list-row"><div class="jt-list-side"><span class="jt-channel-mark">YT</span><div class="jt-list-primary"><strong>Northstar Studio</strong><small>YouTube · Prototype account</small></div></div><span class="jt-status jt-status-warning">Reauthorize</span></li><li class="jt-list-row"><div class="jt-list-primary"><strong>Additional channels</strong><small>Facebook and Instagram</small></div><span class="jt-status">Coming Soon</span></li></ul></section>
+                  <section class="jt-panel"><header class="jt-panel-header"><h2>Publishing activity</h2><span>Per execution</span></header><ul class="jt-list"><li class="jt-list-row"><div class="jt-list-side"><span class="jt-channel-mark">YT</span><div class="jt-list-primary"><strong>Responsible growth, explained</strong><small>Northstar Studio · Today, 09:41</small></div></div><span class="jt-status jt-status-success">Published</span></li><li class="jt-list-row"><div class="jt-list-side"><span class="jt-channel-mark">YT</span><div class="jt-list-primary"><strong>Quarterly partner update</strong><small>Northstar Studio · Yesterday, 18:02</small></div></div><span class="jt-status jt-status-info">Processing</span></li></ul></section>
+                  <section class="jt-panel"><header class="jt-panel-header"><h2>Recent activity</h2><span>Workspace audit</span></header><div class="jt-activity-row"><span class="jt-activity-dot"></span><div><p><strong>Lina Cho</strong> approved Q3 product story — APAC.</p><time>10 minutes ago</time></div></div><div class="jt-activity-row"><span class="jt-activity-dot"></span><div><p><strong>Mei Chen</strong> submitted Revision 4 for approval.</p><time>28 minutes ago</time></div></div><div class="jt-activity-row"><span class="jt-activity-dot"></span><div><p>Publishing completed for <strong>Responsible growth, explained</strong>.</p><time>1 hour ago</time></div></div></section>
+                </div>
+              </main>
+            </div>
+          </div>
+        </section>
+
+        <section data-review-view="composer" hidden>
+          <div class="jt-app">
+            <aside class="jt-rail"><div class="jt-rail-brand">JINGTANG</div><div class="jt-workspace-picker"><small>Workspace</small><strong>Northstar Global</strong></div><nav class="jt-rail-nav"><button data-icon="⌂">Home</button><button class="jt-active" data-icon="□">Content</button><button data-icon="✓">Approvals</button><button data-icon="◇">Calendar</button><button data-icon="◎">Channels</button><button data-icon="↗">Activity</button></nav><div class="jt-rail-bottom"><nav class="jt-rail-nav"><button data-icon="⚙">Settings</button></nav></div></aside>
+            <div class="jt-app-main">
+              <header class="jt-app-top"><strong>Northstar Global</strong><span class="jt-top-spacer"></span><span class="jt-status">Draft</span><span class="jt-avatar">MC</span></header>
+              <main class="jt-page jt-composer-page">
+                <header class="jt-page-header"><div><h1>Create content</h1><p>One source asset. One independent version per selected platform.</p></div><div class="jt-page-actions"><button class="jt-button" type="button">Save draft</button></div></header>
+                <nav class="jt-stepper" aria-label="Composer steps">
+                  <button class="jt-step jt-complete" type="button" data-composer-step="content" aria-selected="false"><span class="jt-step-index">✓</span><span><strong>Content</strong><small>Upload complete</small></span></button>
+                  <button class="jt-step jt-complete" type="button" data-composer-step="platforms" aria-selected="false"><span class="jt-step-index">✓</span><span><strong>Platforms</strong><small>1 account selected</small></span></button>
+                  <button class="jt-step" type="button" data-composer-step="customize" aria-selected="true"><span class="jt-step-index">3</span><span><strong>Customize</strong><small>YouTube</small></span></button>
+                  <button class="jt-step" type="button" data-composer-step="review" aria-selected="false"><span class="jt-step-index">4</span><span><strong>Review</strong><small>Before submission</small></span></button>
+                </nav>
+                <div class="jt-composer-grid">
+                  <section class="jt-form-panel">
+                    <div data-composer-panel="content" hidden><h2>Source content</h2><p>Upload material your organization owns or is authorized to use.</p><div class="jt-upload"><span class="jt-upload-thumb">16:9</span><div><strong>northstar-growth-story.mp4</strong><small>1920×1080 · 148 MB · Validation passed</small></div><span class="jt-status jt-status-success">Complete</span></div><div class="jt-field"><label for="internal-title">Internal title</label><input class="jt-input" id="internal-title" value="Responsible growth — global story"></div></div>
+                    <div data-composer-panel="platforms" hidden><h2>Select platforms and accounts</h2><p>Only accounts you choose will receive content.</p><div class="jt-platform-list"><label class="jt-platform-choice jt-selected"><span class="jt-channel-mark">YT</span><span><strong>Northstar Studio</strong><small>YouTube · Prototype account · Ready</small></span><input class="jt-checkbox" type="checkbox" checked></label><div class="jt-platform-choice jt-disabled"><span class="jt-channel-mark">FB</span><span><strong>Facebook</strong><small>Not available in this Delivery</small></span><span class="jt-status">Coming Soon</span></div><div class="jt-platform-choice jt-disabled"><span class="jt-channel-mark">IG</span><span><strong>Instagram</strong><small>Not available in this Delivery</small></span><span class="jt-status">Coming Soon</span></div></div></div>
+                    <div data-composer-panel="customize"><h2>Customize for YouTube</h2><p>These are the exact fields that will be shown again before publishing.</p><div class="jt-field"><label for="youtube-title">Title</label><input class="jt-input" id="youtube-title" maxlength="100" value="Responsible growth, explained by the teams building it"><small>59 / 100 characters</small></div><div class="jt-field"><label for="youtube-description">Description</label><textarea class="jt-textarea" id="youtube-description">A closer look at how Northstar teams turn responsible growth principles into day-to-day decisions across markets.</textarea></div><div class="jt-field"><label for="youtube-privacy">Privacy</label><select class="jt-select" id="youtube-privacy"><option selected>Private — project audit limitation</option><option>Unlisted — unavailable until verified</option><option>Public — unavailable until verified</option></select><small>Current prototype reflects the unverified-project restriction.</small></div><div class="jt-field"><label for="youtube-audience">Audience</label><select class="jt-select" id="youtube-audience"><option selected>No, it is not made for kids</option><option>Yes, it is made for kids</option></select></div><div class="jt-form-footer"><button class="jt-button" type="button" data-composer-next="platforms">Back</button><button class="jt-button jt-button-primary" type="button" data-composer-next="review">Review content</button></div></div>
+                    <div data-composer-panel="review" hidden><h2>Review before submission</h2><p>This creates an approval request. It does not publish externally.</p><div class="jt-review-summary"><div class="jt-summary-row"><span>Source asset</span><strong>northstar-growth-story.mp4</strong></div><div class="jt-summary-row"><span>Target account</span><strong>YouTube · Northstar Studio</strong></div><div class="jt-summary-row"><span>Title</span><strong>Responsible growth, explained by the teams building it</strong></div><div class="jt-summary-row"><span>Privacy</span><strong>Private · current audit limitation</strong></div><div class="jt-summary-row"><span>Approval state</span><strong>Draft · not submitted</strong></div><div class="jt-summary-row"><span>Schedule</span><strong>Schedule Not Available</strong></div></div><div class="jt-form-footer"><button class="jt-button" type="button" data-composer-next="customize">Back to edit</button><button class="jt-button jt-button-primary" type="button" id="jt-submit-approval">Submit for approval</button></div><p id="jt-submit-result" class="jt-inline-notice" hidden>Submitted as Revision 4. No external publishing action has started.</p></div>
+                  </section>
+                  <aside class="jt-preview"><header class="jt-preview-header"><span class="jt-channel-mark">YT</span><strong>YouTube preview</strong><span>Prototype account</span></header><div class="jt-video-frame"><span class="jt-play">Play</span></div><div class="jt-preview-body"><h3>Responsible growth, explained by the teams building it</h3><p>Northstar Studio<br>A closer look at how Northstar teams turn responsible growth principles into day-to-day decisions across markets.</p><div class="jt-preview-meta"><span>Private</span><span>Not made for kids</span><span>Schedule unavailable</span></div></div></aside>
+                </div>
+              </main>
+            </div>
+          </div>
+        </section>
+
+        <section data-review-view="approval" hidden>
+          <div class="jt-app">
+            <aside class="jt-rail"><div class="jt-rail-brand">JINGTANG</div><div class="jt-workspace-picker"><small>Workspace</small><strong>Northstar Global</strong></div><nav class="jt-rail-nav"><button data-icon="⌂">Home</button><button data-icon="□">Content</button><button class="jt-active" data-icon="✓">Approvals</button><button data-icon="◇">Calendar</button><button data-icon="◎">Channels</button><button data-icon="↗">Activity</button></nav><div class="jt-rail-bottom"><nav class="jt-rail-nav"><button data-icon="⚙">Settings</button></nav></div></aside>
+            <div class="jt-app-main">
+              <header class="jt-app-top"><strong>Northstar Global</strong><span class="jt-top-spacer"></span><span class="jt-avatar">LC</span></header>
+              <main class="jt-page">
+                <header class="jt-page-header"><div><p class="jt-eyebrow">Content / CNT-1042 / Revision 4</p><h1>Responsible growth — global story</h1><p>Single operational view · submitted by Mei Chen</p></div><div class="jt-page-actions"><span class="jt-status jt-status-warning" id="jt-approval-status">Pending approval</span></div></header>
+                <div class="jt-detail-layout">
+                  <section class="jt-panel"><div style="padding:20px"><div class="jt-content-cover">Northstar · Global Story</div><nav class="jt-detail-tabs" aria-label="Content detail sections"><button class="jt-active" type="button">Overview</button><button type="button">Platform version</button><button type="button">Approval</button><button type="button">Publishing</button><button type="button">Activity</button></nav><div class="jt-review-summary" style="margin-top:18px"><div class="jt-summary-row"><span>YouTube channel</span><strong>Northstar Studio</strong></div><div class="jt-summary-row"><span>Final title</span><strong>Responsible growth, explained by the teams building it</strong></div><div class="jt-summary-row"><span>Description</span><span>A closer look at how Northstar teams turn responsible growth principles into day-to-day decisions across markets.</span></div><div class="jt-summary-row"><span>Privacy / audience</span><strong>Private · Not made for kids</strong></div><div class="jt-summary-row"><span>Publishing mode</span><strong>Publish Now · Schedule Not Available</strong></div></div><div class="jt-execution" id="jt-execution-result" hidden><span class="jt-channel-mark">YT</span><div><strong>Northstar Studio</strong><small id="jt-execution-copy">Publishing started after explicit confirmation.</small></div><span class="jt-status jt-status-info">Publishing</span></div></div></section>
+                  <aside class="jt-approval-card"><h2>Approval decision</h2><p>Review the exact Revision 4. Approval does not publish.</p><div class="jt-approval-meta"><div><span>Submitted by</span><strong>Mei Chen</strong></div><div><span>Approver</span><strong>Lina Cho</strong></div><div><span>Target</span><strong>YouTube · Northstar Studio</strong></div><div><span>Schedule</span><strong>Not Available</strong></div></div><div class="jt-approval-actions" id="jt-approval-actions"><button class="jt-button jt-button-brand" type="button" id="jt-approve">Approve Revision 4</button><button class="jt-button" type="button" id="jt-reject">Reject with feedback</button></div><div class="jt-reject-form" id="jt-reject-form" hidden><div class="jt-field"><label for="reject-reason">Reason or requested change</label><textarea class="jt-textarea" id="reject-reason" placeholder="Explain what should change before resubmission."></textarea></div><div class="jt-component-row"><button class="jt-button" type="button" id="jt-cancel-reject">Cancel</button><button class="jt-button jt-button-danger" type="button" id="jt-confirm-reject">Reject revision</button></div></div><div id="jt-publish-ready" hidden><div class="jt-inline-notice">Revision 4 is approved. No external publishing action has started.</div><button class="jt-button jt-button-primary" type="button" id="jt-open-publish" style="width:100%">Continue to publish</button></div></aside>
+                </div>
+              </main>
+            </div>
+          </div>
+        </section>
+
+        <section data-review-view="trust" hidden>
+          <div class="jt-app">
+            <aside class="jt-rail"><div class="jt-rail-brand">JINGTANG</div><div class="jt-workspace-picker"><small>Workspace</small><strong>Northstar Global</strong></div><nav class="jt-rail-nav"><button data-icon="⌂">Home</button><button data-icon="□">Content</button><button data-icon="✓">Approvals</button><button data-icon="◇">Calendar</button><button class="jt-active" data-icon="◎">Channels</button><button data-icon="↗">Activity</button></nav><div class="jt-rail-bottom"><nav class="jt-rail-nav"><button data-icon="⚙">Settings</button></nav></div></aside>
+            <div class="jt-app-main">
+              <header class="jt-app-top"><strong>Northstar Global</strong><span class="jt-top-spacer"></span><span class="jt-avatar">LC</span></header>
+              <main class="jt-page">
+                <header class="jt-page-header"><div><h1>Trust states</h1><p>Channels owns connection, reauthorization, disconnect, and recovery.</p></div></header>
+                <div class="jt-trust-grid">
+                  <nav class="jt-state-menu" aria-label="Trust state scenarios"><button type="button" data-trust-state="connect" aria-selected="true">Connect &amp; consent</button><button type="button" data-trust-state="reauthorize" aria-selected="false">Needs reauthorization</button><button type="button" data-trust-state="processing" aria-selected="false">Publishing &amp; processing</button><button type="button" data-trust-state="disconnect" aria-selected="false">Disconnect &amp; revoke</button><button type="button" data-trust-state="delete" aria-selected="false">Delete JINGTANG data</button></nav>
+                  <section class="jt-trust-surface">
+                    <div data-trust-panel="connect"><p class="jt-eyebrow">Channels / Connect YouTube</p><h2>Connect your YouTube channel</h2><p>You will continue to Google to sign in and review the exact permission requested by JINGTANG. Google—not JINGTANG—handles your account password.</p><div class="jt-channel-hero"><span class="jt-channel-mark">YT</span><div><strong>YouTube</strong><small>Prototype flow · current public status remains Coming Soon</small></div><span class="jt-status">Coming Soon</span></div><ul class="jt-trust-list"><li>Upload only after an authorized Publisher confirms the exact video, channel, and final fields.</li><li>Store encrypted authorization only while the connection is active and needed.</li><li>Allow reauthorization, programmatic revoke, token deletion, and applicable data cleanup.</li></ul><label style="display:flex;gap:10px;align-items:flex-start;font-size:10px;line-height:1.5"><input class="jt-checkbox" type="checkbox"> <span>I agree to the current <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a>. This option is not preselected.</span></label><div class="jt-component-row" style="margin-top:22px"><button class="jt-button" type="button">Cancel</button><button class="jt-button jt-button-primary" type="button">Continue to Google</button></div></div>
+                    <div data-trust-panel="reauthorize" hidden><p class="jt-eyebrow">Needs Attention / YouTube</p><h2>Reconnect Northstar Studio</h2><p>The authorization can no longer be refreshed. Publishing is paused, and no new YouTube API operation will start until an Owner/Admin reconnects the channel.</p><div class="jt-channel-hero"><span class="jt-channel-mark">YT</span><div><strong>Northstar Studio</strong><small>Last valid check · Today, 08:45</small></div><span class="jt-status jt-status-warning">Reauthorization required</span></div><div class="jt-inline-notice">You came from “Quarterly partner update.” After reconnecting, you can return to that Content without losing its approved revision.</div><div class="jt-component-row"><button class="jt-button" type="button">Return to Content</button><button class="jt-button jt-button-primary" type="button">Reconnect YouTube</button></div></div>
+                    <div data-trust-panel="processing" hidden><p class="jt-eyebrow">Content / Publishing</p><h2>Real results, per platform execution</h2><p>Processing is not Published. Every external result remains visible with an understandable next step.</p><div class="jt-execution"><span class="jt-channel-mark">YT</span><div><strong>Northstar Studio</strong><small>Upload accepted · processing checks in progress</small></div><span class="jt-status jt-status-info">Processing</span></div><div class="jt-execution"><span class="jt-channel-mark">YT</span><div><strong>Northstar Archive</strong><small>Authorization expired before upload · no external write</small></div><span class="jt-status jt-status-danger">Needs Attention</span></div><div class="jt-inline-notice">The Content summary must not display Published while one selected execution is Processing or Needs Attention.</div><button class="jt-button" type="button">Resolve Northstar Archive</button></div>
+                    <div data-trust-panel="disconnect" hidden><p class="jt-eyebrow">Channels / Northstar Studio</p><h2>Disconnect YouTube channel?</h2><p>This is distinct from deleting JINGTANG account data or deleting content already published on YouTube.</p><div class="jt-destructive-box"><h3>Disconnect Northstar Studio</h3><p>New publishing will stop immediately. JINGTANG will revoke the Google authorization, delete the stored token, and clean applicable authorized data. Videos already on YouTube will remain there.</p><div class="jt-component-row"><button class="jt-button" type="button">Cancel</button><button class="jt-button jt-button-danger" type="button">Disconnect channel</button></div></div><div class="jt-inline-notice">Progress state after confirmation: Disconnecting → token revoke → data cleanup → Disconnected. Failure never re-enables access.</div></div>
+                    <div data-trust-panel="delete" hidden><p class="jt-eyebrow">Settings / Data &amp; Account</p><h2>Delete JINGTANG Workspace data</h2><p>This request deletes data held by JINGTANG. It does not delete content stored on YouTube or another third-party platform.</p><div class="jt-destructive-box"><h3>Delete “Northstar Global” data</h3><p>Members will lose access, queued publishing will stop, connected channels will be revoked, and applicable Workspace content and platform data will enter deletion.</p><label class="jt-field"><span>Type the Workspace name to confirm</span><input class="jt-input" value="Northstar Global"></label><div class="jt-component-row"><button class="jt-button" type="button">Cancel</button><button class="jt-button jt-button-danger" type="button">Delete JINGTANG data</button></div></div><p style="font-size:10px;color:var(--jt-muted)">After confirmation, show request reference, affected data classes, progress, completion, and support path.</p></div>
+                  </section>
+                </div>
+              </main>
+            </div>
+          </div>
+        </section>
+
+        <section data-review-view="system" hidden>
+          <div class="jt-system">
+            <header class="jt-system-head"><h1>Quiet confidence,<br>built for control.</h1><p>Warm editorial canvas for the public brand. Calm, exact operational surfaces for SaaS. Jade signals identity and controlled action; state colors remain semantic and always include text.</p></header>
+            <section class="jt-system-section"><h2 class="jt-system-title">Core palette</h2><div class="jt-swatch-grid"><div class="jt-swatch jt-swatch-canvas"><strong>Canvas</strong>#F3F1EA</div><div class="jt-swatch jt-swatch-surface"><strong>Surface</strong>#FFFFFF</div><div class="jt-swatch jt-swatch-ink"><strong>Ink</strong>#111513</div><div class="jt-swatch jt-swatch-brand"><strong>Jade</strong>#155D4E</div><div class="jt-swatch jt-swatch-deep"><strong>Deep jade</strong>#0C332C</div><div class="jt-swatch jt-swatch-gold"><strong>Editorial gold</strong>#A97D3E</div></div></section>
+            <section class="jt-system-section"><h2 class="jt-system-title">Typography</h2><div class="jt-type-specimen"><p class="jt-type-display">Publish globally.<br><em>Stay in control.</em></p><div class="jt-type-product"><strong>Operational clarity</strong><span>Manrope · Workspace, roles, fields, states, and exact actions.</span><span>Newsreader · Editorial brand scale and composed public storytelling.</span></div></div></section>
+            <section class="jt-system-section"><h2 class="jt-system-title">Actions and capability truth</h2><div class="jt-component-row"><button class="jt-button jt-button-primary" type="button">Primary action</button><button class="jt-button" type="button">Secondary</button><button class="jt-button jt-button-ghost" type="button">Quiet action</button><button class="jt-button jt-button-danger" type="button">Destructive</button><button class="jt-button" type="button" disabled>Schedule</button><span style="font-size:10px;color:var(--jt-muted)">Schedule Not Available</span></div><div class="jt-component-row" style="margin-top:16px"><span class="jt-status jt-status-success">Published</span><span class="jt-status jt-status-info">Processing</span><span class="jt-status jt-status-warning">Pending approval</span><span class="jt-status jt-status-danger">Needs Attention</span><span class="jt-status">Coming Soon</span></div></section>
+            <section class="jt-system-section"><h2 class="jt-system-title">Full-state language</h2><div class="jt-status-grid"><div class="jt-state-card"><strong>Empty</strong><p>Name what is absent and offer one permitted next step.</p></div><div class="jt-state-card"><strong>Loading</strong><p>Preserve layout; never imply Connected or Published early.</p></div><div class="jt-state-card"><strong>Validation</strong><p>Keep input, name the field, explain how to resolve it.</p></div><div class="jt-state-card"><strong>Needs Attention</strong><p>Identify target, cause, and a recoverable Resolve path.</p></div><div class="jt-state-card"><strong>Permission denied</strong><p>Explain the required role without exposing tenant data.</p></div><div class="jt-state-card"><strong>Partial failure</strong><p>Retain every independent execution and truthful state.</p></div><div class="jt-state-card"><strong>Disconnecting</strong><p>External operations stop before revoke and cleanup finish.</p></div><div class="jt-state-card"><strong>Deletion</strong><p>Separate JINGTANG data from third-party platform content.</p></div></div></section>
+          </div>
+        </section>
+
+        <section data-review-view="library" hidden>
+          <div class="jt-library"><header class="jt-library-head"><h1>Screen library</h1><p>All remaining in-scope routes are resolved as compositions of the approved page families and canonical components—not as new navigation or product meaning.</p></header><div class="jt-library-grid">
+            <article class="jt-mini-screen"><div class="jt-mini-bar">Website · Social Publishing</div><div class="jt-mini-body"><div class="jt-mini-hero"></div><h2>Controlled social publishing</h2><p>Create, customize, preview, confirm, and track without silent platform expansion.</p><div class="jt-mini-line"></div><div class="jt-mini-line jt-short"></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">Website · Workflow &amp; Approvals</div><div class="jt-mini-body"><h2>Approval stays separate</h2><p>Role, revision, decision, confirmation, and audit remain visible.</p><div class="jt-mini-row"><span>Editor submits</span><span class="jt-status jt-status-warning">Pending</span></div><div class="jt-mini-row"><span>Approver decides</span><span>Approve / Reject</span></div><div class="jt-mini-row"><span>Publisher confirms</span><span>Explicit action</span></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">Website · Integrations / YouTube</div><div class="jt-mini-body"><h2>YouTube</h2><p>Capability, status, authorization, user control, data, disconnect, and legal.</p><div class="jt-mini-row"><span>Public status</span><span class="jt-status">Coming Soon</span></div><div class="jt-mini-row"><span>Schedule</span><span>Not Available</span></div><div class="jt-mini-row"><span>Connect</span><span>Unavailable</span></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">Website · Security / Legal / Company</div><div class="jt-mini-body"><h2>Trust reading layout</h2><p>Evidence-led claims, effective version/date, readable content measure, contact and policy links.</p><div class="jt-mini-line"></div><div class="jt-mini-line"></div><div class="jt-mini-line jt-short"></div><div class="jt-mini-line"></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">SaaS · Content / Approvals</div><div class="jt-mini-body"><h2>Operational queues</h2><p>One Content model, role-specific views, quiet rows, exact status and next action.</p><div class="jt-mini-row"><span>Q3 story · Revision 4</span><span class="jt-status jt-status-warning">Pending</span></div><div class="jt-mini-row"><span>Education series</span><span class="jt-status jt-status-success">Approved</span></div><div class="jt-mini-row"><span>Product launch</span><span class="jt-status jt-status-danger">Rejected</span></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">SaaS · Calendar</div><div class="jt-mini-body"><h2>Existing time semantics</h2><p>Scheduled, Upcoming, and Published only. No false scheduling capability.</p><div class="jt-mini-calendar"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">SaaS · Activity</div><div class="jt-mini-body"><h2>Workspace audit</h2><p>User-readable action history backed by safe audit events.</p><div class="jt-mini-row"><span>Mei submitted Revision 4</span><span>10:32</span></div><div class="jt-mini-row"><span>Lina approved Revision 4</span><span>10:41</span></div><div class="jt-mini-row"><span>YouTube started publishing</span><span>10:44</span></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">SaaS · Settings</div><div class="jt-mini-body"><h2>Workspace administration</h2><p>Workspace, Members &amp; Roles, and Data &amp; Account stay compact and explicit.</p><div class="jt-mini-row"><span>Workspace</span><span>Owner/Admin</span></div><div class="jt-mini-row"><span>Members &amp; Roles</span><span>3 members</span></div><div class="jt-mini-row"><span>Data &amp; Account</span><span>Trust actions</span></div></div></article>
+            <article class="jt-mini-screen"><div class="jt-mini-bar">Website · Solutions / Contact / Demo</div><div class="jt-mini-body"><h2>Explain, then convert</h2><p>Real scenarios, SaaS vs Services distinction, business contact form, and collection notice.</p><div class="jt-field"><label>Work email</label><input class="jt-input" value="name@company.com"></div><button class="jt-button jt-button-primary" type="button">Book a Demo</button></div></article>
+          </div></div>
+        </section>
+      </div>
+    </main>
+
+    <dialog class="jt-dialog" id="jt-publish-dialog" aria-labelledby="jt-publish-title">
+      <div class="jt-dialog-head"><h2 id="jt-publish-title">Confirm publishing to YouTube</h2><p>Approval is complete. This separate action will begin an external write.</p></div>
+      <div class="jt-dialog-body"><div class="jt-dialog-account"><span class="jt-channel-mark">YT</span><div><strong>Northstar Studio</strong><small>YouTube · Prototype account</small></div><span class="jt-status jt-status-success">Connected</span></div><div class="jt-dialog-grid"><div class="jt-dialog-field"><span>Video</span><strong>northstar-growth-story.mp4</strong></div><div class="jt-dialog-field"><span>Mode</span><strong>Publish Now</strong></div><div class="jt-dialog-field"><span>Privacy</span><strong>Private · audit limitation</strong></div><div class="jt-dialog-field"><span>Audience</span><strong>Not made for kids</strong></div></div><div class="jt-inline-notice">You are confirming Revision 4 with the final title and description shown in the Content Detail. Schedule is not available.</div></div>
+      <div class="jt-dialog-foot"><button class="jt-button" type="button" id="jt-cancel-publish">Cancel</button><button class="jt-button jt-button-primary" type="button" id="jt-confirm-publish">Confirm and publish</button></div>
+    </dialog>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('jt-design-review');
+      const frame = document.getElementById('jt-review-frame');
+      const viewLabel = document.getElementById('jt-current-view');
+      const viewNames = { website: 'Website Home', onboarding: 'Identity & Onboarding', home: 'SaaS Home', composer: 'Composer', approval: 'Approval & Publish', trust: 'Trust States', library: 'Screen Library', system: 'Design System' };
+      let currentLocale = 'en';
+
+      // UI copy only: fixture names, titles, descriptions, email addresses, file names,
+      // Workspace names, and other user-authored content are intentionally absent.
+      const zhMessages = {
+        'Website Home': '官网首页',
+        'Identity & Onboarding': '身份与引导',
+        'SaaS Home': 'SaaS 首页',
+        'Composer': '内容编辑器',
+        'Approval & Publish': '审批与发布',
+        'Trust States': '信任状态',
+        'Screen Library': '界面库',
+        'Design System': '设计系统',
+        'Website': '官网',
+        'Onboarding': '引导',
+        'Desktop': '桌面',
+        'Mobile': '移动端',
+        'Platform': '平台',
+        'Integrations': '集成',
+        'Solutions': '解决方案',
+        'Security': '安全',
+        'Company': '公司',
+        'Sign in': '登录',
+        'Book a Demo': '预约演示',
+        'Menu': '菜单',
+        'Global marketing infrastructure': '全球营销基础设施',
+        'Publish globally.': '连接全球，',
+        'Stay in control.': '掌控始终。',
+        'A composed workspace for enterprise teams to prepare, approve, publish, and track social content—with every account, decision, and external action made explicit.': '为企业团队打造从内容准备、审批、发布到追踪的一体化工作空间，让每个账号、决策与外部操作都清晰可见。',
+        'Explore the platform': '了解平台',
+        'English-first · Enterprise approvals · User-controlled publishing': '英文默认 · 中英双语 · 企业审批 · 用户掌控发布',
+        'One controlled workflow': '一条可控工作流',
+        'Design concept': '设计概念',
+        'Create': '创建',
+        'Approve': '批准',
+        'Confirm': '确认',
+        'Track': '追踪',
+        'User-owned source asset': '用户自有源素材',
+        'Exact revision · clear roles': '准确版本 · 明确角色',
+        'Channel · fields · privacy': '渠道 · 字段 · 隐私',
+        'Real platform execution': '真实平台执行',
+        'Ready': '就绪',
+        'Pending': '待处理',
+        'User action': '用户操作',
+        'Per channel': '按渠道',
+        'Infrastructure for teams that value clarity over automation noise.': '为重视清晰协作、拒绝自动化噪音的团队打造。',
+        'One source. Clear versions.': '一份源素材，多个清晰版本。',
+        'Keep a user-owned source asset and create independent, platform-specific versions without silently changing the original.': '保留用户自有源素材，为各平台创建独立版本，绝不静默修改原文。',
+        'Approval stays human.': '审批始终由人决定。',
+        'Editors submit an exact revision. Approvers decide. Publishing remains a separate, explicit confirmation.': '编辑提交准确版本，审批人作出决定，发布仍是独立且明确的确认动作。',
+        'Every result stays honest.': '每个结果都如实呈现。',
+        'Publishing, Processing, Published, Failed, and Needs Attention remain visible per platform execution.': '每个平台执行的发布中、处理中、已发布、失败与需要处理状态均持续可见。',
+        'Official authorization. Minimum access. Truthful status.': '官方授权，最小权限，真实状态。',
+        'First planned production channel for controlled video publishing.': '首个规划用于受控视频发布的生产渠道。',
+        'Wave 1 direction; no connection or publishing in this Delivery.': 'Wave 1 方向；本次交付不提供连接或发布。',
+        'Coming Soon': '即将推出',
+        'Learn about the planned integration →': '了解规划中的集成 →',
+        'Join the waitlist →': '加入等候名单 →',
+        'Control is visible at every trust boundary.': '在每个信任边界，控制都清晰可见。',
+        'Official connection': '官方连接',
+        'Authentication happens with the platform. JINGTANG never asks for a platform password.': '身份验证由平台完成，JINGTANG 绝不会索取平台密码。',
+        'Exact confirmation': '准确确认',
+        'See the account, final fields, privacy choice, and publishing mode before an external write begins.': '外部写入开始前，确认账号、最终字段、隐私选择与发布方式。',
+        'Real disconnect': '真实断开',
+        'Stop future operations, revoke authorization, remove tokens, and track cleanup as a product action.': '停止后续操作、撤销授权、删除令牌，并在产品中追踪清理进度。',
+        'Bring a calmer publishing operation to your global team.': '让全球团队以更从容的方式完成发布。',
+        'Social Publishing': '社交发布',
+        'Workflow & Approvals': '工作流与审批',
+        'About': '关于我们',
+        'Contact': '联系我们',
+        'Legal': '法律',
+        'Privacy': '隐私政策',
+        'Terms': '服务条款',
+        'Data Deletion': '数据删除',
+        'Workspace': '工作空间',
+        'Home': '首页',
+        'Content': '内容',
+        'Approvals': '审批',
+        'Calendar': '日历',
+        'Channels': '渠道',
+        'Activity': '活动记录',
+        'Settings': '设置',
+        'Search content or activity': '搜索内容或活动记录',
+        'User profile': '用户资料',
+        'Good morning, Lina.': '早上好，Lina。',
+        'Here is what needs attention in your Workspace.': '以下是工作空间中需要你处理的事项。',
+        'Create content': '创建内容',
+        'YouTube needs reauthorization': 'YouTube 需要重新授权',
+        'Publishing is paused for Northstar Studio until an Owner/Admin reconnects it.': '在 Owner/Admin 重新连接前，Northstar Studio 的发布已暂停。',
+        'Resolve': '处理',
+        'Pending approvals': '待审批内容',
+        '3 items': '3 项',
+        'Pending approval': '待审批',
+        'Review': '审核',
+        'Connected channels': '已连接渠道',
+        'Prototype data': '原型数据',
+        'Prototype account': '原型账号',
+        'Reauthorize': '重新授权',
+        'Additional channels': '其他渠道',
+        'Publishing activity': '发布动态',
+        'Per execution': '按执行记录',
+        'Published': '已发布',
+        'Processing': '处理中',
+        'Recent activity': '最近活动',
+        'Workspace audit': '工作空间审计',
+        'Draft': '草稿',
+        'Save draft': '保存草稿',
+        'Submit for approval': '提交审批',
+        'Approval decision': '审批决定',
+        'Approval does not publish.': '批准不会触发发布。',
+        'Approve Revision 4': '批准版本 4',
+        'Reject with feedback': '驳回并反馈',
+        'Continue to publish': '继续发布',
+        'Approved': '已批准',
+        'Rejected': '已驳回',
+        'Publishing': '发布中',
+        'Trust states': '信任状态',
+        'Channels owns connection, reauthorization, disconnect, and recovery.': '渠道模块统一负责连接、重新授权、断开与恢复。',
+        'Connect & consent': '连接与同意',
+        'Needs reauthorization': '需要重新授权',
+        'Publishing & processing': '发布与处理',
+        'Disconnect & revoke': '断开与撤销',
+        'Delete JINGTANG data': '删除 JINGTANG 数据',
+        'Connect your YouTube channel': '连接你的 YouTube 渠道',
+        'You will continue to Google to sign in and review the exact permission requested by JINGTANG. Google—not JINGTANG—handles your account password.': '你将前往 Google 登录并查看 JINGTANG 申请的准确权限。账号密码由 Google 而非 JINGTANG 处理。',
+        'Cancel': '取消',
+        'Continue to Google': '前往 Google',
+        'Reauthorization required': '需要重新授权',
+        'Return to Content': '返回内容',
+        'Reconnect YouTube': '重新连接 YouTube',
+        'Needs Attention': '需要处理',
+        'Disconnect YouTube channel?': '断开 YouTube 渠道？',
+        'This is distinct from deleting JINGTANG account data or deleting content already published on YouTube.': '这与删除 JINGTANG 账号数据或删除已发布到 YouTube 的内容不同。',
+        'Channels / Northstar Studio': '渠道 / Northstar Studio',
+        'Disconnect Northstar Studio': '断开 Northstar Studio',
+        'New publishing will stop immediately. JINGTANG will revoke the Google authorization, delete the stored token, and clean applicable authorized data. Videos already on YouTube will remain there.': '新的发布操作会立即停止。JINGTANG 将撤销 Google 授权、删除已保存的令牌并清理适用的授权数据；YouTube 上已有的视频会继续保留。',
+        'Progress state after confirmation: Disconnecting → token revoke → data cleanup → Disconnected. Failure never re-enables access.': '确认后的进度：正在断开 → 撤销令牌 → 清理数据 → 已断开。即使清理失败，也不会重新启用访问。',
+        'Disconnect channel': '断开渠道',
+        'Delete JINGTANG Workspace data': '删除 JINGTANG 工作空间数据',
+        'This request deletes data held by JINGTANG. It does not delete content stored on YouTube or another third-party platform.': '此请求会删除 JINGTANG 保存的数据，不会删除 YouTube 或其他第三方平台上的内容。',
+        'Type the Workspace name to confirm': '输入工作空间名称以确认',
+        'Quiet confidence,': '从容自信，',
+        'built for control.': '为掌控而生。',
+        'Core palette': '核心色板',
+        'Typography': '字体排版',
+        'Actions and capability truth': '操作与能力真实状态',
+        'Primary action': '主要操作',
+        'Secondary': '次要操作',
+        'Quiet action': '轻量操作',
+        'Destructive': '破坏性操作',
+        'Schedule': '定时发布',
+        'Schedule Not Available': '暂不支持定时发布',
+        'Full-state language': '完整状态语言',
+        'Confirm publishing to YouTube': '确认发布到 YouTube',
+        'Approval is complete. This separate action will begin an external write.': '审批已完成。这个独立操作将开始外部写入。',
+        'Connected': '已连接',
+        'Video': '视频',
+        'Mode': '方式',
+        'Publish Now': '立即发布',
+        'Audience': '受众',
+        'Private · audit limitation': '私密 · 审核限制',
+        'Not made for kids': '非面向儿童',
+        'Confirm and publish': '确认并发布'
+      };
+      const enMessages = Object.fromEntries(Object.entries(zhMessages).map(([en, zh]) => [zh, en]));
+
+      const translateValue = (value, locale) => {
+        if (!value) return value;
+        const map = locale === 'zh-CN' ? zhMessages : enMessages;
+        return map[value] || value;
+      };
+
+      const applyLocale = (locale) => {
+        currentLocale = locale;
+        document.documentElement.lang = locale;
+        root.classList.toggle('jt-locale-zh', locale === 'zh-CN');
+        const map = locale === 'zh-CN' ? zhMessages : enMessages;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          const value = node.nodeValue;
+          const trimmed = value.trim();
+          if (trimmed && map[trimmed]) node.nodeValue = value.replace(trimmed, map[trimmed]);
+        }
+        root.querySelectorAll('[aria-label], [placeholder], [title]').forEach((element) => {
+          ['aria-label', 'placeholder', 'title'].forEach((attribute) => {
+            if (element.hasAttribute(attribute)) element.setAttribute(attribute, translateValue(element.getAttribute(attribute), locale));
+          });
+        });
+        root.querySelectorAll('[data-review-locale]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.reviewLocale === locale)));
+        root.querySelectorAll('[data-review-locale-toggle]').forEach((button) => {
+          button.textContent = locale === 'zh-CN' ? 'EN' : '中文';
+          button.setAttribute('aria-label', locale === 'zh-CN' ? 'Switch to English' : 'Switch to Simplified Chinese');
+        });
+        try { localStorage.setItem('jt-prototype-locale', locale); } catch (_) { /* review source may run without storage */ }
+      };
+
+      root.querySelectorAll('[data-review-screen]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const screen = button.dataset.reviewScreen;
+          root.querySelectorAll('[data-review-screen]').forEach((item) => item.setAttribute('aria-selected', String(item === button)));
+          root.querySelectorAll('[data-review-view]').forEach((view) => { view.hidden = view.dataset.reviewView !== screen; });
+          viewLabel.textContent = viewNames[screen];
+          applyLocale(currentLocale);
+        });
+      });
+
+      root.querySelectorAll('[data-review-width]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const mobile = button.dataset.reviewWidth === 'mobile';
+          frame.classList.toggle('jt-mobile-preview', mobile);
+          root.querySelectorAll('[data-review-width]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+        });
+      });
+
+      const showOnboardingStep = (step) => {
+        root.querySelectorAll('[data-onboard-step]').forEach((button, index) => {
+          const selected = button.dataset.onboardStep === step;
+          button.setAttribute('aria-selected', String(selected));
+          const selectedIndex = ['account', 'workspace', 'team', 'ready'].indexOf(step);
+          button.classList.toggle('jt-complete', index < selectedIndex);
+        });
+        root.querySelectorAll('[data-onboard-panel]').forEach((panel) => { panel.hidden = panel.dataset.onboardPanel !== step; });
+      };
+      root.querySelectorAll('[data-onboard-step]').forEach((button) => button.addEventListener('click', () => showOnboardingStep(button.dataset.onboardStep)));
+      root.querySelectorAll('[data-onboard-next]').forEach((button) => button.addEventListener('click', () => showOnboardingStep(button.dataset.onboardNext)));
+
+      const showComposerStep = (step) => {
+        root.querySelectorAll('[data-composer-step]').forEach((button) => button.setAttribute('aria-selected', String(button.dataset.composerStep === step)));
+        root.querySelectorAll('[data-composer-panel]').forEach((panel) => { panel.hidden = panel.dataset.composerPanel !== step; });
+      };
+      root.querySelectorAll('[data-composer-step]').forEach((button) => button.addEventListener('click', () => showComposerStep(button.dataset.composerStep)));
+      root.querySelectorAll('[data-composer-next]').forEach((button) => button.addEventListener('click', () => showComposerStep(button.dataset.composerNext)));
+      document.getElementById('jt-submit-approval').addEventListener('click', () => { document.getElementById('jt-submit-result').hidden = false; });
+
+      const approvalStatus = document.getElementById('jt-approval-status');
+      const approvalActions = document.getElementById('jt-approval-actions');
+      const publishReady = document.getElementById('jt-publish-ready');
+      const rejectForm = document.getElementById('jt-reject-form');
+      document.getElementById('jt-approve').addEventListener('click', () => {
+        approvalStatus.className = 'jt-status jt-status-success';
+        approvalStatus.textContent = 'Approved';
+        approvalActions.hidden = true;
+        rejectForm.hidden = true;
+        publishReady.hidden = false;
+        applyLocale(currentLocale);
+      });
+      document.getElementById('jt-reject').addEventListener('click', () => { rejectForm.hidden = false; });
+      document.getElementById('jt-cancel-reject').addEventListener('click', () => { rejectForm.hidden = true; });
+      document.getElementById('jt-confirm-reject').addEventListener('click', () => {
+        approvalStatus.className = 'jt-status jt-status-danger';
+        approvalStatus.textContent = 'Rejected';
+        approvalActions.hidden = true;
+        rejectForm.hidden = true;
+        applyLocale(currentLocale);
+      });
+
+      const publishDialog = document.getElementById('jt-publish-dialog');
+      document.getElementById('jt-open-publish').addEventListener('click', () => publishDialog.showModal());
+      document.getElementById('jt-cancel-publish').addEventListener('click', () => publishDialog.close());
+      document.getElementById('jt-confirm-publish').addEventListener('click', () => {
+        publishDialog.close();
+        document.getElementById('jt-execution-result').hidden = false;
+        approvalStatus.className = 'jt-status jt-status-info';
+        approvalStatus.textContent = 'Publishing';
+        publishReady.hidden = true;
+        applyLocale(currentLocale);
+      });
+
+      root.querySelectorAll('[data-trust-state]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const state = button.dataset.trustState;
+          root.querySelectorAll('[data-trust-state]').forEach((item) => item.setAttribute('aria-selected', String(item === button)));
+          root.querySelectorAll('[data-trust-panel]').forEach((panel) => { panel.hidden = panel.dataset.trustPanel !== state; });
+        });
+      });
+
+      root.querySelectorAll('[data-review-locale]').forEach((button) => button.addEventListener('click', () => applyLocale(button.dataset.reviewLocale)));
+      root.querySelectorAll('[data-review-locale-toggle]').forEach((button) => button.addEventListener('click', () => applyLocale(currentLocale === 'en' ? 'zh-CN' : 'en')));
+      let savedLocale = 'en';
+      try { savedLocale = localStorage.getItem('jt-prototype-locale') === 'zh-CN' ? 'zh-CN' : 'en'; } catch (_) { /* use English default */ }
+      applyLocale(savedLocale);
+    })();
+  </script>
+</body>
+</html>

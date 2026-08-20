@@ -1,10 +1,10 @@
 # JINGTANG Current Architecture Authority
 
 - Status: Approved
-- Architecture Revision: 1
+- Architecture Revision: 2
 - Effective Date: 2026-08-20
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
-- Baseline: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 1
+- Baseline: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
 - Design input: [`docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md`](JINGTANG%20V1%20UX%20Architecture%20%26%20Design%20Authority%20v0.1.md), Approved Revision 1
 - Owner: JINGTANG Architecture Owner
 - Approval owner: JINGTANG Human Owner
@@ -33,6 +33,7 @@ The decisions below are build constraints after Human Owner approval. Exact depe
 | A-10 | Store production secrets in AWS Secrets Manager. Envelope-encrypt OAuth tokens per connection with AWS KMS; tokens and platform secrets are server/worker-only. | A connection can be cryptographically erased, and tokens cannot be serialized into browser responses, ordinary logs, analytics, or error payloads. |
 | A-11 | Use structured JSON logs, OpenTelemetry-compatible traces, CloudWatch metrics/alarms, and a separate append-only audit-event store. | Technical telemetry and user-visible audit history have different schemas and retention; correlation is by opaque IDs. |
 | A-12 | YouTube is the first production integration slice. No other platform adapter or permission is built in this Delivery. Schedule remains disabled until a later verified capability decision. | The build stays aligned with the PLAN and truthful public status registry. |
+| A-13 | Treat `en` and `zh-CN` as first-class application locales, with English as the safe default. Use one versioned message-catalog package across the website, SaaS and server-generated user messages; persist an authenticated user locale preference and keep public website locale routes stable. Machine status/permission values remain language-neutral, and user-authored content is never translated by locale switching. | Translation cannot fork domain meaning or capability truth; SSR and client hydration resolve the same locale; the UI can switch languages without recreating Workspace, draft, task or external-write state. |
 
 ## Repository and Module Boundaries
 
@@ -50,6 +51,7 @@ packages/
 ├── db/                   Prisma schema, RLS policies, migrations, repositories
 ├── integrations/         adapter interfaces; YouTube implementation begins D5
 ├── observability/        redaction, logs, traces, metrics, audit emission
+├── i18n/                 en/zh-CN catalogs, glossary, formatters, locale resolution
 └── ui/                   D1-derived components and tokens
 
 contracts/                machine-readable payload/API/event authority
@@ -138,6 +140,7 @@ D2 must make the following real commands canonical in the root `package.json`; D
 | build | `pnpm build` | workspace build graph |
 | unit | `pnpm test:unit` | test runner config |
 | contract | `pnpm test:contract` | `contracts/` schemas and compatibility fixtures |
+| localization | `pnpm test:i18n` | `packages/i18n/` catalog parity, missing keys, locale routes, SSR/hydration fixtures |
 | migrations/RLS | `pnpm test:migration` | disposable PostgreSQL harness |
 | integration | `pnpm test:integration` | app/database/queue harness |
 | E2E | `pnpm test:e2e` | browser E2E config |
@@ -183,10 +186,12 @@ This table routes, but does not redefine, Approved Design decisions.
 | D-11 | Website mobile-first and SaaS desktop-first/mobile-readable specifications | D2 SaaS shell, D3 website, D4/D5 operational screens |
 | D-12 | Registration consent plus blocking consent/re-consent before YouTube API use | D2 consent record/registration; D5 OAuth/API gate |
 
-D1 also exclusively receives full-state matrices, high-fidelity screens, Design System/tokens, reusable components, responsive rules, keyboard/focus/contrast requirements, accessible names and textual status/error semantics, final copy slots, assets, annotations, and Human UI Final Approval. D2–D5 may implement only the approved D1 package and must route any material UX change back to design-readiness.
+D1 also exclusively receives full-state matrices, high-fidelity screens, Design System/tokens, reusable components, responsive rules, keyboard/focus/contrast requirements, accessible names and textual status/error semantics, English/简体中文 message slots and glossary, final copy slots, assets, annotations, and Human UI Final Approval. Baseline Revision 2 owns the bilingual requirement; D1 owns its visual/copy handoff without changing D-01～D-12. D2–D5 may implement only the approved D1 package and must route any material UX change back to design-readiness.
 
 ## Approval Record
 
 The JINGTANG Human Owner explicitly approved D0 Architecture Revision 1 together with Security/Data Revision 1, Contract Governance Revision 1, and Integration Registry Revision 1 on 2026-08-20 in the originating Codex task with the instruction “批准并创建 checkpoint，同步远程仓库”.
 
 This approval makes the four-document package the accepted D0 Authority. It approves the decisions and downstream constraints recorded here; it does not claim that cloud resources, product code, credentials, Developer Apps, external verification, or production state already exist.
+
+On 2026-08-20, the JINGTANG Human Owner authorized the Baseline Revision 2 bilingual amendment with “我想确认有中英双语吗？如果没有，请加这条需求”. Architecture Revision 2 adds only the necessary i18n implementation boundary in A-13 and preserves all accepted Revision 1 decisions, external readiness states, and D0 checkpoint evidence.

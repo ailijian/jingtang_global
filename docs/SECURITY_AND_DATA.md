@@ -1,12 +1,12 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 1
+- Security/Data Revision: 2
 - Effective Date: 2026-08-20
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
 - Architecture dependency: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
-- Upstream product authority: [`BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 1
+- Upstream product authority: [`BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
 
 ## Authority Boundary
 
@@ -41,7 +41,7 @@ Adding analytics, CRM, customer support, error-reporting, CDN, AI, or marketing 
 
 | ID | Flow | Data | Storage/processing | Recipient | Deletion/control |
 | --- | --- | --- | --- | --- | --- |
-| DF-01 | Register/login/reset | Email, name, Cognito subject, session metadata, consent version/time | Cognito + tenant-bound RDS profile; server-only secure session | AWS; transactional email provider path through SES | Logout revokes session; account deletion disables access first, then deletes/pseudonymizes per matrix |
+| DF-01 | Register/login/reset and locale preference | Email, name, Cognito subject, session metadata, `en`/`zh-CN` preference, consent version/time and displayed locale | Cognito + tenant-bound RDS profile; server-only secure session | AWS; transactional email provider path through SES | Logout revokes session; account deletion disables access first, then deletes/pseudonymizes profile and locale preference per matrix |
 | DF-02 | Workspace/team | Workspace profile, invitations, membership, role | RDS under `workspace_id` with application checks + RLS | Invited recipient receives minimum invite context | Owner/Admin controls membership; expired invites purge automatically |
 | DF-03 | Source asset upload | User-owned media, MIME/size/hash, object key | Direct signed upload to private S3; malware/type validation worker; RDS metadata | AWS only until explicit platform publish | User/workspace deletion deny-marks immediately; objects and keys purge per matrix |
 | DF-04 | Content and approval | Internal content metadata, platform versions, review comment, revision/hash, actors | RDS; platform fields stay tenant-bound | Workspace-authorized members | Role checks; deletion and retention per matrix |
@@ -115,3 +115,7 @@ Official policies are external state. The YouTube Integration Owner must re-veri
 ## D6 Completion Obligations
 
 D6 must replace design-time assertions with observed evidence for processor inventory, actual data paths, field-level data inventory, IAM, encryption, token/key deletion, backup/restore, production access, alerting, incident response, vulnerability management, user revocation/deletion, and all retention jobs. It must also complete legal review of final Terms/Privacy/Data Deletion text and freeze any narrower jurisdictional requirement. No `TBD` may remain in the production Data Flow Map or Retention Matrix at that Gate.
+
+## Revision Record
+
+- Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 locale preference 与 Consent displayed locale 数据字段；未增加处理方、区域、数据用途或更长保留期，Revision 1 的安全与删除边界保持不变。

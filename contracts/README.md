@@ -1,7 +1,7 @@
 # JINGTANG Contract Governance
 
 - Status: Approved
-- Contract Governance Revision: 1
+- Contract Governance Revision: 2
 - Effective Date: 2026-08-20
 - Owner: JINGTANG Contract Owner
 - Architecture: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
@@ -28,6 +28,13 @@ Schema and API files are created by their owning execution Stage. D0 freezes the
 ## Stable V1 Vocabulary
 
 Machine values use lower `snake_case`; user-facing labels remain owned by Design.
+
+### Locales
+
+- Supported application locale values are `en` and `zh-CN`; `en` is the default and safe fallback.
+- D2 owns a `locale_preference` contract for authenticated users. A locale change is idempotent and may not change the active Workspace, route/task identity, draft revision, publishing intent, consent decision, or external execution.
+- Domain states, permissions, capability values, policy versions and audit actions remain language-neutral machine values. `packages/i18n/` maps them to the reviewed D1 message catalog; translated labels never become a second contract authority.
+- User-authored Source Asset metadata, Caption, Title, Description, comments and platform fields are stored and returned as authored. Locale switching does not translate or rewrite them.
 
 ### Roles and permissions
 
@@ -64,7 +71,7 @@ The manifest routes these contracts to D2 or D4. Their machine schemas must pres
 
 ### Consent
 
-- `user_id`, `terms_version`, `privacy_version`, `accepted_at`, `acceptance_method`, and the material data-purpose version.
+- `user_id`, `terms_version`, `privacy_version`, `displayed_locale`, `accepted_at`, `acceptance_method`, and the material data-purpose version. Both locales consent to the same canonical policy version.
 - Check result distinguishes `current`, `missing`, and `reconsent_required`.
 - Cancel never creates consent and never begins OAuth/API work.
 
@@ -117,7 +124,11 @@ The manifest routes these contracts to D2 or D4. Their machine schemas must pres
 
 ## Stage Ownership
 
-- D2 creates Workspace, RBAC, Consent, Channel base, Audit Event, HTTP shell, migration, and compatibility schemas/fixtures.
+- D2 creates Workspace, RBAC, Locale Preference, Consent, Channel base, Audit Event, HTTP shell, migration, and compatibility schemas/fixtures.
 - D4 creates Source Asset, Content Lifecycle, Platform Version, Approval, Publishing Intent, and Platform Execution schemas/fixtures.
 - D5 may add YouTube adapter-private schemas, but public/domain contracts remain platform-neutral and the scope/capability registry remains in `config/integrations.yaml`.
 - D6 validates deletion/audit events and retention evidence; D7 freezes reviewer-facing generated references.
+
+## Revision Record
+
+- Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 `en`/`zh-CN` locale vocabulary、Locale Preference contract 路由与 Consent displayed locale；Revision 1 的 domain 状态、权限、兼容性和 Stage ownership 保持不变。

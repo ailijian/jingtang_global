@@ -10,7 +10,7 @@ Baseline Identity:
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Scope: project
 - Status: Approved
-- Baseline Revision: 1
+- Baseline Revision: 2
 
 PLAN:
 
@@ -18,11 +18,11 @@ PLAN:
 - Resolution source: Repository convention in `AGENTS.md`
 - Mode: Revise
 
-Current State: Empty/initial repository state；当前只有仓库治理、Approved Baseline 与 Approved Design Authority，没有实现、测试、CI 或发布机制。
+Current State: D0 accepted checkpoint `1f5b9f7` 已建立 Architecture/Security/Data/Contract/Integration Authorities；D1-UI-R2 已于 2026-08-20 获 Human UI Final Approval 并完成 Stage Acceptance。当前仍无产品实现、测试、CI 或发布机制。
 
 Authority readiness: 初始 Delivery Target 由 Approved Baseline 拥有；当前 Approved Design Target 可直接用于 planning。
 
-Design Readiness: PASS；当前对话中的上游结果适用于 Baseline Revision 1 与 Design Revision 1。其 Design-to-Build obligations 被放入 D0、独立 UI Finalization Stage D1 及各依赖 UI 实现 Stage，不另建 readiness receipt 或通用 readiness Gate。
+Design Readiness: PASS；Approved Design Revision 1 继续拥有 material IA、flow 和 UX semantics；Approved Baseline Revision 2 新增的 English / 简体中文要求是跨界面的内容、响应式与持久偏好约束，不改变 D-01～D-12。其 Design-to-Build obligations 被放入 D0 的实现边界、独立 UI Finalization Stage D1 及各依赖 UI 实现 Stage，不另建 readiness receipt 或通用 readiness Gate。
 
 Architecture Impact: Material；仓库尚无 Current Architecture / Domain / Contract Authority，D0 是唯一允许先建立这些 Owner 和必要 Human Decisions 的决策型 Stage。
 
@@ -30,7 +30,7 @@ Critical unknowns: None blocking plan generation。技术栈、部署区域、�
 
 Verification strategy: Ready；D2 必须先建立 canonical build、lint、type/static、unit、contract、migration、integration、E2E、安全与 CI 能力，之后的 Stage 只能引用这些真实机制。
 
-Replanning: Not required；Baseline 未 Amendment，现有 PLAN 没有已接受 Stage 或 checkpoint。本次只修订未来执行顺序，加入 Human Owner 批准的独立 UI Design & Finalization Stage，并把官网改为先行 Production Launch。
+Replanning: Required and completed；Human Owner 于 2026-08-20 批准 Baseline Revision 2 Amendment，新增官网与 SaaS 的 English / 简体中文要求。D0 已接受 checkpoint 保持有效，并仅补充 i18n 实现约束；尚未接受的 D1 package 升级为双语版本，D2～D7 增加 locale contract、实现与验证路由，不改变既有 Stage 顺序、平台边界或产品语义。
 
 Proceeding to Plan Generation.
 
@@ -41,15 +41,15 @@ Proceeding to Plan Generation.
 - Resolved PLAN path: `docs/deliveries/jingtang-overseas-website-saas-v1-launch/PLAN.md`
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Scope: project
-- Baseline Revision: 1
+- Baseline Revision: 2
 - Baseline: `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md`
 - Baseline Status: Approved
 - Plan mode: Revise
-- Plan continuity: No accepted Stage or checkpoint to preserve
+- Plan continuity: Preserve accepted D0 checkpoint `1f5b9f7`; D1-UI-R2 was accepted on 2026-08-20 and is preserved as the implementation-ready UI package
 
 ### Scope and Outcome
 
-从初始仓库建立英文优先的 JINGTANG 官网和首版多租户 B2B SaaS，使真实测试企业能够完成 Workspace/RBAC、官方授权、用户自有素材、多平台版本、审批、明确发布、结果跟踪、审计、撤销和数据删除闭环；所有公开状态、法律披露、安全声明和开发者审核材料必须与实际生产能力一致并达到正式提交审核条件。
+从初始仓库建立英文优先并完整提供简体中文的 JINGTANG 官网和首版多租户 B2B SaaS，使真实测试企业能够以任一界面语言完成 Workspace/RBAC、官方授权、用户自有素材、多平台版本、审批、明确发布、结果跟踪、审计、撤销和数据删除闭环；所有公开状态、法律披露、安全声明和开发者审核材料必须在两种语言中与实际生产能力一致并达到正式提交审核条件。
 
 本 PLAN 以 YouTube 作为第一个真实生产渠道的执行顺序，因为当前 Baseline、Approved Design Target 与外部约束引用已覆盖其关键流程。该顺序不改变 Wave 1 产品边界，也不承诺 Facebook 与 Instagram 在 V1 同时 Available。若 YouTube 出现团队可控但无法满足 Baseline 的技术或政策阻断，必须停止相关 Stage 并重新 planning，不得静默将另一个平台加入范围。
 
@@ -67,12 +67,13 @@ Proceeding to Plan Generation.
 - 外部写入、Schedule、授权、撤销和删除必须由有权用户明确触发；Approval 与 Publish 保持不同动作语义。
 - 多租户隔离、RBAC、Token/Secret 保护、真实撤销和删除、审计、真实能力状态以及平台差异不得因统一 UI 或开发便利而弱化。
 - 用户自有素材不得被自动添加 JINGTANG 水印、Logo、推广链接或未经确认的 AI 内容。
+- English 为默认界面语言；English 与简体中文必须保持关键语义、能力状态、法律/Consent 和破坏性操作一致。语言切换不得丢失当前页面、Workspace、草稿或任务状态，用户创作内容不得被自动翻译。
 - 未完成平台要求的 Verification / Audit 时，只执行当前政策允许的行为并显示真实限制；不得把审核中、私密限制或 Beta 能力标为 Available。
 
 ## Authoritative References
 
 - `AGENTS.md` — 仓库知识地图、Authority 关系、Delivery workflow 与文档治理。
-- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — Approved Delivery Target；拥有 Goal、User Outcome、Non-goals、Key Decisions、Preserved Constraints 和 AC-01～AC-15、AC-17、AC-18。
+- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — Approved Delivery Target Revision 2；拥有 Goal、User Outcome、Non-goals、Key Decisions、Preserved Constraints 和 AC-01～AC-18。
 - `docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md` — Approved Design Revision 1；拥有 material IA、screen responsibility、interaction、UX state、responsive 与 consent semantics。D1 必须在任何 UI 实现前消费其 D-01～D-12，并完成 full-state、高保真、Design System、响应式、可访问性和 handoff derived specifications。
 - [Google OAuth 2.0 Production Policy Compliance](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance) — 实施与发布时的生产 OAuth 身份、域名、Homepage、最小 Scope 与验证外部约束。
 - [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies) — 实施与发布时的同意、用户控制、数据保留、撤销和删除外部约束。
@@ -84,7 +85,8 @@ Proceeding to Plan Generation.
 
 Update:
 
-- none
+- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — Human Owner 授权 Revision 2 Amendment，新增官网与 SaaS English/简体中文要求和 AC-16；既有边界保持不变。
+- `docs/ARCHITECTURE.md`、`docs/SECURITY_AND_DATA.md`、`contracts/`、`config/integrations.yaml` — 保留 D0 Revision 1 决策并增加 locale/message/偏好/数据与能力状态 parity 约束。
 
 Create:
 
@@ -96,19 +98,19 @@ Create:
 
 Generated:
 
-- D1 UI source 中的高保真页面、prototype、full-state matrix、Design System、组件/Token、响应式、可访问性和 annotated handoff — 由 Approved Design Target 派生并经 Human UI Final Approval 定稿，仍属于 derived specification，不替代或修改 Design Authority。
+- D1 UI source 中的双语高保真页面、prototype、full-state matrix、Design System、组件/Token、locale/glossary、响应式、可访问性和 annotated handoff — 由 Approved Design Target 与 Baseline Revision 2 双语约束派生并经 Human UI Final Approval 定稿，仍属于 derived specification，不替代或修改 Design Authority。
 - API/schema reference、contract fixtures 与 migration evidence — 由 `contracts/` 和 D2 建立的 machine owners 生成。
 - 网站 Integration status、适用的 reviewer instructions、permission-to-UI trace 和 review evidence bundle — 由 `config/integrations.yaml`、生产配置、Data Flow/Retention Owners 和验证结果在 D3/D5/D7 生成。
 
 Unaffected:
 
-- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — 保持 Approved Revision 1，不因实现便利修改。
+- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — 保持 Human Owner 已授权的 Approved Revision 2；未经新 Amendment 授权不再修改。
 - `docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md` — 保持 Approved Design Revision 1；实现只生成下游规格。
 - `AGENTS.md` — 仓库治理明确要求未经授权不修改；本 PLAN 不安排治理改写。
 
 ## Implementation Delta
 
-Current State 是无应用实现、无运行环境、无 machine contract、无 UI build specification、无测试/CI 的初始仓库。实现需要先完成独立的 UI Design & Finalization，再建立：可运行和可部署的官网/SaaS 基础；身份、Workspace、多租户隔离和四类 RBAC；Source Asset、独立平台版本、审批与平台执行状态；真实 YouTube OAuth/发布/跟踪；审计、撤销、Token 与数据删除；生产数据、安全和运营控制；与实际能力同源的公开状态与开发者审核证据。
+Current State 已有 accepted D0 Authorities 和完成 Human UI Final Approval/Stage Acceptance 的 D1-UI-R2 双语 build specification，但仍无应用实现、运行环境、已创建 machine schemas、测试或 CI。后续实现需要建立：可运行和可部署的双语官网/SaaS 基础；身份、locale preference、Workspace、多租户隔离和四类 RBAC；Source Asset、独立平台版本、审批与平台执行状态；真实 YouTube OAuth/发布/跟踪；审计、撤销、Token 与数据删除；生产数据、安全和运营控制；与实际能力同源的双语公开状态与开发者审核证据。
 
 实现必须维持清晰的 Domain 与 Platform Execution 分离，不能以 mock 授权、mock 发布、人工改库或统一总状态证明最终闭环。Facebook、Instagram 和后续平台在本 PLAN 中只作为真实 Coming Soon 状态，不建立适配器或预申请权限。
 
@@ -143,7 +145,7 @@ Goal:
 
 Authoritative References:
 
-- Approved Baseline Revision 1：全部 Key Decisions、Preserved Constraints 与 AC。
+- Approved Baseline Revision 2：全部 Key Decisions、Preserved Constraints 与 AC；Revision 2 新增的双语约束不得改变 Revision 1 已接受的 D0 产品/平台边界。
 - Approved Design Revision 1：D-01～D-12 及 planning obligations。
 - 当前 Google OAuth、YouTube Developer Policies 与 `videos.insert` 官方来源。
 - `AGENTS.md`：Authority 与文档治理。
@@ -220,23 +222,26 @@ Stop Condition:
 
 Goal:
 
-在任何 UI 实现开始前，将 Approved Design Revision 1 派生为完整、可审阅、可构建的官网与 SaaS UI package，并通过 Human UI Final Approval 定稿。
+在任何 UI 实现开始前，将 Approved Design Revision 1 与 Baseline Revision 2 的双语约束派生为完整、可审阅、可构建的官网与 SaaS UI package，并通过 Human UI Final Approval 定稿。
 
 Authoritative References:
 
-- Approved Baseline Revision 1：用户结果、边界、truthful status、角色、显式用户控制与全部 UI 相关 AC。
+- Approved Baseline Revision 2：用户结果、边界、truthful status、角色、显式用户控制、English / 简体中文与全部 UI 相关 AC。
 - `docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md`：D-01～D-12、IA、screen responsibility、interaction、state、responsive、accessibility 与 consent semantics。
 - D0-approved `docs/ARCHITECTURE.md`：只提供实现约束、运行边界和技术可行性输入，不拥有产品或 UX 意义。
 
 Deliverables:
 
 - 在 Figma 或等价可审阅 UI source 中完成官网全部要求页面及 SaaS Home、Content、Approvals、Calendar、Channels、Activity、Settings、身份/Onboarding 与 Workspace/Team surfaces 的高保真设计。
+- 为官网与 SaaS 定稿 English（`en`）/简体中文（`zh-CN`）双语 UI：英文默认；官网 public header 与 SaaS account/settings 提供明确语言切换；切换保留当前 route、Workspace、草稿和任务上下文；未登录与已登录偏好分别有明确持久化规则。
+- 建立可实现的 localization handoff：locale/message key ownership、canonical glossary、品牌/平台/法律主体不翻译规则、数字/日期/时区格式、fallback、缺失翻译处理、官网 localized route/metadata/`hreflang` 规则，以及用户创作内容不自动翻译的边界。
 - 建立并定稿 Design System：color、typography、spacing、grid、radius、elevation、icon、motion 原则，以及 navigation、form、table/list、status、tabs、upload、preview、modal/dialog、toast、empty/loading/error 等组件与 Token；具体实现技术仍由 Architecture/implementation owner 决定。
+- 为简体中文补充匹配品牌气质的中文字体、字号/行高、标点与无强制字距规则，并验证中英文文本扩展、换行、按钮、表格、状态标签、dialog 和 320px reflow。
 - 建立 full-state matrix，至少覆盖 empty、loading、success、validation error、upload failure、authorization expiry、reauthorization、publishing/processing/partial failure、Needs Attention、disconnecting、deletion、permission denied、disabled-with-reason 和 destructive confirmation。
 - 完成关键 prototype：Sign Up/Login → Workspace setup；Upload → Platforms → Customize → Preview → Submit → Approve/Reject；Connect/Consent/Reauthorize；Confirm Publish → Track；Disconnect/Revoke/Delete。
 - 定稿 website mobile-first 与 SaaS desktop/laptop-first、mobile-readable 的 responsive layouts；定义 keyboard、focus、contrast、文本化状态/错误、非颜色单一提示和可访问名称等 build requirements。
 - 定稿官网与产品的 capability/status 表达，包括 Available、Beta / Early Access、Coming Soon、Schedule Not Available、AI Visibility Services/Early Access；prototype 与 mock data 必须明确为设计内容，不能成为生产能力证据。
-- 形成可追溯 handoff package：screen/component inventory、state matrix、interaction annotations、copy/content slots、asset export、responsive rules、accessibility notes、版本/链接与 Baseline/Design decision mapping。
+- 形成可追溯 handoff package：screen/component inventory、state matrix、interaction annotations、双语 copy/message slots 与 glossary、asset export、responsive rules、accessibility notes、版本/链接与 Baseline/Design decision mapping。
 - 记录 Human UI Final Approval 的批准对象和版本。批准只确认 derived package 忠实、完整且 build-ready，不把它提升为平行 Product/Design Authority。
 
 Non-goals:
@@ -279,10 +284,12 @@ Required Verification:
 
 - Screen/state coverage matrix 将全部 Approved IA、关键 flow、角色、平台状态、consent、error/recovery 与 destructive actions 映射到明确 screen/component；无未归属 material state。
 - Baseline/Design trace review 证明每个关键 prototype 和 primary action 来自 Approved Authority，未引入额外平台、Schedule、AI、自动发布或虚假 Available 能力。
-- Responsive/accessibility review 覆盖 website mobile-first、SaaS desktop-first/mobile-readable、keyboard/focus、contrast、文本状态和非颜色单一提示。
+- Responsive/accessibility review 覆盖 English 与简体中文的 website mobile-first、SaaS desktop-first/mobile-readable、keyboard/focus、contrast、文本状态、非颜色单一提示、文本扩展和 320px 无阻断性截断/溢出。
+- Localization coverage review 证明全部 in-scope 页面、关键 flow、状态、错误、Consent、法律/安全与 destructive action 均有 `en`/`zh-CN` message ownership；capability/Integration machine values 通过单一 reviewed catalog 映射，不产生语言相关的能力漂移。
+- Prototype language-switch walkthrough 证明 English 默认、切换和偏好语义明确，当前 route/Workspace/草稿/任务不丢失，用户创作内容不自动翻译，缺失翻译采用安全英文 fallback 并在验证中失败而非静默发布。
 - Design System/component coverage review 证明重复 UI pattern 有一致 specification，平台特定字段和能力差异没有被统一组件掩盖。
 - Human walkthrough 完成 onboarding、content approval、YouTube consent/connect/publish、failure recovery 和 disconnect/delete prototypes；所有 blocking comments 在批准版本关闭。
-- Handoff inspection 证明最终版本、链接、annotations、assets、copy slots 和 state/component mapping 对 D2～D5 可访问且无 blocking TBD。
+- Handoff inspection 证明最终版本、链接、annotations、assets、双语 copy/message slots、glossary 和 state/component mapping 对 D2～D5 可访问且无 blocking TBD。
 
 Asynchronous CI:
 
@@ -297,7 +304,17 @@ Required Gates:
 
 Stop Condition:
 
-- 官网与 SaaS 全部 in-scope screens、full states、Design System、responsive/accessibility 和 handoff 已在唯一指定版本定稿并获 Human UI Final Approval；不存在未决 material UX choice、Authority conflict 或会阻塞 D2～D5 的 UI TBD。
+- 官网与 SaaS 全部 in-scope screens、English/简体中文 copy/state、full states、Design System、responsive/accessibility、localization 与 handoff 已在唯一指定版本定稿并获 Human UI Final Approval；不存在未决 material UX choice、Authority conflict 或会阻塞 D2～D5 的 UI TBD。
+
+### D1 Acceptance Record
+
+- Status: Accepted
+- Accepted package: `D1-UI-R2`
+- Human UI Final Approval: JINGTANG Human Owner 于 2026-08-20 明确批准“批准 D1-UI-R2 并接受 D1 Stage”。
+- Stage Acceptance: Accepted by the same Human Owner instruction.
+- Self Verification: package/version/authority trace、AC-16/PLAN coverage、YAML、local links、HTML/JavaScript、English/简体中文 runtime switching、locale preference、state preservation、user-content preservation、critical destructive copy、320px no-overflow 与 final diff checks 均通过。
+- Code Review: Not required by the D1 PLAN Gate set；本 Stage 只交付 derived UI specification，没有产品实现代码。
+- Checkpoint: created by the repository workflow immediately after this acceptance record; Git history owns the checkpoint identity.
 
 ## D2 — Runnable Foundation, Identity, Workspace, and Verification
 
@@ -307,7 +324,7 @@ Goal:
 
 Authoritative References:
 
-- Baseline：AC-04、AC-05、AC-11、AC-12、AC-13 及多租户/RBAC/Secret 约束。
+- Baseline：AC-04、AC-05、AC-11、AC-12、AC-13、AC-16 及多租户/RBAC/Secret/双语约束。
 - Approved Design：Primary SaaS IA、Onboarding and Team Setup、D-07、D-09、D-11、D-12。
 - D1-finalized UI package：身份、Onboarding、SaaS shell、full states、responsive、accessibility 与 component handoff。
 - D0-approved `docs/ARCHITECTURE.md`、`docs/SECURITY_AND_DATA.md` 与 `contracts/` ownership。
@@ -316,6 +333,8 @@ Deliverables:
 
 - 建立 D0 所选架构下的最小 runnable application、数据库/migration、环境配置和本地/CI 启动路径；测试、开发和生产配置保持隔离。
 - 建立 canonical format、lint、type/static、build、unit、contract、migration、integration、E2E、安全/secret scan 命令，并由阻塞 CI 执行；命令必须由实际项目脚本和 CI machine config 拥有。
+- 建立共享 i18n 基础：受版本控制的 `en`/`zh-CN` message catalog、English 安全 fallback、locale-aware 日期/数字/时区格式、缺失/未使用 key 检查，以及 SSR/CSR hydration 一致的 locale resolution。
+- 在用户/会话 contract 中实现 `en`/`zh-CN` locale preference；已登录用户偏好跨设备持久化，未登录偏好局部持久化，切换语言保留当前 route、Workspace 与表单/草稿状态。Consent 记录引用同一 canonical policy version，并保留用户看到的 locale。
 - 实现 Sign Up、Login、Logout、Password Reset 或等价恢复，记录当前 Terms/Privacy consent version 与 timestamp；链接和最终文案由 D3 提供。
 - 实现 Create/Join Workspace、Invite/Remove Member、Assign/Change Role、当前 Workspace 选择和 Owner/Admin、Editor、Approver/Publisher、Viewer 基础权限。
 - 在数据访问层和服务边界实际执行 tenant isolation 与 deny-by-default RBAC；建立 Audit Event 基础设施，至少覆盖本 Stage 已存在的身份、成员与角色操作。
@@ -364,6 +383,7 @@ Required Verification:
 - 运行 tenant isolation 与四类 RBAC allow/deny integration matrix，证明跨 Workspace 访问被拒绝且 Viewer 无写权限。
 - 运行 migration 在空库和前一 schema 状态上的 forward/rollback 或 D0 Authority 指定的安全替代证据。
 - 运行 auth/workspace E2E：Register → current Terms/Privacy consent record → Login/Logout/Reset → Create or Join Workspace → Invite → Assign Role。
+- 运行 `en`/`zh-CN` catalog completeness、fallback、SSR/hydration 与 locale-preference contract/integration tests；分别以两种语言执行身份、Consent、Workspace 与角色关键路径，验证切换不丢失当前任务或用户输入。
 - 运行 UI fidelity check，证明实现覆盖 D1-finalized auth/onboarding states、keyboard/focus、文本化错误/状态和 SaaS mobile-readable 基础边界；发现 material deviation 时停止并回到 Design Authority，而不是在代码中决定。
 
 Asynchronous CI:
@@ -386,27 +406,28 @@ Stop Condition:
 
 Goal:
 
-在 YouTube OAuth verification/audit 路径之前，将英文优先、mobile-first 的官网与法律/信任页面独立部署到已验证的官方生产域名，并让所有产品和 Integration 状态从 canonical registry 反映当前真实能力。
+在 YouTube OAuth verification/audit 路径之前，将英文默认、完整提供简体中文且 mobile-first 的官网与法律/信任页面独立部署到已验证的官方生产域名，并让两种语言中的所有产品和 Integration 状态从 canonical registry 反映当前真实能力。
 
 Authoritative References:
 
-- Baseline：AC-01、AC-02、AC-03、AC-12、AC-13 及品牌、法律主体和 truthful claims 约束。
+- Baseline：AC-01、AC-02、AC-03、AC-12、AC-13、AC-16 及品牌、法律主体、双语和 truthful claims 约束。
 - Approved Design：Website Experience Architecture、Website IA、Integration Page、Coming Soon、Visual/Responsive/Accessibility principles、D-10、D-11、D-12。
 - D1-finalized UI package：官网高保真页面、Design System、full states、mobile-first、accessibility 与 handoff。
 - D0/D2：`config/integrations.yaml`、`docs/SECURITY_AND_DATA.md`、实际 UI/contract owners。
 
 Deliverables:
 
-- 按 D1-finalized UI package 实现默认英文的 Home、Social Publishing、Workflow & Approvals、Integrations、每个标为可用的 Integration 详情、Solutions、About、Contact、Security、Privacy、Terms 和 Data Deletion 页面。
+- 按 D1-finalized UI package 为 English 与简体中文实现 Home、Social Publishing、Workflow & Approvals、Integrations、每个标为可用的 Integration 详情、Solutions、About、Contact、Security、Privacy、Terms 和 Data Deletion 页面；英文为默认语言。
+- 为每个 public page 提供稳定的 locale route，并生成正确的 canonical、language alternate/`hreflang`、`lang`、localized metadata、sitemap 与同语言内部链接；语言切换保持对应页面，不将用户送回首页。
 - 实现 `Book a Demo` 主 CTA、Sign In 和可验证的 Contact/Demo 提交或明确联系路径，不提供空占位站。
 - 由 `config/integrations.yaml` 驱动 Available、Beta / Early Access、Coming Soon、Publish Now、Schedule Supported/Not Available 和 Integration action visibility；Coming Soon 无 Connect/Publish/假截图。
-- 清楚区分 SaaS Product、Professional Services 与 AI Visibility Early Access/Services；不宣称客户、Partner、认证或未验证安全能力。
+- 在两种语言中清楚区分 SaaS Product、Professional Services 与 AI Visibility Early Access/Services；不宣称客户、Partner、认证或未验证安全能力。
 - 冻结并一致显示 Human Owner 确认的品牌、主域名/域名邮箱和唯一英文法律主体表达；开发/预览环境不得伪装为正式域名。
-- 实现可直接访问的 Privacy、Terms、Data Deletion 和 Security；内容必须映射 D0 当前 Data Flow/Retention 与已验证控制，保留 D6/D7 的生产定案义务。
+- 以两种语言实现可直接访问的 Privacy、Terms、Data Deletion 和 Security；内容必须引用同一 canonical policy version，映射 D0 当前 Data Flow/Retention 与已验证控制，并保留 D6/D7 的生产定案义务。
 - 将注册和 YouTube consent/re-consent 流程需要的 current policy URLs/version 接入 machine contract；选项不得预勾选。
 - 经 Production Change Authorization 后，将官网部署到 D0-approved official production domain，启用 HTTPS，完成域名所有权验证所需配置，并保证 Home、Privacy、Terms、Data Deletion、Security、Contact 与 Integration pages 无登录即可公开访问。
 - 验证官网域名、Privacy/Terms URL、OAuth authorized domain、支持邮箱和法律主体能够作为后续 Google brand verification 与 YouTube review 的一致输入；本 Stage 不声称审核已经通过。
-- 按 D1 定稿完成网站 full-state、mobile-first、keyboard、focus、form error、link integrity 和基础可访问性实现。
+- 按 D1 定稿完成两种语言的网站 full-state、mobile-first、keyboard、focus、form error、link integrity、文本扩展/换行和基础可访问性实现。
 
 Non-goals:
 
@@ -452,8 +473,10 @@ Required Verification:
 
 - 运行 D2 canonical lint、type/static、build、targeted unit/integration 与 website E2E。
 - 运行 official production domain 的 HTTPS、route/link/status crawl：Baseline 要求页面无需登录公开可达，主 CTA 可用，Coming Soon 无 executable action，所有 Available/Beta 状态有 registry 证据。
+- 对 `en`/`zh-CN` 分别运行 route/metadata/`lang`/canonical/`hreflang`/sitemap/link crawl 与 translation completeness 检查；每个页面的语言切换保持对应 route，缺失 locale 页面阻断发布。
 - 运行 mobile viewport、keyboard/focus、form validation、文本状态与基础 accessibility 自动化检查，并进行关键页面 Human E2E。
 - 运行 D1 UI fidelity review，验证 production website 与最终定稿页面、states、responsive 和 component rules 一致，无实现阶段新增的 material UX。
+- 运行双语语义 parity 与 visual regression：重点核对 capability/Integration 状态、法律主体、Privacy/Terms/Data Deletion/Security、Consent、错误和破坏性语义，并在 320/390/768/1024/1440px 验证中文无阻断性截断或溢出。
 - 人工逐项比对品牌/法律主体/域名、产品与 Services、AI Visibility、Integration 和 Security claims 与当前 registry、Data Flow 和已验证控制。
 - 验证 official domain ownership、Privacy/Terms 同域公开 URL、support email、OAuth authorized-domain inputs 和 production website identity 一致，可作为后续 verification/audit 输入。
 
@@ -473,7 +496,7 @@ Required Gates:
 
 Stop Condition:
 
-- 官网已在已验证的官方生产域名通过 HTTPS 无登录公开可达；所有要求页面、CTA、表单、法律链接和状态通过 production smoke 与 D1 fidelity review；该域名/法律身份可供后续 OAuth/YouTube review 使用，且不存在无事实支撑的 Available、客户/Partner、认证或安全声明。
+- 官网 English 与简体中文页面已在已验证的官方生产域名通过 HTTPS 无登录公开可达；所有要求页面、locale routes/alternates、CTA、表单、法律链接和状态通过 production smoke、双语 parity 与 D1 fidelity review；该域名/法律身份可供后续 OAuth/YouTube review 使用，且不存在无事实支撑的 Available、客户/Partner、认证或安全声明。
 
 ## D4 — Content, Platform Versions, and Approval Core
 
@@ -483,7 +506,7 @@ Goal:
 
 Authoritative References:
 
-- Baseline：AC-05、AC-06、AC-08、AC-11、AC-17；内容、角色、状态、用户控制与用户自有素材约束。
+- Baseline：AC-05、AC-06、AC-08、AC-11、AC-16、AC-17；内容、角色、状态、用户控制、双语与用户自有素材约束。
 - Approved Design：D-01～D-04、D-07、D-08；Create/Review、Approval、Content Detail、state/error/role-sensitive UX。
 - D1-finalized UI package：Composer、Content Detail、Approvals、Calendar、Activity、role-sensitive actions、full states 与 responsive/accessibility handoff。
 - D0/D2 machine contracts：Content Lifecycle、Publishing Intent、Platform Execution、RBAC、Audit 与 Integration Capability。
@@ -491,6 +514,7 @@ Authoritative References:
 Deliverables:
 
 - 实现用户自有 Source Asset 上传、真实对象存储、上传状态与失败阻断；不抓取第三方内容，不自动加 JINGTANG 标识或宣传文本。
+- 界面语言只影响 JINGTANG UI、系统提示和格式化；Source Asset、Title、Description、Caption、评论和其他用户创作内容保持用户原文，切换 locale 不自动翻译或改写。
 - 实现 One Content → independently editable Platform Versions，用户主动选择具体平台和账号占位/已连接账号，未选择平台不产生版本或写入意图。
 - 实现单一 Composer：Content → Platforms → Customize → Review；平台字段由 capability contract 决定，不伪造相同字段。
 - 实现 Draft、Pending Approval、Rejected、Approved 及必要 Publishing Intent/Platform Execution 分离；状态转换由 machine contract 和 RBAC 共同执行。
@@ -542,7 +566,7 @@ Required Verification:
 - 运行 D2 canonical lint、type/static、build、unit、contract、migration 和 targeted integration commands。
 - 运行 Content/Platform Version 状态转换、RBAC、tenant isolation、upload failure、asset ownership constraint 与 Audit event matrix。
 - 运行负向测试：未选平台不产生版本；Viewer/Editor 无 Publish；Approval 不调用 adapter；Failed upload 不能继续；AI/Schedule 未验证时无可执行入口。
-- Human E2E：Upload user-owned content → Select platform/account → Customize independent version → Preview → Submit → Approve/Reject → inspect Content Detail/Activity，且全程没有外部写入。
+- Human E2E：分别以 English 和简体中文完成 Upload user-owned content → Select platform/account → Customize independent version → Preview → Submit → Approve/Reject → inspect Content Detail/Activity；切换语言保持 draft/revision/context 和原始创作内容，且全程没有外部写入。
 - 运行 D1 UI fidelity review，验证桌面主流程、移动端状态可读、keyboard/focus、错误恢复、platform-specific fields 和 role-sensitive primary actions 与定稿版本一致。
 
 Asynchronous CI:
@@ -569,7 +593,7 @@ Goal:
 
 Authoritative References:
 
-- Baseline：AC-03、AC-05、AC-07、AC-08、AC-09、AC-15 及官方授权、最小 Scope、显式用户控制和平台差异约束。
+- Baseline：AC-03、AC-05、AC-07、AC-08、AC-09、AC-15、AC-16 及官方授权、最小 Scope、显式用户控制、双语和平台差异约束。
 - Approved Design：D-02、D-03、D-05、D-12；Channels、Consent、Connect/Reauthorize、Publish Confirmation、independent Platform Execution 和 result/error UX。
 - D1-finalized UI package：Channels、Consent/Re-consent、YouTube fields、Publish Confirmation、result/failure/recovery 与 responsive/accessibility handoff。
 - Google OAuth、YouTube Developer Policies、YouTube `videos.insert` 的执行时当前官方版本。
@@ -580,6 +604,7 @@ Deliverables:
 - 按 D0 Architecture 和执行时 Google policy 使用隔离的 testing/integration 与 production project/config；在受保护 integration environment 配置 production-equivalent Google OAuth，使用当前功能所需的最小 Scope，不获取平台密码/Cookie，Token 加密且不进入前端、普通日志、错误或 Git。
 - 实现 Channels-owned Connect YouTube、OAuth return、Connected/Reauthorization Required/Disconnected 状态与账号/Channel 选择；其他页面复用该 flow。
 - 在第一次 YouTube Connect/API 使用前执行当前 Terms/Privacy consent/re-consent；Cancel 不启动 OAuth/API，version/timestamp 可审计。
+- English 与简体中文显示同一 canonical Terms/Privacy version、Scope purpose、平台限制和确认语义；Consent/Audit 记录保留展示 locale，但 locale 不改变授权范围或外部写入含义。
 - 实现 YouTube Platform Version 所需的可编辑 Title、Description、Privacy、Audience/Required Settings、Channel、Video preview 与明确 Publish Confirmation。
 - 每次确认建立独立、幂等、可重试且 tenant-bound 的 Platform Execution；实现 Publishing、Processing、Published、Failed、Needs Attention、Cancelled 的真实状态、平台 ID/URL、时间、历史和用户可理解恢复动作。
 - 以真实 YouTube API 响应证明上传路径。未完成所需 Verification/Compliance Audit 时，只允许官方当前规则允许的可见性并在 UI/registry 标为 Beta/受限；不得宣称或执行不被允许的公开发布。D7 必须在最终 production/reviewer environment 重复真实证据。
@@ -634,6 +659,7 @@ Required Verification:
 - 运行 policy trace：每个 Scope → Need → UI → User Action → Data → Retention → Deletion；验证 current official policy timestamp/source 与生产 App 配置一致。
 - Real Human E2E：Connect actual authorized account → Upload actual user-owned video → Customize YouTube fields → Preview → Submit → Approve → Confirm → actual API upload → Track actual processing/result/platform ID/URL。
 - 运行失败/恢复 Human E2E：授权过期或可控测试故障显示 Failed/Needs Attention 和 Reauthorize/Return to Content，不误报 Published。
+- 在两种 locale 下验证 Connect/Consent、platform fields、Publish Confirmation、真实 result/failure/recovery；状态、Scope、限制和 destructive semantics 必须同义，切换语言不重复 OAuth 或外部写入。
 - 验证未获允许的 public visibility 和未验证 Schedule 无可执行入口，registry/website/product 均显示真实 Beta/Available/Not Available 状态。
 - 运行 D1 UI fidelity review，验证 Channels、consent、YouTube fields、confirmation、result/error/recovery 与定稿版本一致，未因平台适配改写 material semantics。
 
@@ -663,7 +689,7 @@ Goal:
 
 Authoritative References:
 
-- Baseline：AC-09、AC-10、AC-11、AC-12、AC-13、AC-15 及 Token、撤销、删除、租户隔离、安全和真实披露约束。
+- Baseline：AC-09、AC-10、AC-11、AC-12、AC-13、AC-15、AC-16 及 Token、撤销、删除、租户隔离、安全、双语和真实披露约束。
 - Approved Design：D-05、D-06；Channel states、Reauthorization、Disconnect、Destructive Action、Activity 与 error/recovery UX。
 - D1-finalized UI package：Disconnect/Revoke/Delete、destructive confirmation、in-progress、success/failure/retry 与 Activity handoff。
 - YouTube Developer Policies 的执行时当前 retention、revocation、deletion 与 user-control 条款。
@@ -677,7 +703,7 @@ Deliverables:
 - 完成 Audit Log 覆盖 Baseline AC-11 的所有事件与 User、Workspace、Action、Target、Timestamp、Result 及必要技术元数据；普通用户只看有权限的 Workspace/Content Activity。
 - 完成 `docs/SECURITY_AND_DATA.md`，使生产 Data Flow Map 和 Retention Matrix 无 TBD，并与实际 source/region/processor/encryption/backup/cross-border/deletion path 对齐。
 - 创建 `docs/OPERATIONS.md` 并实现 TLS、静态数据/Token 加密、Secret Management、环境隔离、生产访问控制与记录、监控告警、备份恢复、事件响应和基础漏洞管理的可验证流程。
-- 更新 Privacy、Terms、Data Deletion、Security 与 Integration pages，只陈述 D6 已验证且 D7 将在生产复核的事实。
+- 同步更新 English/简体中文 Privacy、Terms、Data Deletion、Security 与 Integration pages，只陈述 D6 已验证且 D7 将在生产复核的事实，并保持同一 canonical policy version 与能力语义。
 - 按 D1-finalized UI package 实现 destructive action、disconnecting/deletion in progress、success/failure/retry、keyboard/focus 与非颜色单一提示；如真实平台约束要求 material UX 变化，停止并重新 design-readiness。
 
 Non-goals:
@@ -726,6 +752,7 @@ Required Verification:
 - 运行 TLS/encryption/secret/log/tenant/RBAC/security config checks，执行 backup → restore drill、生产访问记录检查、incident tabletop 和基础 vulnerability scan。
 - Human E2E：Track result → inspect Audit → Disconnect → revoke actual token → verify no new API operation → request data deletion → verify UI/status/audit and third-party-content distinction。
 - 逐项核对 Data Flow、Retention Matrix、Privacy、Terms、Data Deletion、Security 与 Integration claims，无 TBD、虚假认证或实现漂移。
+- 逐项核对 English/简体中文 Disconnect、Revoke、Delete、Activity、Privacy/Terms/Data Deletion/Security 文案与行为，确保删除范围、时间、第三方内容区别、失败/重试和安全声明语义一致。
 - 运行 D1 UI fidelity review，验证 destructive actions、progress/recovery、Activity 与用户可见数据删除语义仍与批准 handoff 一致。
 
 Asynchronous CI:
@@ -753,7 +780,7 @@ Goal:
 
 Authoritative References:
 
-- Approved Baseline Revision 1：全部 AC 与 V1 Release Gate。
+- Approved Baseline Revision 2：全部 AC 与 V1 Release Gate。
 - Approved Design Revision 1：全部 material UX target 与 responsive/accessibility obligations。
 - D1-finalized UI package：全部官网/SaaS implementation-ready derived specifications 与 Human UI Final Approval version。
 - D0～D6 accepted Authorities、machine contracts、implementation、test/CI、Security/Data、Operations 和 Integration Registry。
@@ -761,12 +788,13 @@ Authoritative References:
 
 Deliverables:
 
-- 保持 D3 已上线官网及公开法律/信任页面持续可用；经 Human Owner 授权后，将 SaaS、数据库/migrations、worker、storage、Secret、monitoring 和受保护 reviewer/test access 部署到 D0-approved production environment。
+- 保持 D3 已上线的 English/简体中文官网及公开法律/信任页面持续可用；经 Human Owner 授权后，将双语 SaaS、数据库/migrations、worker、storage、Secret、monitoring 和受保护 reviewer/test access 部署到 D0-approved production environment。
 - 复核官网、SaaS、Developer App、Privacy、Terms、Data Deletion、Security、合同/联系人持续一致使用 D3 已验证主域名、域名邮箱和唯一英文法律主体表达；如需生产网站更新，必须走 Production Change Authorization。
 - 在生产实际验证 TLS、静态数据/Token 加密、Secret Management、环境/租户隔离、RBAC、Audit、备份恢复、生产访问记录、事件响应与漏洞管理；Security 页面只保留被证据证明的声明。
 - 由 `config/integrations.yaml` 和生产探测生成最终 capability/status：YouTube 根据真实审核/可见性状态标记 Available 或 Beta/受限；Facebook、Instagram、TikTok 及其他未接入平台保持 Coming Soon 且无 executable action。
 - 为每个提交审核的生产 Integration 组装 Legal Entity、verified domain、官网/法律/Integration 页面、production OAuth、minimum permission matrix、Data Flow/Retention/Revocation/Deletion、reviewer test account、instructions、demo script/video、支持联系人、当前 review/production status 和 permission-to-UI trace。
 - 在生产执行测试企业完整 journey，并保留机器、平台和 Human E2E evidence；不得使用模拟授权、模拟发布或人工改库。
+- 在生产以 English 与简体中文分别执行关键 journey（至少一条完整旅程和另一语言的等价关键路径），验证 locale preference、对应 route、任务状态保持、用户内容原文和全部能力/法律/破坏性语义 parity。
 - 执行 blocking full regression、production smoke、security/release checks；验证所有非目标能力仍未出现。
 - 形成团队可控的 review-ready closure evidence。任何外部 review submission、DNS/production change 或公开 rollout 均需对应 Human Owner 明确授权；第三方最终批准不作为 Stage Acceptance。
 
@@ -814,6 +842,7 @@ Required Verification:
 - 运行 D2 建立的全部 canonical format、lint、type/static、build、unit、contract、migration、integration、E2E、安全与 full regression commands；结果必须来自最终生产候选状态。
 - 运行 production smoke：全部 public routes、legal/security/integration links、auth、workspace、worker、storage、database、monitoring 与真实 capability/status 可用且一致。
 - 运行 D1 final UI fidelity audit，覆盖官网与 SaaS 全部关键 screen/state、responsive、accessibility 和 component behavior；无未批准 material deviation。
+- 运行 final localization audit：`en`/`zh-CN` catalog completeness、public locale routes/alternates、legal/capability parity、locale preference/fallback、320px reflow、用户创作内容不自动翻译和切换语言不重复外部写入。
 - 执行 AC-18 production Human E2E：Register → Create Workspace → Invite Editor/Approver → Assign Role → Connect actual authorized account → Upload user-owned content → Customize → Preview → Submit → Approve → Confirm → actual Publish → Track actual result → Inspect Audit → Disconnect → Revoke actual token → Delete required platform data。
 - 执行 release truth audit：每个产品/Integration/AI/Schedule/Security claim 可追溯到生产证据；无虚假截图、客户、Partner、认证、Available 或 executable Coming Soon action。
 - 执行 final tenant/RBAC/security/deletion/retention/backup-restore evidence review，并确认 Data Flow/Retention 与生产配置无 TBD 或漂移。
@@ -834,7 +863,7 @@ Required Gates:
 
 Stop Condition:
 
-- 全部 Stage 与 Gates 已通过；D3 生产官网持续公开可达，最终 full regression 阻塞通过；SaaS production/reviewer environment 与至少一个真实生产配置渠道完成受当前政策允许的端到端闭环；AC-01～AC-15、AC-17、AC-18 均有可追溯证据；review bundle 达到正式提交条件；所有公开状态和声明与实际生产能力一致。第三方最终审批结果不影响 Delivery Acceptance，但会继续约束公开可用范围。
+- 全部 Stage 与 Gates 已通过；D3 双语生产官网持续公开可达，最终 full regression 阻塞通过；双语 SaaS production/reviewer environment 与至少一个真实生产配置渠道完成受当前政策允许的端到端闭环；AC-01～AC-18 均有可追溯证据；review bundle 达到正式提交条件；两种语言中的所有公开状态和声明与实际生产能力一致。第三方最终审批结果不影响 Delivery Acceptance，但会继续约束公开可用范围。
 
 ## Acceptance Criteria Coverage
 
@@ -855,6 +884,7 @@ Stop Condition:
 | AC-13 | `BASELINE.md` § Acceptance Criteria | D7 | None | AC 要求生产实际启用，只有 D7 首次完整成立。 |
 | AC-14 | `BASELINE.md` § Acceptance Criteria | D7 | None | Review-ready evidence 必须基于最终 production app/config。 |
 | AC-15 | `BASELINE.md` § Acceptance Criteria | D5 | D7 | D5 建立 YouTube consent/fields/confirmation/audit restriction；D7 复核当前政策和生产行为。 |
+| AC-16 | `BASELINE.md` § Acceptance Criteria | D3 | D2, D4, D5, D6, D7 | D3 首次生产证明双语官网与 locale routes；D2 建立偏好/目录，D4～D6 验证 SaaS 各关键流程语义，D7 做最终双语生产闭环。 |
 | AC-17 | `BASELINE.md` § Acceptance Criteria | D4 | D7 | D4 证明 AI 未启用或满足用户控制；D7 防止生产入口/claims 漂移。 |
 | AC-18 | `BASELINE.md` § Acceptance Criteria | D7 | None | 完整真实企业 journey 是最终生产关闭证据。 |
 
@@ -866,9 +896,9 @@ Stop Condition:
 - D1 指定版本的 UI package 已完成 Human UI Final Approval，D2～D7 的最终 UI fidelity audit 没有未批准的 material deviation；
 - D3 官网已先于 YouTube verification/audit 路径在已验证官方域名完成 Production Launch，并在 D7 关闭时持续公开可达；
 - D7 最终 full regression、production smoke、安全/tenant/RBAC/delete/retention/restore 证据全部阻塞通过；
-- AC-01～AC-15、AC-17、AC-18 每一项均有对应 Primary Stage 证据，所有列出的 Reverification 有最终证据；
+- AC-01～AC-18 每一项均有对应 Primary Stage 证据，所有列出的 Reverification 有最终证据；
 - D1 完成关键 prototype Human walkthrough；Human E2E 在 D2 的第一条 runnable slice、D3 的 production website、D5 的真实平台 slice 和 D7 的完整生产 journey 均实际执行；
-- 官网、SaaS、法律/安全页面、Integration Registry、Developer App 和 review bundle 与最终生产能力一致；
+- English/简体中文官网、SaaS、法律/安全页面、Integration Registry、Developer App 和 review bundle 与最终生产能力一致；
 - 至少一个真实生产配置渠道完成当前官方政策允许的端到端 Publish/Track；若第三方 Audit 尚未完成，受限可见性和 Beta 状态必须真实显示；
 - Developer Review evidence 达到正式提交条件，但第三方审批、配额扩展或 audit 结果不作为 Delivery Acceptance；
 - Facebook、Instagram、TikTok 及其他未接入平台保持 Coming Soon，未验证 Schedule/AI 无可执行入口；

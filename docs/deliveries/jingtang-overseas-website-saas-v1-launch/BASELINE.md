@@ -3,15 +3,15 @@
 Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 Scope: project
 Status: Approved
-Baseline Revision: 1
+Baseline Revision: 2
 
 ## Goal
 
-以 JINGTANG 品牌上线英文优先的海外官网和首版 B2B SaaS，交付真实、安全、用户可控、满足当前适用开发者政策并具备正式提交审核条件的全球社交发布与企业内容审批闭环，并使全部对外承诺与实际生产能力一致。
+以 JINGTANG 品牌上线英文优先、同时完整提供简体中文的海外官网和首版 B2B SaaS，交付真实、安全、用户可控、满足当前适用开发者政策并具备正式提交审核条件的全球社交发布与企业内容审批闭环，并使全部对外承诺与实际生产能力一致。
 
 ## User Outcome
 
-一个真实企业可以在单一工作空间中配置团队与权限，通过官方授权连接自己的海外社交账号，上传其有权使用的素材，按平台定制、预览和审批内容，明确确认发布并跟踪结果，随后可撤销授权和删除相关数据；官网访客能够准确理解 JINGTANG 的产品、真实可用能力、数据处理方式与平台集成状态。
+一个真实企业可以在单一工作空间中以 English 或简体中文配置团队与权限，通过官方授权连接自己的海外社交账号，上传其有权使用的素材，按平台定制、预览和审批内容，明确确认发布并跟踪结果，随后可撤销授权和删除相关数据；官网访客能够以 English 或简体中文准确理解 JINGTANG 的产品、真实可用能力、数据处理方式与平台集成状态。
 
 ## Non-goals
 
@@ -36,7 +36,7 @@ Baseline Revision: 1
 - TikTok 属于 Wave 2，在本 Delivery 中保持 Coming Soon，不纳入本 Delivery 的功能范围或 Acceptance Criteria；LinkedIn、Pinterest、X 同属后续接入范围。
 - Publish Now 与 Schedule 按本 Delivery 实际接入平台的能力分别开放。
 - AI 可以提供可选的文案、标题、翻译、本地化和标签建议，但用户必须能够查看、修改、删除或拒绝 AI 输出，AI 不得替代用户作出最终发布决定。
-- 官网默认英文，首版主 CTA 为 `Book a Demo`；SaaS Product 与 Professional Services 必须清楚区分。
+- 官网与 SaaS 第一版均提供 English（`en`）和简体中文（`zh-CN`）界面，默认英文并允许用户显式切换；语言偏好应被保留，切换语言不得丢失当前页面、Workspace、草稿或任务上下文。用户创作内容保持原文，不因界面语言自动翻译。首版主 CTA 的英文为 `Book a Demo`；SaaS Product 与 Professional Services 必须清楚区分。
 - 每个平台按 `Need → Permission → UI → User Action → Data → Retention → Deletion` 单独建立开发者审核证据，不因整体合规而批量申请未来权限。
 
 ## Preserved Constraints
@@ -50,14 +50,14 @@ Baseline Revision: 1
 - Disconnect 必须停止后续 API 操作并执行真实撤销、Token 删除、适用数据清理和审计，不能只修改本地连接状态。
 - Privacy、Terms、Data Deletion 与数据保留承诺必须对应真实 Data Flow；服务器区域、处理方、备份、跨境路径和每类数据的保留期必须在生产上线前完成审查与定案。
 - 首版必须保持租户隔离、RBAC、传输与静态加密、备份与恢复、生产访问控制及日志、事件响应和基础漏洞管理。
-- 若提供中文站点，中英文的产品定位、功能状态、法律主体、隐私承诺与平台支持状态必须一致。
+- 官网与 SaaS 的中英文产品定位、功能与 Integration 状态、法律主体、Privacy、Terms、Data Deletion、Security、Consent、错误恢复和破坏性操作语义必须一致；不得因翻译遗漏而隐藏限制、扩大能力或改变用户控制。
 - AI Visibility 不承诺保证排名或推荐，其数据只能来自正式允许的 API、合规数据接口、明确允许的公开体验或授权数据源。
 - 阶段一资源优先用于核心闭环的可靠性，不以功能数量作为第一版完成标准。
 
 ## Acceptance Criteria
 
 - AC-01: 在生产上线及 Developer Review 前，JINGTANG 已冻结并统一使用一个已验证的官方主域名、域名邮箱和唯一英文法律主体表达；官网、SaaS、各 Developer App、Privacy、Terms、Data Deletion 与 Security 页面均显示一致的品牌和法律主体身份。
-- AC-02: 官方网站默认提供英文版，并公开可访问 Home、Social Publishing、Workflow & Approvals、Integrations、所有被展示为可用的 Integration 详情页、About、Contact、Security、Privacy、Terms 和 Data Deletion；网站不是仅含 Landing Page、Login 或 Coming Soon 的占位站，主 CTA 为 `Book a Demo`。
+- AC-02: 官方网站默认提供英文版，并为 English 和简体中文公开提供 Home、Social Publishing、Workflow & Approvals、Integrations、所有被展示为可用的 Integration 详情页、About、Contact、Security、Privacy、Terms 和 Data Deletion；网站不是仅含 Landing Page、Login 或 Coming Soon 的占位站，英文主 CTA 为 `Book a Demo`。
 - AC-03: 官网与产品中的每项功能和 Integration 均显示与上线当日能力一致的 Available、Beta / Early Access 或 Coming Soon 状态；未完成的能力没有可用状态、虚假功能截图或可执行入口，未形成真实 SaaS 的 AI Visibility 只以 Services 或 Early Access 展示。
 - AC-04: 用户能够完成 Sign Up、Login、Logout、Password Reset 或等价身份流程，并能创建和配置 Workspace。
 - AC-05: Owner / Admin 能邀请和移除成员、管理 Workspace、Channels、OAuth 与设置；Editor 能上传、创建、编辑和提交；Approver / Publisher 能批准、拒绝和发布；Viewer 保持只读，四类权限在产品中被实际执行。
@@ -71,8 +71,13 @@ Baseline Revision: 1
 - AC-13: 生产环境实际启用 TLS、静态数据加密、OAuth Token 加密、Secret Management、环境隔离、租户隔离、RBAC、审计、备份与恢复、生产访问控制与记录、事件响应和基础漏洞管理；Security 页面只描述这些已验证能力，未取得的认证不被宣称。
 - AC-14: 对每个提交生产权限或审核的 Integration，存在与生产 App 一致的 Legal Entity、已验证域名、公开官网和法律页面、Integration 页面、真实 SaaS、生产式 OAuth、最小权限 Matrix、Data Flow / Retention / Revocation / Deletion 说明、Reviewer Test Account、Instructions、Demo Script / Video、支持联系人和当前审核/生产状态；每个权限均可追溯到真实 UI 与用户动作。
 - AC-15: 若首版接入 YouTube，用户在访问相关 API 功能前已主动同意当前 Privacy 与 Terms；发布页显示目标 Channel、Video、可编辑 Title 和 Description、用户选择的 Privacy、适用 Audience / Required Settings、最终 Preview 与明确 Publish Confirmation；未完成所需 Verification / Compliance Audit 时不宣称或执行不被允许的公开发布。
+- AC-16: 官网与 SaaS 的全部 in-scope 页面、关键流程、状态、错误、Consent、法律/安全内容和破坏性操作均提供 English 与简体中文；英文为默认语言，用户可显式切换且偏好被保留，切换时不丢失当前页面、Workspace、草稿或任务状态。官网为两个语言版本提供可直接访问且可索引的稳定地址和正确的语言替代关系；两种语言的产品能力、Integration 状态、限制、法律主体与用户控制语义保持一致，在 320px 及以上支持的响应式宽度无阻断性截断或溢出。用户创作内容不被界面语言切换自动翻译。
 - AC-17: 若首版提供 AI Assistance，任何生成的 Caption、Title、Description、Hashtag、翻译或本地化结果都能在提交外部平台前被用户查看、修改、删除或拒绝，且不会自动添加 JINGTANG 品牌内容或绕过最终确认。
 - AC-18: 一个测试企业能够真实完成 `Register → Create Workspace → Invite Editor / Approver → Assign Role → Connect Authorized Account → Upload User-owned Content → Customize → Preview → Submit → Approve → Confirm → Publish → Track Result → Inspect Audit Log → Disconnect → Revoke Token → Delete Required Platform Data`，全程不依赖模拟授权、模拟发布或人工改库才能闭环。
+
+## Amendment Record
+
+- Revision 2 — 2026-08-20：JINGTANG Human Owner 在本 Delivery 的 D1 设计审阅中明确要求“我想确认有中英双语吗？如果没有，请加这条需求”。本修订将 English / 简体中文从可选一致性约束升级为官网与 SaaS V1 的必备能力，并新增 AC-16；英文默认、真实能力、用户控制、既有范围和已接受 D0 架构决策保持不变。
 
 ## Authoritative References
 
