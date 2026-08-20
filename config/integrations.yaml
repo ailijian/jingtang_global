@@ -1,0 +1,228 @@
+schema_version: 1
+revision: 1
+status: approved
+effective_date: "2026-08-20"
+owner: JINGTANG Integration Owner
+last_policy_verification_date: "2026-08-20"
+
+authority:
+  owns:
+    - public_status
+    - production_availability
+    - platform_capabilities
+    - oauth_scope_intent
+    - review_and_audit_constraints
+  public_status_values:
+    - available
+    - beta_early_access
+    - coming_soon
+  capability_state_values:
+    - available
+    - not_available
+  default_rule: deny_and_do_not_render_an_action_unless_the_registry_marks_it_available
+
+policy_sources:
+  google_oauth_production:
+    url: https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance
+    verified_on: "2026-08-20"
+  youtube_developer_policies:
+    url: https://developers.google.com/youtube/terms/developer-policies
+    verified_on: "2026-08-20"
+  youtube_videos_insert:
+    url: https://developers.google.com/youtube/v3/docs/videos/insert
+    verified_on: "2026-08-20"
+  google_youtube_scope_catalog:
+    url: https://developers.google.com/identity/protocols/oauth2/scopes#youtube
+    verified_on: "2026-08-20"
+
+integrations:
+  youtube:
+    display_name: YouTube
+    wave: wave_1
+    delivery_role: first_production_channel
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: D5
+    capabilities:
+      connect:
+        state: not_available
+        public_label: Coming Soon
+      publish_now:
+        state: not_available
+        public_label: Coming Soon
+      schedule:
+        state: not_available
+        public_label: Schedule Not Available
+      track_result:
+        state: not_available
+        public_label: Coming Soon
+      reauthorize:
+        state: not_available
+        public_label: Coming Soon
+      disconnect_and_revoke:
+        state: not_available
+        public_label: Coming Soon
+    authorization:
+      mechanism: google_oauth_2_web_server
+      official_only: true
+      incremental_authorization: true
+      requested_scopes:
+        - scope: https://www.googleapis.com/auth/youtube.upload
+          request_state: planned_not_requested
+          purpose: upload the exact user-approved video and metadata and track the returned video execution
+          baseline_trace:
+            - AC-07
+            - AC-09
+            - AC-15
+          design_trace:
+            - D-02
+            - D-05
+            - D-12
+          ui_surface:
+            - Channels / Connect YouTube / permission explanation
+            - Content Review / explicit Publish Confirmation
+            - Content Detail / per-platform execution result
+          user_action:
+            - user explicitly connects a YouTube channel
+            - authorized Publisher explicitly confirms the exact video, channel, fields, and privacy setting
+          api_methods:
+            - channels.list mine=true for connected-channel identity, subject to D5 scope verification
+            - videos.insert for user-confirmed upload
+            - videos.list by returned video ID for processing/result tracking
+      excluded_scopes:
+        - scope: https://www.googleapis.com/auth/youtube
+          reason: broader account management is not required for the V1 upload slice
+        - scope: https://www.googleapis.com/auth/youtube.force-ssl
+          reason: edit/delete breadth is not required for the V1 upload slice
+        - scope: https://www.googleapis.com/auth/youtube.readonly
+          reason: not requested unless D5 proves youtube.upload cannot support the minimum channel identity and returned-video tracking calls; adding it requires registry approval and reviewer trace
+        - scope: https://www.googleapis.com/auth/youtubepartner
+          reason: content-owner/CMS operations are outside V1
+        - scope: https://www.googleapis.com/auth/youtubepartner-channel-audit
+          reason: partner channel audit access is outside V1
+    current_constraints:
+      - production and test must use separate Google Cloud projects and OAuth clients
+      - all consent-screen domains must be owned and verified and all production redirects must use HTTPS
+      - the production consent screen, homepage, legal pages, support email, and legal entity must use the frozen identity
+      - uploads from qualifying unverified API projects are restricted to private viewing until the required audit is passed
+      - upload and quota/audit state must be shown truthfully and cannot be treated as Available before real production verification
+      - ordinary Authorized API Data must be refreshed or deleted within 30 calendar days
+      - in-product revocation must programmatically revoke immediately and applicable Authorized Data must be deleted as soon as possible and within 7 calendar days
+      - Schedule is not available and no scheduler or status claim may be exposed
+    d5_entry_gates:
+      - current official policy re-verification recorded
+      - official domain, domain email, English legal entity expression, homepage, Privacy, Terms, Data Deletion, Security, and YouTube Integration page are live and consistent
+      - separate test and production Google Cloud projects and current IAM contacts are evidenced
+      - HTTPS redirect URIs and domain ownership are evidenced
+      - reviewer/test channel and support contact are available in protected inventory
+      - youtube.upload scope is tested against channel identity, upload, and returned-video tracking; any additional scope requires explicit registry revision
+      - project verification, audit, quota, and private-upload limitation are recorded as actual external state
+      - token encryption, consent record, revoke/delete jobs, and audit event contracts exist before real credentials are used
+
+  facebook:
+    display_name: Facebook
+    wave: wave_1
+    delivery_role: future_integration_not_in_plan
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: not_in_current_plan
+    capabilities:
+      connect: {state: not_available, public_label: Coming Soon}
+      publish_now: {state: not_available, public_label: Coming Soon}
+      schedule: {state: not_available, public_label: Schedule Not Available}
+      track_result: {state: not_available, public_label: Coming Soon}
+      reauthorize: {state: not_available, public_label: Coming Soon}
+      disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    authorization:
+      mechanism: none
+      requested_scopes: []
+
+  instagram:
+    display_name: Instagram
+    wave: wave_1
+    delivery_role: future_integration_not_in_plan
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: not_in_current_plan
+    capabilities:
+      connect: {state: not_available, public_label: Coming Soon}
+      publish_now: {state: not_available, public_label: Coming Soon}
+      schedule: {state: not_available, public_label: Schedule Not Available}
+      track_result: {state: not_available, public_label: Coming Soon}
+      reauthorize: {state: not_available, public_label: Coming Soon}
+      disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    authorization:
+      mechanism: none
+      requested_scopes: []
+
+  tiktok:
+    display_name: TikTok
+    wave: wave_2
+    delivery_role: future_integration_not_in_delivery
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: not_in_current_delivery
+    capabilities:
+      connect: {state: not_available, public_label: Coming Soon}
+      publish_now: {state: not_available, public_label: Coming Soon}
+      schedule: {state: not_available, public_label: Schedule Not Available}
+      track_result: {state: not_available, public_label: Coming Soon}
+      reauthorize: {state: not_available, public_label: Coming Soon}
+      disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    authorization:
+      mechanism: none
+      requested_scopes: []
+
+  linkedin:
+    display_name: LinkedIn
+    wave: later
+    delivery_role: future_integration_not_in_delivery
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: not_in_current_delivery
+    capabilities:
+      connect: {state: not_available, public_label: Coming Soon}
+      publish_now: {state: not_available, public_label: Coming Soon}
+      schedule: {state: not_available, public_label: Schedule Not Available}
+      track_result: {state: not_available, public_label: Coming Soon}
+      reauthorize: {state: not_available, public_label: Coming Soon}
+      disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    authorization:
+      mechanism: none
+      requested_scopes: []
+
+  pinterest:
+    display_name: Pinterest
+    wave: later
+    delivery_role: future_integration_not_in_delivery
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: not_in_current_delivery
+    capabilities:
+      connect: {state: not_available, public_label: Coming Soon}
+      publish_now: {state: not_available, public_label: Coming Soon}
+      schedule: {state: not_available, public_label: Schedule Not Available}
+      track_result: {state: not_available, public_label: Coming Soon}
+      reauthorize: {state: not_available, public_label: Coming Soon}
+      disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    authorization:
+      mechanism: none
+      requested_scopes: []
+
+  x:
+    display_name: X
+    wave: later
+    delivery_role: future_integration_not_in_delivery
+    public_status: coming_soon
+    production_available: false
+    implementation_stage: not_in_current_delivery
+    capabilities:
+      connect: {state: not_available, public_label: Coming Soon}
+      publish_now: {state: not_available, public_label: Coming Soon}
+      schedule: {state: not_available, public_label: Schedule Not Available}
+      track_result: {state: not_available, public_label: Coming Soon}
+      reauthorize: {state: not_available, public_label: Coming Soon}
+      disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    authorization:
+      mechanism: none
+      requested_scopes: []

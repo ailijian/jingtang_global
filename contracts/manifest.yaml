@@ -1,0 +1,75 @@
+schema_version: 1
+revision: 1
+status: approved
+effective_date: "2026-08-20"
+owner: JINGTANG Contract Owner
+governance: contracts/README.md
+
+formats:
+  schema: json_schema_2020_12
+  http: openapi_3_1
+  events: asyncapi_3_x
+  persistence: prisma_migrations
+
+catalog:
+  - id: workspace
+    owner_stage: D2
+    canonical_path: contracts/schemas/workspace/v1/workspace.schema.json
+    status: planned
+  - id: rbac
+    owner_stage: D2
+    canonical_path: contracts/schemas/workspace/v1/rbac.schema.json
+    status: planned
+  - id: consent
+    owner_stage: D2
+    canonical_path: contracts/schemas/consent/v1/consent.schema.json
+    status: planned
+  - id: channel
+    owner_stage: D2
+    canonical_path: contracts/schemas/channel/v1/channel.schema.json
+    status: planned
+  - id: audit_event
+    owner_stage: D2
+    canonical_path: contracts/schemas/audit/v1/audit-event.schema.json
+    status: planned
+  - id: http_api
+    owner_stage: D2
+    canonical_path: contracts/http/openapi.yaml
+    status: planned
+  - id: async_api
+    owner_stage: D2
+    canonical_path: contracts/events/asyncapi.yaml
+    status: planned
+  - id: source_asset
+    owner_stage: D4
+    canonical_path: contracts/schemas/content/v1/source-asset.schema.json
+    status: planned
+  - id: content_lifecycle
+    owner_stage: D4
+    canonical_path: contracts/schemas/content/v1/content.schema.json
+    status: planned
+  - id: platform_version
+    owner_stage: D4
+    canonical_path: contracts/schemas/content/v1/platform-version.schema.json
+    status: planned
+  - id: approval
+    owner_stage: D4
+    canonical_path: contracts/schemas/content/v1/approval.schema.json
+    status: planned
+  - id: publishing_intent
+    owner_stage: D4
+    canonical_path: contracts/schemas/publishing/v1/publishing-intent.schema.json
+    status: planned
+  - id: platform_execution
+    owner_stage: D4
+    canonical_path: contracts/schemas/publishing/v1/platform-execution.schema.json
+    status: planned
+
+compatibility:
+  additive_optional_field: compatible
+  required_field_added: breaking
+  field_removed_or_renamed: breaking
+  type_or_meaning_changed: breaking
+  validation_narrowed: breaking
+  enum_value_added: breaking_unless_all_consumers_prove_unknown_tolerance
+  breaking_change_requires_new_major: true
