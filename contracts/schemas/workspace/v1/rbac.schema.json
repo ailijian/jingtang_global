@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:workspace:rbac:v1",
+  "title": "MembershipPermissionDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["membership_id", "workspace_id", "user_id", "role", "permission", "allowed"],
+  "properties": {
+    "membership_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "format": "uuid" },
+    "role": {
+      "type": "string",
+      "enum": ["owner_admin", "editor", "approver_publisher", "viewer"]
+    },
+    "permission": {
+      "type": "string",
+      "enum": [
+        "workspace.read",
+        "workspace.manage",
+        "member.invite",
+        "member.remove",
+        "member.role.assign",
+        "channel.read",
+        "channel.connect",
+        "channel.reauthorize",
+        "channel.disconnect",
+        "content.read",
+        "content.create",
+        "content.edit",
+        "content.submit",
+        "content.approve",
+        "content.reject",
+        "content.publish",
+        "activity.read",
+        "data.delete"
+      ]
+    },
+    "allowed": { "type": "boolean" },
+    "denial_reason": {
+      "type": ["string", "null"],
+      "enum": ["missing_membership", "role_denied", null]
+    }
+  }
+}

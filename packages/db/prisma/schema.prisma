@@ -1,0 +1,194 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Locale {
+  EN    @map("en")
+  ZH_CN @map("zh-CN")
+
+  @@map("locale")
+}
+
+enum Role {
+  OWNER_ADMIN         @map("owner_admin")
+  EDITOR              @map("editor")
+  APPROVER_PUBLISHER  @map("approver_publisher")
+  VIEWER              @map("viewer")
+
+  @@map("role")
+}
+
+enum MembershipStatus {
+  ACTIVE  @map("active")
+  REMOVED @map("removed")
+
+  @@map("membership_status")
+}
+
+enum InvitationStatus {
+  PENDING  @map("pending")
+  ACCEPTED @map("accepted")
+  REVOKED  @map("revoked")
+  EXPIRED  @map("expired")
+
+  @@map("invitation_status")
+}
+
+enum ChannelState {
+  NOT_CONNECTED            @map("not_connected")
+  CONNECTING               @map("connecting")
+  CONNECTED                @map("connected")
+  REAUTHORIZATION_REQUIRED @map("reauthorization_required")
+  DISCONNECTING            @map("disconnecting")
+  DISCONNECTED             @map("disconnected")
+
+  @@map("channel_state")
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  cognitoSubject     String    @unique @map("cognito_subject") @db.VarChar(255)
+  email              String    @unique @db.VarChar(320)
+  name               String    @db.VarChar(160)
+  localePreference   Locale    @default(EN) @map("locale_preference")
+  lastWorkspaceId    String?   @map("last_workspace_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships        Membership[]
+  sessions           Session[]
+  consents           ConsentRecord[]
+  createdWorkspaces  Workspace[] @relation("WorkspaceCreator")
+  invitedMembers     Invitation[] @relation("InvitationActor")
+  auditEvents        AuditEvent[] @relation("AuditActor")
+
+  @@map("users")
+}
+
+model Workspace {
+  id              String       @id @default(uuid()) @db.Uuid
+  name            String       @db.VarChar(160)
+  createdByUserId String       @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy       User         @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships     Membership[]
+  invitations     Invitation[]
+  auditEvents     AuditEvent[]
+  channels        Channel[]
+
+  @@index([createdByUserId])
+  @@map("workspaces")
+}
+
+model Membership {
+  id          String           @id @default(uuid()) @db.Uuid
+  workspaceId String           @map("workspace_id") @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  role        Role
+  status      MembershipStatus @default(ACTIVE)
+  joinedAt    DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+  @@index([workspaceId, role, status])
+  @@map("memberships")
+}
+
+model Invitation {
+  id              String           @id @default(uuid()) @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  email           String           @db.VarChar(320)
+  tokenHash       String           @unique @map("token_hash") @db.Char(64)
+  role            Role
+  status          InvitationStatus @default(PENDING)
+  invitedByUserId String           @map("invited_by_user_id") @db.Uuid
+  expiresAt       DateTime         @map("expires_at") @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy       User             @relation("InvitationActor", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status, expiresAt])
+  @@index([workspaceId, email])
+  @@map("invitations")
+}
+
+model ConsentRecord {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  termsVersion       String   @map("terms_version") @db.VarChar(80)
+  privacyVersion     String   @map("privacy_version") @db.VarChar(80)
+  dataPurposeVersion String   @map("data_purpose_version") @db.VarChar(80)
+  displayedLocale    Locale   @map("displayed_locale")
+  acceptanceMethod   String   @map("acceptance_method") @db.VarChar(40)
+  acceptedAt         DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, acceptedAt])
+  @@map("consent_records")
+}
+
+model Session {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  tokenHash          String   @unique @map("token_hash") @db.Char(64)
+  currentWorkspaceId String?  @map("current_workspace_id") @db.Uuid
+  expiresAt          DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt         DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model Channel {
+  id                       String       @id @default(uuid()) @db.Uuid
+  workspaceId              String       @map("workspace_id") @db.Uuid
+  platform                 String       @db.VarChar(40)
+  externalAccountId        String?      @map("external_account_id") @db.VarChar(255)
+  displayName              String?      @map("display_name") @db.VarChar(255)
+  state                    ChannelState @default(NOT_CONNECTED)
+  grantedScopes            String[]     @default([]) @map("granted_scopes")
+  consentRecordId          String?      @map("consent_record_id") @db.Uuid
+  tokenCiphertextReference String?      @map("token_ciphertext_reference") @db.VarChar(500)
+  deniedAt                 DateTime?    @map("denied_at") @db.Timestamptz(3)
+  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace                Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform, externalAccountId])
+  @@index([workspaceId, state])
+  @@map("channels")
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  eventVersion  Int      @default(1) @map("event_version")
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  workspaceId   String   @map("workspace_id") @db.Uuid
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  actorType     String   @map("actor_type") @db.VarChar(20)
+  action        String   @db.VarChar(80)
+  targetType    String   @map("target_type") @db.VarChar(40)
+  targetId      String   @map("target_id") @db.VarChar(255)
+  result        String   @db.VarChar(20)
+  correlationId String   @map("correlation_id") @db.Uuid
+  metadata      Json     @default("{}")
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor         User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, occurredAt(sort: Desc)])
+  @@index([workspaceId, action, occurredAt(sort: Desc)])
+  @@map("audit_events")
+}

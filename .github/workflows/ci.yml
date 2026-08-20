@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NODE_ENV: test
+      APP_ENV: test
+      APP_BASE_URL: http://127.0.0.1:3100
+      DATABASE_URL: postgresql://jingtang_app:unused@127.0.0.1:5432/jingtang
+      IDENTITY_PROVIDER: mock
+      ALLOW_TEST_IDENTITY: "true"
+      SESSION_COOKIE_SECRET: ci-session-cookie-secret-at-least-32-bytes
+      TERMS_VERSION: d2-test-terms-v1
+      PRIVACY_VERSION: d2-test-privacy-v1
+      DATA_PURPOSE_VERSION: d2-test-purpose-v1
+      TERMS_URL: https://example.invalid/terms
+      PRIVACY_URL: https://example.invalid/privacy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm verify

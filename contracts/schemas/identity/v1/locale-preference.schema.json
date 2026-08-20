@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:identity:locale-preference:v1",
+  "title": "LocalePreference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["user_id", "locale", "updated_at"],
+  "properties": {
+    "user_id": { "type": "string", "format": "uuid" },
+    "locale": { "type": "string", "enum": ["en", "zh-CN"] },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

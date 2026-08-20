@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:audit:audit-event:v1",
+  "title": "AuditEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_version",
+    "occurred_at",
+    "recorded_at",
+    "workspace_id",
+    "actor",
+    "action",
+    "target",
+    "result",
+    "correlation_id",
+    "metadata"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_version": { "type": "integer", "const": 1 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "type": "string", "enum": ["user", "system"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 255 }
+      }
+    },
+    "action": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 255 }
+      }
+    },
+    "result": { "type": "string", "enum": ["success", "denied", "failed"] },
+    "correlation_id": { "type": "string", "format": "uuid" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"] },
+      "propertyNames": {
+        "not": {
+          "pattern": "(email|token|password|authorization|cookie|content|asset|provider_error)"
+        }
+      }
+    }
+  }
+}

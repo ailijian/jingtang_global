@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: JINGTANG Platform API
+  version: 1.0.0
+  description: D2 identity, server session, Workspace, membership, locale, consent, and audit boundary.
+servers:
+  - url: /api/v1
+paths:
+  /auth/signup:
+    post:
+      operationId: signUp
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, name, password, locale, consent]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string, minLength: 1, maxLength: 120 }
+                password: { type: string, minLength: 12, maxLength: 128 }
+                locale: { type: string, enum: [en, zh-CN] }
+                consent: { const: true }
+      responses:
+        "201": { description: Confirmed account and server-managed session created. }
+        "202": { description: Account awaits identity-provider confirmation. }
+  /auth/confirm:
+    post:
+      operationId: confirmSignUp
+      security: []
+      responses:
+        "200": { description: Identity confirmed. }
+  /auth/login:
+    post:
+      operationId: login
+      security: []
+      responses:
+        "200": { description: Server-managed session created. }
+  /auth/logout:
+    post:
+      operationId: logout
+      responses:
+        "200": { description: Session invalidated and cookie cleared. }
+  /auth/password/request:
+    post:
+      operationId: requestPasswordReset
+      security: []
+      responses:
+        "200":
+          { description: Generic reset acceptance response; does not reveal account existence. }
+  /auth/password/confirm:
+    post:
+      operationId: confirmPasswordReset
+      security: []
+      responses:
+        "200": { description: Password reset confirmed by the identity provider. }
+  /session:
+    get:
+      operationId: getSession
+      responses:
+        "200": { description: Current server-managed session and available Workspace contexts. }
+  /locale:
+    put:
+      operationId: updateLocalePreference
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/identity/v1/locale-preference.schema.json
+      responses:
+        "200": { description: Authenticated preference and/or local cookie persisted. }
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      responses:
+        "200": { description: Workspaces available to the authenticated user. }
+    post:
+      operationId: createWorkspace
+      responses:
+        "201": { description: Workspace and Owner/Admin membership created atomically. }
+  /workspaces/select:
+    post:
+      operationId: selectWorkspace
+      responses:
+        "200": { description: Authorized Workspace selected for the current session. }
+  /invitations:
+    post:
+      operationId: inviteMember
+      responses:
+        "201": { description: Tenant-bound invitation created by an authorized member. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+  /invitations/accept:
+    post:
+      operationId: acceptInvitation
+      responses:
+        "200": { description: Matching invited identity joined the Workspace. }
+  /members/{membershipId}:
+    parameters:
+      - name: membershipId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: changeMemberRole
+      responses:
+        "200": { description: Role changed without removing the last Owner/Admin. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409": { description: The change would remove the last Owner/Admin. }
+    delete:
+      operationId: removeMember
+      responses:
+        "200": { description: Membership removed without removing the last Owner/Admin. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409": { description: The change would remove the last Owner/Admin. }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-jt_session
+  responses:
+    PermissionDenied:
+      description: Deny-by-default RBAC rejected the operation.
+security:
+  - sessionCookie: []

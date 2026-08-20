@@ -16,35 +16,35 @@ catalog:
   - id: workspace
     owner_stage: D2
     canonical_path: contracts/schemas/workspace/v1/workspace.schema.json
-    status: planned
+    status: implemented
   - id: rbac
     owner_stage: D2
     canonical_path: contracts/schemas/workspace/v1/rbac.schema.json
-    status: planned
+    status: implemented
   - id: locale_preference
     owner_stage: D2
     canonical_path: contracts/schemas/identity/v1/locale-preference.schema.json
-    status: planned
+    status: implemented
   - id: consent
     owner_stage: D2
     canonical_path: contracts/schemas/consent/v1/consent.schema.json
-    status: planned
+    status: implemented
   - id: channel
     owner_stage: D2
     canonical_path: contracts/schemas/channel/v1/channel.schema.json
-    status: planned
+    status: implemented
   - id: audit_event
     owner_stage: D2
     canonical_path: contracts/schemas/audit/v1/audit-event.schema.json
-    status: planned
+    status: implemented
   - id: http_api
     owner_stage: D2
     canonical_path: contracts/http/openapi.yaml
-    status: planned
+    status: implemented
   - id: async_api
     owner_stage: D2
     canonical_path: contracts/events/asyncapi.yaml
-    status: planned
+    status: implemented
   - id: source_asset
     owner_stage: D4
     canonical_path: contracts/schemas/content/v1/source-asset.schema.json

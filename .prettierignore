@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+out
+coverage
+packages/db/src/generated
+design/jingtang-v1/prototype.html
+design
+docs
+config
+contracts/README.md
+docs/deliveries/*/decision-inputs
+pnpm-lock.yaml

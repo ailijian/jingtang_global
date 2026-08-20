@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:workspace:workspace:v1",
+  "title": "Workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workspace_id", "name", "created_at", "updated_at"],
+  "properties": {
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,214 @@
+:root {
+  --jt-canvas: #f3f1ea;
+  --jt-surface: #fcfcf9;
+  --jt-surface-strong: #ffffff;
+  --jt-ink: #111513;
+  --jt-ink-soft: #45504a;
+  --jt-muted: #727a74;
+  --jt-line: #d8dcd5;
+  --jt-brand: #155d4e;
+  --jt-brand-deep: #0c332c;
+  --jt-brand-soft: #e5efeb;
+  --jt-gold: #a97d3e;
+  --jt-success: #1e684d;
+  --jt-warning: #875a17;
+  --jt-danger: #a23832;
+  --jt-info: #315e86;
+  --jt-focus: #0d7965;
+  color-scheme: light;
+  font-family: Manrope, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--jt-ink);
+  background: var(--jt-canvas);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--jt-canvas);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--jt-canvas);
+  color: var(--jt-ink);
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--jt-focus);
+  outline-offset: 2px;
+}
+
+.jt-button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.jt-button:disabled {
+  cursor: not-allowed;
+  color: var(--jt-muted);
+  background: var(--jt-surface);
+  border-color: var(--jt-line);
+}
+
+.jt-button--primary {
+  color: white;
+  background: var(--jt-brand);
+}
+
+.jt-button--primary:hover:not(:disabled) {
+  background: var(--jt-brand-deep);
+}
+
+.jt-button--secondary {
+  color: var(--jt-ink);
+  background: var(--jt-surface-strong);
+  border-color: var(--jt-line);
+}
+
+.jt-button--ghost {
+  color: var(--jt-brand-deep);
+  background: transparent;
+}
+
+.jt-button--danger {
+  color: var(--jt-danger);
+  background: var(--jt-surface-strong);
+  border-color: var(--jt-danger);
+}
+
+.jt-field {
+  display: grid;
+  gap: 7px;
+}
+
+.jt-field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.jt-field input,
+.jt-field select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--jt-line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--jt-ink);
+  background: var(--jt-surface-strong);
+}
+
+.jt-field [aria-invalid="true"] {
+  border-color: var(--jt-danger);
+}
+
+.jt-help,
+.jt-error {
+  margin: 0;
+  color: var(--jt-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.jt-error {
+  color: var(--jt-danger);
+}
+
+.jt-status {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  border: 1px solid var(--jt-line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  line-height: 1.5;
+  background: var(--jt-surface);
+}
+
+.jt-status__marker {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  margin-top: 0.4em;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.jt-status--info {
+  color: var(--jt-info);
+}
+
+.jt-status--success {
+  color: var(--jt-success);
+}
+
+.jt-status--warning {
+  color: var(--jt-warning);
+}
+
+.jt-status--danger {
+  color: var(--jt-danger);
+}
+
+.jt-page-state {
+  max-width: 680px;
+  padding: 48px 0;
+}
+
+.jt-page-state__rule {
+  width: 48px;
+  height: 2px;
+  margin-bottom: 24px;
+  background: var(--jt-gold);
+}
+
+.jt-page-state h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 500;
+}
+
+.jt-page-state p {
+  margin: 0 0 24px;
+  color: var(--jt-ink-soft);
+  line-height: 1.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .jt-status__marker {
+    forced-color-adjust: auto;
+  }
+}

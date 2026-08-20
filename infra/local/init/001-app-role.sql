@@ -1,0 +1,9 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'jingtang_app') THEN
+    CREATE ROLE jingtang_app LOGIN PASSWORD 'local_app_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE jingtang TO jingtang_app;

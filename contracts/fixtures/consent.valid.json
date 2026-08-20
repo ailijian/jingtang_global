@@ -1,0 +1,10 @@
+{
+  "consent_id": "44444444-4444-4444-8444-444444444444",
+  "user_id": "33333333-3333-4333-8333-333333333333",
+  "terms_version": "d2-test-terms-v1",
+  "privacy_version": "d2-test-privacy-v1",
+  "data_purpose_version": "d2-test-purpose-v1",
+  "displayed_locale": "en",
+  "acceptance_method": "registration_checkbox",
+  "accepted_at": "2026-08-21T00:00:00.000Z"
+}

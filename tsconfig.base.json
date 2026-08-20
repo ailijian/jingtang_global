@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@jingtang/application": ["packages/application/src/index.ts"],
+      "@jingtang/db": ["packages/db/src/index.ts"],
+      "@jingtang/domain": ["packages/domain/src/index.ts"],
+      "@jingtang/i18n": ["packages/i18n/src/index.ts"],
+      "@jingtang/integrations": ["packages/integrations/src/index.ts"],
+      "@jingtang/observability": ["packages/observability/src/index.ts"],
+      "@jingtang/ui": ["packages/ui/src/index.ts"]
+    }
+  }
+}

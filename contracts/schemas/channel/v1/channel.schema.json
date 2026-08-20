@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:channel:channel:v1",
+  "title": "ChannelSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["channel_id", "workspace_id", "platform", "state", "granted_scopes", "capabilities"],
+  "properties": {
+    "channel_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "platform": {
+      "type": "string",
+      "enum": ["youtube", "facebook", "instagram", "tiktok", "linkedin", "pinterest", "x"]
+    },
+    "external_account_id": { "type": ["string", "null"], "maxLength": 255 },
+    "display_name": { "type": ["string", "null"], "maxLength": 255 },
+    "state": {
+      "type": "string",
+      "enum": [
+        "not_connected",
+        "connecting",
+        "connected",
+        "reauthorization_required",
+        "disconnecting",
+        "disconnected"
+      ]
+    },
+    "granted_scopes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publish", "schedule"],
+      "properties": {
+        "publish": { "type": "string", "enum": ["available", "beta", "not_available"] },
+        "schedule": { "type": "string", "enum": ["available", "beta", "not_available"] }
+      }
+    },
+    "authorized_at": { "type": ["string", "null"], "format": "date-time" },
+    "refreshed_at": { "type": ["string", "null"], "format": "date-time" },
+    "denied_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

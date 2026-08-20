@@ -1,0 +1,22 @@
+packages:
+  - apps/*
+  - packages/*
+  - infra
+
+allowBuilds:
+  "@prisma/engines": true
+  esbuild: true
+  prisma: true
+  sharp: true
+
+catalogMode: strict
+
+overrides:
+  "@prisma/config>deepmerge-ts": 8.0.1
+
+minimumReleaseAgeExclude:
+  - "@aws-sdk/client-cognito-identity-provider@3.1114.0"
+  - aws-cdk-lib@2.266.0
+  - aws-cdk@2.1138.0
+
+pmOnFail: error

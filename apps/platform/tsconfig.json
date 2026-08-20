@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "noEmit": true,
+    "incremental": true,
+    "paths": {
+      "@jingtang/application": ["packages/application/dist/index"],
+      "@jingtang/db": ["packages/db/dist/index"],
+      "@jingtang/domain": ["packages/domain/dist/index"],
+      "@jingtang/i18n": ["packages/i18n/dist/index"],
+      "@jingtang/integrations": ["packages/integrations/dist/index"],
+      "@jingtang/observability": ["packages/observability/dist/index"],
+      "@jingtang/ui": ["packages/ui/dist/index"]
+    },
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

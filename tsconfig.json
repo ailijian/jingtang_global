@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/domain" },
+    { "path": "packages/application" },
+    { "path": "packages/i18n" },
+    { "path": "packages/observability" },
+    { "path": "packages/integrations" },
+    { "path": "packages/db" },
+    { "path": "apps/worker" },
+    { "path": "infra" }
+  ]
+}
