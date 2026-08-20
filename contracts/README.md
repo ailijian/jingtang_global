@@ -4,7 +4,7 @@
 - Contract Governance Revision: 2
 - Effective Date: 2026-08-20
 - Owner: JINGTANG Contract Owner
-- Architecture: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
+- Architecture: [`docs/architecture/README.md`](../docs/architecture/README.md)
 - Machine catalog: [`contracts/manifest.yaml`](manifest.yaml)
 
 ## Authority Boundary

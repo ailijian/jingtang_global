@@ -5,7 +5,7 @@
 **Effective Date:** 2026-08-20  
 **Delivery:** JINGTANG 海外官网与 SaaS 第一版上线  
 **Authority Dimension:** Approved Design Target — material IA、screen responsibility、interaction、UX state、responsive 与 consent semantics  
-**Upstream Authority:** [Approved `BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Revision 1  
+**Upstream Authority:** [Approved `BASELINE.md`](BASELINE.md), Revision 1<br>
 **Approval Scope:** D-01 ～ D-12 及由这些决策拥有的规范性 material UX semantics  
 **Approval Provenance:** Human Owner 于 2026-08-20 在 originating Codex task 中明确授权“批准按推荐组合修订”  
 **Purpose:** 固化 V1 已批准的 material UX decisions，作为 Design Readiness 与后续 planning 的设计输入  

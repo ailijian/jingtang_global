@@ -5,8 +5,8 @@
 - Effective Date: 2026-08-20
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
-- Architecture dependency: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
-- Upstream product authority: [`BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
+- Architecture dependency: [`docs/architecture/README.md`](../architecture/README.md)
+- Upstream product authority: [`BASELINE.md`](../deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
 
 ## Authority Boundary
 

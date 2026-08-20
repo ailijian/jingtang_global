@@ -74,7 +74,7 @@ Proceeding to Plan Generation.
 
 - `AGENTS.md` — 仓库知识地图、Authority 关系、Delivery workflow 与文档治理。
 - `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — Approved Delivery Target Revision 2；拥有 Goal、User Outcome、Non-goals、Key Decisions、Preserved Constraints 和 AC-01～AC-18。
-- `docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md` — Approved Design Revision 1；拥有 material IA、screen responsibility、interaction、UX state、responsive 与 consent semantics。D1 必须在任何 UI 实现前消费其 D-01～D-12，并完成 full-state、高保真、Design System、响应式、可访问性和 handoff derived specifications。
+- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md` — Approved Design Revision 1；拥有 material IA、screen responsibility、interaction、UX state、responsive 与 consent semantics。D1 必须在任何 UI 实现前消费其 D-01～D-12，并完成 full-state、高保真、Design System、响应式、可访问性和 handoff derived specifications。
 - [Google OAuth 2.0 Production Policy Compliance](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance) — 实施与发布时的生产 OAuth 身份、域名、Homepage、最小 Scope 与验证外部约束。
 - [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies) — 实施与发布时的同意、用户控制、数据保留、撤销和删除外部约束。
 - [YouTube `videos.insert` Reference](https://developers.google.com/youtube/v3/docs/videos/insert) — 上传 Contract、Scope 与未审核项目可见性限制的外部约束。
@@ -86,12 +86,12 @@ Proceeding to Plan Generation.
 Update:
 
 - `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — Human Owner 授权 Revision 2 Amendment，新增官网与 SaaS English/简体中文要求和 AC-16；既有边界保持不变。
-- `docs/ARCHITECTURE.md`、`docs/SECURITY_AND_DATA.md`、`contracts/`、`config/integrations.yaml` — 保留 D0 Revision 1 决策并增加 locale/message/偏好/数据与能力状态 parity 约束。
+- `docs/architecture/README.md`、`docs/security-and-data/README.md`、`contracts/`、`config/integrations.yaml` — 保留 D0 Revision 1 决策并增加 locale/message/偏好/数据与能力状态 parity 约束。
 
 Create:
 
-- `docs/ARCHITECTURE.md` — D0 建立 Current Architecture Authority，拥有系统边界、运行/部署拓扑、数据与异步边界、身份与租户隔离、Secret/Token 边界、依赖和机器 Contract Owner；不得重述产品目标。
-- `docs/SECURITY_AND_DATA.md` — D0 建立安全与数据治理 Owner，D6 完成生产 Data Flow Map、Retention Matrix、区域/处理方/跨境、加密、撤销、删除和控制证据。
+- `docs/architecture/README.md` — D0 建立 Current Architecture Authority，拥有系统边界、运行/部署拓扑、数据与异步边界、身份与租户隔离、Secret/Token 边界、依赖和机器 Contract Owner；不得重述产品目标。
+- `docs/security-and-data/README.md` — D0 建立安全与数据治理 Owner，D6 完成生产 Data Flow Map、Retention Matrix、区域/处理方/跨境、加密、撤销、删除和控制证据。
 - `docs/OPERATIONS.md` — D6 建立生产操作 Owner，覆盖备份恢复、生产访问与记录、事件响应、漏洞管理、监控与外部平台故障处理。
 - `contracts/` — D0 决定格式与 ownership，D2/D4 建立 Workspace、RBAC、Consent、Content、Platform Execution、Channel、Audit、API 和持久化迁移的 machine-readable contracts。
 - `config/integrations.yaml` — D0 建立 canonical Integration Capability / Permission / Status Registry；D3/D5/D7 分别用它驱动公开状态、真实平台能力和发布时真相核验。
@@ -105,7 +105,7 @@ Generated:
 Unaffected:
 
 - `docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md` — 保持 Human Owner 已授权的 Approved Revision 2；未经新 Amendment 授权不再修改。
-- `docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md` — 保持 Approved Design Revision 1；实现只生成下游规格。
+- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md` — 保持 Approved Design Revision 1；实现只生成下游规格。
 - `AGENTS.md` — 仓库治理明确要求未经授权不修改；本 PLAN 不安排治理改写。
 
 ## Implementation Delta
@@ -152,8 +152,8 @@ Authoritative References:
 
 Deliverables:
 
-- 创建并由 Human Owner 批准 `docs/ARCHITECTURE.md`，确定但不限于：应用/模块边界、技术栈、部署与环境、区域、身份、租户边界、持久化、对象存储、异步平台执行、Secret/Token 管理、可观测性、Contract 与 migration ownership。
-- 创建 `docs/SECURITY_AND_DATA.md` 的初始 Data Flow Map 与 Retention Matrix；解决会影响架构的区域、处理方、跨境、加密、备份和删除路径，不把产品文案当作数据流证据。
+- 创建并由 Human Owner 批准 `docs/architecture/README.md`，确定但不限于：应用/模块边界、技术栈、部署与环境、区域、身份、租户边界、持久化、对象存储、异步平台执行、Secret/Token 管理、可观测性、Contract 与 migration ownership。
+- 创建 `docs/security-and-data/README.md` 的初始 Data Flow Map 与 Retention Matrix；解决会影响架构的区域、处理方、跨境、加密、备份和删除路径，不把产品文案当作数据流证据。
 - 定义 `contracts/` 的格式、owner 和兼容/迁移规则，覆盖 Workspace/RBAC、Consent、Content Lifecycle、Publishing Intent、Platform Execution、Channel State 与 Audit Event。
 - 创建 `config/integrations.yaml`，以 YouTube 为首个执行渠道，记录实际 Capability、Publish/Schedule 状态、最小 Scope、当前 review/audit 限制与公开 Status；Facebook、Instagram 与 Wave 2 平台保持真实 Coming Soon。
 - 记录官方主域名、域名邮箱、唯一英文法律主体表达的 Human Owner 与冻结入口；记录 DNS、生产环境、Google Cloud/YouTube Developer Project、支持联系人和凭据访问的责任人，不把 Secret 写入仓库。
@@ -168,8 +168,8 @@ Non-goals:
 
 Affected Surface:
 
-- `docs/ARCHITECTURE.md`
-- `docs/SECURITY_AND_DATA.md`
+- `docs/architecture/README.md`
+- `docs/security-and-data/README.md`
 - `contracts/`
 - `config/integrations.yaml`
 - external account/domain readiness records referenced by these owners
@@ -227,8 +227,8 @@ Goal:
 Authoritative References:
 
 - Approved Baseline Revision 2：用户结果、边界、truthful status、角色、显式用户控制、English / 简体中文与全部 UI 相关 AC。
-- `docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md`：D-01～D-12、IA、screen responsibility、interaction、state、responsive、accessibility 与 consent semantics。
-- D0-approved `docs/ARCHITECTURE.md`：只提供实现约束、运行边界和技术可行性输入，不拥有产品或 UX 意义。
+- `docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md`：D-01～D-12、IA、screen responsibility、interaction、state、responsive、accessibility 与 consent semantics。
+- D0-approved `docs/architecture/README.md`：只提供实现约束、运行边界和技术可行性输入，不拥有产品或 UX 意义。
 
 Deliverables:
 
@@ -327,7 +327,7 @@ Authoritative References:
 - Baseline：AC-04、AC-05、AC-11、AC-12、AC-13、AC-16 及多租户/RBAC/Secret/双语约束。
 - Approved Design：Primary SaaS IA、Onboarding and Team Setup、D-07、D-09、D-11、D-12。
 - D1-finalized UI package：身份、Onboarding、SaaS shell、full states、responsive、accessibility 与 component handoff。
-- D0-approved `docs/ARCHITECTURE.md`、`docs/SECURITY_AND_DATA.md` 与 `contracts/` ownership。
+- D0-approved `docs/architecture/README.md`、`docs/security-and-data/README.md` 与 `contracts/` ownership。
 
 Deliverables:
 
@@ -413,7 +413,7 @@ Authoritative References:
 - Baseline：AC-01、AC-02、AC-03、AC-12、AC-13、AC-16 及品牌、法律主体、双语和 truthful claims 约束。
 - Approved Design：Website Experience Architecture、Website IA、Integration Page、Coming Soon、Visual/Responsive/Accessibility principles、D-10、D-11、D-12。
 - D1-finalized UI package：官网高保真页面、Design System、full states、mobile-first、accessibility 与 handoff。
-- D0/D2：`config/integrations.yaml`、`docs/SECURITY_AND_DATA.md`、实际 UI/contract owners。
+- D0/D2：`config/integrations.yaml`、`docs/security-and-data/README.md`、实际 UI/contract owners。
 
 Deliverables:
 
@@ -701,7 +701,7 @@ Deliverables:
 - 实现 JINGTANG Account/Workspace/Data 删除流程，并在 `/data-deletion` 与 UI 清楚区分 JINGTANG data、Disconnect 和第三方平台内容删除。
 - 实现 YouTube Authorized Data refresh/delete policy jobs：适用普通数据最长 30 天刷新或删除，用户删除/撤销数据尽快且最迟 7 天完成；以可控时钟测试而非实际等待证明。
 - 完成 Audit Log 覆盖 Baseline AC-11 的所有事件与 User、Workspace、Action、Target、Timestamp、Result 及必要技术元数据；普通用户只看有权限的 Workspace/Content Activity。
-- 完成 `docs/SECURITY_AND_DATA.md`，使生产 Data Flow Map 和 Retention Matrix 无 TBD，并与实际 source/region/processor/encryption/backup/cross-border/deletion path 对齐。
+- 完成 `docs/security-and-data/README.md`，使生产 Data Flow Map 和 Retention Matrix 无 TBD，并与实际 source/region/processor/encryption/backup/cross-border/deletion path 对齐。
 - 创建 `docs/OPERATIONS.md` 并实现 TLS、静态数据/Token 加密、Secret Management、环境隔离、生产访问控制与记录、监控告警、备份恢复、事件响应和基础漏洞管理的可验证流程。
 - 同步更新 English/简体中文 Privacy、Terms、Data Deletion、Security 与 Integration pages，只陈述 D6 已验证且 D7 将在生产复核的事实，并保持同一 canonical policy version 与能力语义。
 - 按 D1-finalized UI package 实现 destructive action、disconnecting/deletion in progress、success/failure/retry、keyboard/focus 与非颜色单一提示；如真实平台约束要求 material UX 变化，停止并重新 design-readiness。

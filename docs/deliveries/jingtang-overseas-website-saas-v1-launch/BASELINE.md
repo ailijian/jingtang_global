@@ -83,7 +83,7 @@ Baseline Revision: 2
 
 ### Decision Input
 
-- [鲸汤 JINGTANG 海外官网与 SaaS 第一版上线方案 v0.3（定稿版）](<../../鲸汤 JINGTANG 海外官网与 SaaS 第一版上线方案 v0.3（定稿版）.md>) — 用于形成本 Baseline 的已定稿决策输入；Baseline Approved 后，不再作为本 Delivery 的 Goal、边界、Preserved Constraints 或 Acceptance Criteria 的平行 Authority。
+- [鲸汤 JINGTANG 海外官网与 SaaS 第一版上线方案 v0.3（定稿版）](decision-inputs/ORIGINAL_PROPOSAL.md) — 用于形成本 Baseline 的已定稿决策输入；Baseline Approved 后，不再作为本 Delivery 的 Goal、边界、Preserved Constraints 或 Acceptance Criteria 的平行 Authority。
 
 ### External Constraint Authorities
 

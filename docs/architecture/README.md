@@ -4,8 +4,8 @@
 - Architecture Revision: 2
 - Effective Date: 2026-08-20
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
-- Baseline: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md`](deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
-- Design input: [`docs/JINGTANG V1 UX Architecture & Design Authority v0.1.md`](JINGTANG%20V1%20UX%20Architecture%20%26%20Design%20Authority%20v0.1.md), Approved Revision 1
+- Baseline: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md`](../deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
+- Design input: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md`](../deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md), Approved Revision 1
 - Owner: JINGTANG Architecture Owner
 - Approval owner: JINGTANG Human Owner
 
@@ -13,7 +13,7 @@
 
 This document owns the current implementation architecture: system and module boundaries, technology and deployment choices, environment and regional topology, identity and tenant boundaries, persistence and asynchronous execution, secrets and observability boundaries, and the location of machine contract, migration, verification, and CI owners.
 
-It does not own or restate Delivery goals, scope, product acceptance criteria, material UX meaning, legal copy, public capability claims, retention policy, or individual contract payloads. Those remain owned by the Approved Baseline, Approved Design Authority, [`docs/SECURITY_AND_DATA.md`](SECURITY_AND_DATA.md), [`contracts/`](../contracts/), and [`config/integrations.yaml`](../config/integrations.yaml), respectively.
+It does not own or restate Delivery goals, scope, product acceptance criteria, material UX meaning, legal copy, public capability claims, retention policy, or individual contract payloads. Those remain owned by the Approved Baseline, Approved Design Authority, [`docs/security-and-data/README.md`](../security-and-data/README.md), [`contracts/`](../../contracts/), and [`config/integrations.yaml`](../../config/integrations.yaml), respectively.
 
 The decisions below are build constraints after Human Owner approval. Exact dependency patch versions and non-material library substitutions are implementation details and must be locked and verified in D2.
 
@@ -118,7 +118,7 @@ Within one database transaction it writes:
 
 The dispatcher publishes outbox messages to SQS. The worker claims one execution, rechecks revocation/deletion state, performs the adapter call with an idempotency key, and records the platform ID/URL and real result. `publishing`, `processing`, `published`, `failed`, `needs_attention`, and `cancelled` are per-execution outcomes. No aggregate status may overwrite them.
 
-Disconnect or deletion writes a deny marker before asynchronous cleanup starts. Workers must reject new or queued calls for denied connections. Token revocation and deletion behavior is owned by `docs/SECURITY_AND_DATA.md`; UI meaning remains owned by the Design Authority.
+Disconnect or deletion writes a deny marker before asynchronous cleanup starts. Workers must reject new or queued calls for denied connections. Token revocation and deletion behavior is owned by `docs/security-and-data/README.md`; UI meaning remains owned by the Design Authority.
 
 ## Secrets, Tokens, and Logs
 

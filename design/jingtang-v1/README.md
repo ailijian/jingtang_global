@@ -4,8 +4,8 @@
 - Package Version: D1-UI-R2
 - Effective Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Upstream Product Authority: [`BASELINE.md`](../../docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
-- Upstream Design Authority: [`JINGTANG V1 UX Architecture & Design Authority v0.1.md`](../../docs/JINGTANG%20V1%20UX%20Architecture%20%26%20Design%20Authority%20v0.1.md), Approved Revision 1
-- Architecture Constraint: [`ARCHITECTURE.md`](../../docs/ARCHITECTURE.md), Approved Revision 2
+- Upstream Design Authority: [`DESIGN_AUTHORITY.md`](../../docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md), Approved Revision 1
+- Architecture Constraint: [`docs/architecture/README.md`](../../docs/architecture/README.md), Approved Revision 2
 - UI Package Owner: JINGTANG Design Owner
 - Approval Owner: JINGTANG Human Owner
 

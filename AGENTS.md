@@ -1,14 +1,10 @@
 # Repository Agent Guide
 
-## Scope and Knowledge Map
+## Scope and Knowledge Routing
 
 This repository owns the durable project knowledge, Delivery artifacts, and implementation for the JINGTANG overseas website and SaaS.
 
-- Delivery targets live at `docs/deliveries/<delivery-id>/BASELINE.md`.
-- Delivery execution plans live beside their baseline as `docs/deliveries/<delivery-id>/PLAN.md` after formal planning creates them.
-- Decision provenance and external constraints are routed through each Delivery's `Authoritative References`; a decision input is context, not a parallel target authority after its baseline is Approved.
-- Repository licensing is owned by `LICENSE`.
-- External platform policies are not repository-owned facts. For an affected integration, use the current official platform source identified by the Delivery authority.
+Before planning, implementation, review, or documentation work, use `docs/README.md` as the repository Knowledge Map to locate the applicable authority and its semantic dimension. The map is a routing index, not a parallel source of product or system facts; read only the owners relevant to the task.
 
 ## Authority and Repository Invariants
 
