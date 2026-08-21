@@ -6,13 +6,20 @@ import {
   startDisposablePostgres,
   stopDisposablePostgres,
 } from "./lib/disposable-postgres.js";
+import {
+  objectStorageEnvironment,
+  startDisposableObjectStorage,
+  stopDisposableObjectStorage,
+} from "./lib/disposable-object-storage.js";
 
 const database = await startDisposablePostgres();
+const storage = await startDisposableObjectStorage();
 deployMigrations(database);
 runChecked("pnpm", ["build:packages"]);
 
 const environment: NodeJS.ProcessEnv = {
   ...migrationEnvironment(database),
+  ...objectStorageEnvironment(storage),
   NODE_ENV: "development",
   APP_ENV: "test",
   APP_BASE_URL: "http://127.0.0.1:3100",
@@ -36,11 +43,17 @@ async function stop(signal: NodeJS.Signals) {
   if (stopping) return;
   stopping = true;
   child.kill(signal);
-  await stopDisposablePostgres(database.name);
+  await Promise.all([
+    stopDisposablePostgres(database.name),
+    stopDisposableObjectStorage(storage.name),
+  ]);
   process.exit(0);
 }
 process.on("SIGINT", () => void stop("SIGINT"));
 process.on("SIGTERM", () => void stop("SIGTERM"));
 child.on("exit", (code) => {
-  void stopDisposablePostgres(database.name).finally(() => process.exit(code ?? 1));
+  void Promise.all([
+    stopDisposablePostgres(database.name),
+    stopDisposableObjectStorage(storage.name),
+  ]).finally(() => process.exit(code ?? 1));
 });

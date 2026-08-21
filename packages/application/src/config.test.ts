@@ -15,6 +15,11 @@ const base = {
   DATA_PURPOSE_VERSION: "2026-08-21",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
+  OBJECT_STORAGE_ENDPOINT: "http://localhost:9000",
+  OBJECT_STORAGE_BUCKET: "jingtang-test-assets",
+  OBJECT_STORAGE_ACCESS_KEY_ID: "test-access-key",
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: "test-secret-access-key",
+  OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION: "true",
 };
 
 describe("environment isolation", () => {

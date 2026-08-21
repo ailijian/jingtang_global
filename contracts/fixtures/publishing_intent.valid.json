@@ -1,0 +1,30 @@
+{
+  "publishing_intent_id": "99999999-9999-4999-8999-999999999999",
+  "workspace_id": "22222222-2222-4222-8222-222222222222",
+  "content_id": "33333333-3333-4333-8333-333333333333",
+  "revision_id": "44444444-4444-4444-8444-444444444444",
+  "platform_version_ids": ["66666666-6666-4666-8666-666666666666"],
+  "account_references": ["review-target-youtube"],
+  "payload_snapshot": {
+    "revision_id": "44444444-4444-4444-8444-444444444444",
+    "versions": [
+      {
+        "platform_version_id": "66666666-6666-4666-8666-666666666666",
+        "platform": "youtube",
+        "account_reference": "review-target-youtube",
+        "title": "Autumn launch",
+        "description": "Prepared for review only.",
+        "privacy_status": "private",
+        "made_for_kids": false
+      }
+    ]
+  },
+  "permission_decision": "allowed",
+  "state": "ready",
+  "mode": "immediate",
+  "confirmed_by_user_id": "88888888-8888-4888-8888-888888888888",
+  "consent_version": "2026-08-21",
+  "payload_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "idempotency_key": "intent-example-1",
+  "confirmed_at": "2026-08-21T12:00:00.000Z"
+}

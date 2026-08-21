@@ -23,7 +23,8 @@ export function LocalePicker({
     for (const field of document.querySelectorAll<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >("form [name]")) {
-      if (field instanceof HTMLInputElement && field.type === "password") continue;
+      if (field instanceof HTMLInputElement && (field.type === "password" || field.type === "file"))
+        continue;
       fields[field.name] =
         field instanceof HTMLInputElement && (field.type === "checkbox" || field.type === "radio")
           ? field.checked

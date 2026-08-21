@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 2
+revision: 3
 status: approved
 effective_date: "2026-08-20"
 owner: JINGTANG Contract Owner
 governance: contracts/README.md
-revision_note: Baseline Revision 2 bilingual amendment; Revision 1 domain contracts remain unchanged
+revision_note: D4 implements content, approval, publishing-intent, and platform-execution boundaries
 
 formats:
   schema: json_schema_2020_12
@@ -48,27 +48,27 @@ catalog:
   - id: source_asset
     owner_stage: D4
     canonical_path: contracts/schemas/content/v1/source-asset.schema.json
-    status: planned
+    status: implemented
   - id: content_lifecycle
     owner_stage: D4
     canonical_path: contracts/schemas/content/v1/content.schema.json
-    status: planned
+    status: implemented
   - id: platform_version
     owner_stage: D4
     canonical_path: contracts/schemas/content/v1/platform-version.schema.json
-    status: planned
+    status: implemented
   - id: approval
     owner_stage: D4
     canonical_path: contracts/schemas/content/v1/approval.schema.json
-    status: planned
+    status: implemented
   - id: publishing_intent
     owner_stage: D4
     canonical_path: contracts/schemas/publishing/v1/publishing-intent.schema.json
-    status: planned
+    status: implemented
   - id: platform_execution
     owner_stage: D4
     canonical_path: contracts/schemas/publishing/v1/platform-execution.schema.json
-    status: planned
+    status: implemented
 
 compatibility:
   additive_optional_field: compatible

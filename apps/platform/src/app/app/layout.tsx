@@ -12,11 +12,11 @@ import { getRuntime } from "../../server/runtime";
 
 const nav = [
   ["/app", "nav.home", true],
-  ["#content", "nav.content", false],
-  ["#approvals", "nav.approvals", false],
-  ["#calendar", "nav.calendar", false],
+  ["/app/content", "nav.content", true],
+  ["/app/approvals", "nav.approvals", true],
+  ["/app/calendar", "nav.calendar", true],
   ["#channels", "nav.channels", false],
-  ["#activity", "nav.activity", false],
+  ["/app/activity", "nav.activity", true],
   ["/app/settings/team", "nav.settings", true],
 ] as const;
 

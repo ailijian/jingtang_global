@@ -21,6 +21,7 @@ export function FormStateRestorer() {
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
       >(`[name="${CSS.escape(name)}"]`);
       if (!field) continue;
+      if (field instanceof HTMLInputElement && field.type === "file") continue;
       if (
         field instanceof HTMLInputElement &&
         (field.type === "checkbox" || field.type === "radio")

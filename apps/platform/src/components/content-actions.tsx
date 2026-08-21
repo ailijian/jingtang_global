@@ -1,0 +1,244 @@
+"use client";
+
+import type { ContentStatus, Locale, PrivacyStatus } from "@jingtang/domain";
+import { translate } from "@jingtang/i18n";
+import { Button, StatusMessage } from "@jingtang/ui";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+interface VersionInput {
+  readonly platform: "youtube";
+  readonly accountReference: string;
+  readonly accountDisplayName: string;
+  readonly title: string;
+  readonly description: string;
+  readonly privacyStatus: PrivacyStatus;
+  readonly madeForKids: boolean;
+}
+
+export function ContentActions({
+  locale,
+  contentId,
+  revisionId,
+  status,
+  internalTitle: initialInternalTitle,
+  version,
+  canEdit,
+  canSubmit,
+  canApprove,
+  canReject,
+}: {
+  readonly locale: Locale;
+  readonly contentId: string;
+  readonly revisionId: string;
+  readonly status: ContentStatus;
+  readonly internalTitle: string;
+  readonly version: VersionInput;
+  readonly canEdit: boolean;
+  readonly canSubmit: boolean;
+  readonly canApprove: boolean;
+  readonly canReject: boolean;
+}) {
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [internalTitle, setInternalTitle] = useState(initialInternalTitle);
+  const [draftVersion, setDraftVersion] = useState(version);
+  const [result, setResult] = useState<"saved" | "failed" | null>(null);
+
+  async function command(path: string, body?: unknown) {
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        ...(body
+          ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
+          : {}),
+      });
+      if (!response.ok) {
+        setResult("failed");
+        return;
+      }
+      setResult("saved");
+      router.refresh();
+    } catch {
+      setResult("failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit() {
+    setBusy(true);
+    setResult(null);
+    try {
+      const response = await fetch(`/api/v1/content/${contentId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ internalTitle, platformVersions: [draftVersion] }),
+      });
+      if (!response.ok) {
+        setResult("failed");
+        return;
+      }
+      setEditing(false);
+      setResult("saved");
+      router.refresh();
+    } catch {
+      setResult("failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="content-action-panel">
+      {status === "draft" && canSubmit ? (
+        <Button disabled={busy} onClick={() => void command(`/api/v1/content/${contentId}/submit`)}>
+          {t("detail.submit")}
+        </Button>
+      ) : null}
+
+      {status === "pending_approval" && (canApprove || canReject) ? (
+        <div className="approval-controls">
+          <label className="content-field">
+            <span>{t("detail.rejectReason")}</span>
+            <textarea
+              name="reviewFeedback"
+              value={feedback}
+              maxLength={1000}
+              rows={4}
+              onChange={(event) => setFeedback(event.target.value)}
+            />
+          </label>
+          <div className="content-action-row">
+            {canReject ? (
+              <Button
+                variant="danger"
+                disabled={busy || !feedback.trim()}
+                onClick={() =>
+                  void command(`/api/v1/content/${contentId}/decision`, {
+                    revisionId,
+                    result: "rejected",
+                    reason: feedback,
+                  })
+                }
+              >
+                {t("detail.reject")}
+              </Button>
+            ) : null}
+            {canApprove ? (
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  void command(`/api/v1/content/${contentId}/decision`, {
+                    revisionId,
+                    result: "approved",
+                    ...(feedback.trim() ? { reason: feedback } : {}),
+                  })
+                }
+              >
+                {t("detail.approve")}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {status !== "pending_approval" && canEdit ? (
+        <>
+          <Button variant="secondary" onClick={() => setEditing((value) => !value)}>
+            {t("detail.edit")}
+          </Button>
+          {editing ? (
+            <form className="revision-edit-form" onSubmit={(event) => event.preventDefault()}>
+              <label className="content-field">
+                <span>{t("composer.internalTitle")}</span>
+                <input
+                  name="editInternalTitle"
+                  value={internalTitle}
+                  maxLength={160}
+                  onChange={(event) => setInternalTitle(event.target.value)}
+                />
+              </label>
+              <label className="content-field">
+                <span>{t("composer.youtubeTitle")}</span>
+                <input
+                  name="editPlatformTitle"
+                  value={draftVersion.title}
+                  maxLength={100}
+                  onChange={(event) =>
+                    setDraftVersion((current) => ({ ...current, title: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="content-field">
+                <span>{t("composer.descriptionField")}</span>
+                <textarea
+                  name="editDescription"
+                  value={draftVersion.description}
+                  maxLength={5000}
+                  rows={5}
+                  onChange={(event) =>
+                    setDraftVersion((current) => ({ ...current, description: event.target.value }))
+                  }
+                />
+              </label>
+              <div className="field-grid">
+                <label className="content-field">
+                  <span>{t("composer.privacy")}</span>
+                  <select
+                    name="editPrivacyStatus"
+                    value={draftVersion.privacyStatus}
+                    onChange={(event) =>
+                      setDraftVersion((current) => ({
+                        ...current,
+                        privacyStatus: event.target.value as PrivacyStatus,
+                      }))
+                    }
+                  >
+                    <option value="private">{t("composer.privacy.private")}</option>
+                    <option value="unlisted">{t("composer.privacy.unlisted")}</option>
+                    <option value="public">{t("composer.privacy.public")}</option>
+                  </select>
+                </label>
+                <label className="content-field">
+                  <span>{t("composer.audience")}</span>
+                  <select
+                    name="editAudience"
+                    value={String(draftVersion.madeForKids)}
+                    onChange={(event) =>
+                      setDraftVersion((current) => ({
+                        ...current,
+                        madeForKids: event.target.value === "true",
+                      }))
+                    }
+                  >
+                    <option value="false">{t("composer.notMadeForKids")}</option>
+                    <option value="true">{t("composer.madeForKids")}</option>
+                  </select>
+                </label>
+              </div>
+              <Button
+                disabled={busy || !internalTitle.trim() || !draftVersion.title.trim()}
+                onClick={() => void saveEdit()}
+              >
+                {t("detail.saveRevision")}
+              </Button>
+            </form>
+          ) : null}
+        </>
+      ) : null}
+
+      {result === "saved" ? (
+        <StatusMessage tone="success">{t("detail.actionSaved")}</StatusMessage>
+      ) : null}
+      {result === "failed" ? (
+        <StatusMessage tone="danger">{t("detail.actionFailed")}</StatusMessage>
+      ) : null}
+    </section>
+  );
+}

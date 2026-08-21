@@ -18,7 +18,7 @@ PLAN:
 - Resolution source: Repository convention in `AGENTS.md`
 - Mode: Revise
 
-Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E。下一 Stage 为 D4。
+Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance；D4 已通过 Self Verification、Code Review 与 Acceptance Review，并依据 Human Owner 的明确授权将本 Stage Human E2E 延后至 D7 最终统一验收后获准推进。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E。下一 Stage 为 D5。
 
 Authority readiness: 初始 Delivery Target 由 Approved Baseline 拥有；当前 Approved Design Target 可直接用于 planning。
 
@@ -606,6 +606,16 @@ Stop Condition:
 
 - 真实数据库与对象存储上的 pre-publish journey 无需 mock 或人工改库即可完成；角色、tenant、状态和 Audit 负向证据通过；没有外部平台写入或未授权 AI/Schedule 能力。
 
+### D4 Execution Record
+
+- Status: Accepted for Stage Progression
+- Self Verification: canonical format、lint、type/static、build、unit、contract、i18n、migration/RLS、真实 MinIO/S3-compatible object storage integration、platform E2E、website regression、secret scan 与 production dependency audit 均通过；D4 browser journey 已验证中英双语 draft/context/用户原文保留、320px 导航与无 Publish/Schedule/AI 可执行入口。
+- Code Review: Content/Revision 状态机、Source Asset claim/失败补偿、tenant/RBAC deny、不可变提交版本/审批决定、Approval 与 Publishing Intent/Platform Execution 分离、Audit single operational view、对象存储加密配置和 D1 UI fidelity 完成评审，无 blocking finding。
+- Acceptance Review: Passed on 2026-08-21 against AC-05、AC-06、AC-08、AC-11、AC-16、AC-17 and the D4 Stop Condition；真实 database/object-storage integration、状态与事务边界、tenant/RBAC negative paths、双语 browser journey、Activity evidence 和 approval/publishing separation 均有自动化或审查证据，无 blocking finding。
+- Human E2E: Deferred by explicit Human Owner authorization on 2026-08-21 to the D7 final unified Human E2E；延期不表示本项已执行或通过。保留范围为 English/简体中文的 Upload → platform/account → Customize → Preview → Submit → Reject with reason → edit/new revision → resubmit → Approve，以及 Content Detail/Activity、Viewer/Editor/Approver actions、移动端和明确 Publish Confirmation 前无外部写入。
+- Stage Acceptance: Accepted for progression under the same Human Owner instruction after the passing Acceptance Review；D4 deferred Human E2E remains a blocking D7 Delivery-closure item.
+- Checkpoint: created by the repository workflow immediately after this acceptance record; Git history owns the checkpoint identity.
+
 ## D5 — YouTube OAuth, Publish, and Track Protected Integration Slice
 
 Goal:
@@ -865,6 +875,7 @@ Required Verification:
 - 运行 D1 final UI fidelity audit，覆盖官网与 SaaS 全部关键 screen/state、responsive、accessibility 和 component behavior；无未批准 material deviation。
 - 运行 final localization audit：`en`/`zh-CN` catalog completeness、public locale routes/alternates、legal/capability parity、locale preference/fallback、320px reflow、用户创作内容不自动翻译和切换语言不重复外部写入。
 - 执行 AC-18 production Human E2E：Register → Create Workspace → Invite Editor/Approver → Assign Role → Connect actual authorized account → Upload user-owned content → Customize → Preview → Submit → Approve → Confirm → actual Publish → Track actual result → Inspect Audit → Disconnect → Revoke actual token → Delete required platform data。
+- 在最终统一 Human E2E 中单独记录 D4 延期范围：分别以 English/简体中文完成 pre-publish Upload → platform/account → Customize → Preview → Submit → Reject with reason → edit/new revision → resubmit → Approve，检查 Content Detail/Activity、Viewer/Editor/Approver actions、320px 移动端，并证明明确 Publish Confirmation 前没有外部写入；该项在 D7 关闭前保持 blocking。
 - 执行 release truth audit：每个产品/Integration/AI/Schedule/Security claim 可追溯到生产证据；无虚假截图、客户、Partner、认证、Available 或 executable Coming Soon action。
 - 执行 final tenant/RBAC/security/deletion/retention/backup-restore evidence review，并确认 Data Flow/Retention 与生产配置无 TBD 或漂移。
 - 验证 review evidence bundle 与生产 App、Scope、domain、legal pages、reviewer account/instructions/demo 和当前审核状态一致，可正式提交但不依赖第三方批准。
@@ -918,7 +929,7 @@ Stop Condition:
 - D3 官网已先于 YouTube verification/audit 路径在已验证官方域名完成 Production Launch，并在 D7 关闭时持续公开可达；
 - D7 最终 full regression、production smoke、安全/tenant/RBAC/delete/retention/restore 证据全部阻塞通过；
 - AC-01～AC-18 每一项均有对应 Primary Stage 证据，所有列出的 Reverification 有最终证据；
-- D1 完成关键 prototype Human walkthrough；Human E2E 在 D2 的第一条 runnable slice、D3 的 production website、D5 的真实平台 slice 和 D7 的完整生产 journey 均实际执行；
+- D1 完成关键 prototype Human walkthrough；Human E2E 在 D2 的第一条 runnable slice、D3 的 production website、D5 的真实平台 slice 均实际执行，D4 延期的 pre-publish 验收与 D7 完整 production journey 在 D7 最终统一执行；
 - English/简体中文官网、SaaS、法律/安全页面、Integration Registry、Developer App 和 review bundle 与最终生产能力一致；
 - 至少一个真实生产配置渠道完成当前官方政策允许的端到端 Publish/Track；若第三方 Audit 尚未完成，受限可见性和 Beta 状态必须真实显示；
 - Developer Review evidence 达到正式提交条件，但第三方审批、配额扩展或 audit 结果不作为 Delivery Acceptance；

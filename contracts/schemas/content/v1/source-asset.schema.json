@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:content:source-asset:v1",
+  "title": "SourceAsset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "asset_id",
+    "workspace_id",
+    "content_id",
+    "filename",
+    "media_type",
+    "byte_size",
+    "sha256",
+    "status",
+    "ownership_confirmed",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "asset_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "content_id": { "type": ["string", "null"], "format": "uuid" },
+    "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "media_type": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "byte_size": { "type": "integer", "minimum": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": { "type": "string", "enum": ["pending_upload", "complete", "failed"] },
+    "ownership_confirmed": { "type": "boolean", "const": true },
+    "failure_category": { "type": ["string", "null"], "maxLength": 80 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

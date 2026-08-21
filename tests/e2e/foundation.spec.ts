@@ -85,6 +85,19 @@ async function runHumanPath(browser: Browser, locale: "en" | "zh-CN") {
   await expect(workspaceSwitcher.locator("option:checked")).toHaveText(memberWorkspaceName);
   await workspaceSwitcher.selectOption({ label: `Workspace ${suffix}` });
   await expect(workspaceSwitcher.locator("option:checked")).toHaveText(`Workspace ${suffix}`);
+  const viewerCreateStatus = await member.evaluate(async () => {
+    const response = await fetch("/api/v1/content", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        internalTitle: "Viewer must not create",
+        sourceAssetId: "11111111-1111-4111-8111-111111111111",
+        platformVersions: [],
+      }),
+    });
+    return response.status;
+  });
+  expect(viewerCreateStatus).toBe(403);
 
   await owner.reload();
   const roleSelect = owner.getByLabel(
@@ -96,6 +109,18 @@ async function runHumanPath(browser: Browser, locale: "en" | "zh-CN") {
   await expect(member.locator(".rail-account .role-badge")).toHaveText(
     locale === "zh-CN" ? "编辑者" : "Editor",
   );
+  const editorApprovalStatus = await member.evaluate(async () => {
+    const response = await fetch("/api/v1/content/11111111-1111-4111-8111-111111111111/decision", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        revisionId: "22222222-2222-4222-8222-222222222222",
+        result: "approved",
+      }),
+    });
+    return response.status;
+  });
+  expect(editorApprovalStatus).toBe(403);
   await owner
     .getByRole("button", { name: locale === "zh-CN" ? "移除成员" : "Remove member" })
     .click();

@@ -29,6 +29,12 @@ const fixtureById: Readonly<Record<string, string>> = {
   consent: "consent.valid.json",
   channel: "channel.valid.json",
   audit_event: "audit_event.valid.json",
+  source_asset: "source_asset.valid.json",
+  content_lifecycle: "content_lifecycle.valid.json",
+  platform_version: "platform_version.valid.json",
+  approval: "approval.valid.json",
+  publishing_intent: "publishing_intent.valid.json",
+  platform_execution: "platform_execution.valid.json",
 };
 
 for (const entry of manifest.catalog) {
@@ -86,4 +92,4 @@ for (const entry of manifest.catalog) {
   }
 }
 
-process.stdout.write("D2 contracts and compatibility fixtures are valid.\n");
+process.stdout.write("Implemented contracts and compatibility fixtures are valid.\n");

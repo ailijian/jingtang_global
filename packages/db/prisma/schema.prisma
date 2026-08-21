@@ -16,10 +16,10 @@ enum Locale {
 }
 
 enum Role {
-  OWNER_ADMIN         @map("owner_admin")
-  EDITOR              @map("editor")
-  APPROVER_PUBLISHER  @map("approver_publisher")
-  VIEWER              @map("viewer")
+  OWNER_ADMIN        @map("owner_admin")
+  EDITOR             @map("editor")
+  APPROVER_PUBLISHER @map("approver_publisher")
+  VIEWER             @map("viewer")
 
   @@map("role")
 }
@@ -51,36 +51,121 @@ enum ChannelState {
   @@map("channel_state")
 }
 
+enum ContentStatus {
+  DRAFT            @map("draft")
+  PENDING_APPROVAL @map("pending_approval")
+  REJECTED         @map("rejected")
+  APPROVED         @map("approved")
+
+  @@map("content_status")
+}
+
+enum SourceAssetStatus {
+  PENDING_UPLOAD @map("pending_upload")
+  COMPLETE       @map("complete")
+  FAILED         @map("failed")
+
+  @@map("source_asset_status")
+}
+
+enum Platform {
+  YOUTUBE @map("youtube")
+
+  @@map("platform")
+}
+
+enum PrivacyStatus {
+  PRIVATE  @map("private")
+  UNLISTED @map("unlisted")
+  PUBLIC   @map("public")
+
+  @@map("privacy_status")
+}
+
+enum ValidationStatus {
+  VALID   @map("valid")
+  INVALID @map("invalid")
+
+  @@map("validation_status")
+}
+
+enum ApprovalResult {
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+
+  @@map("approval_result")
+}
+
+enum PublishingIntentState {
+  NONE      @map("none")
+  READY     @map("ready")
+  SCHEDULED @map("scheduled")
+  CANCELLED @map("cancelled")
+
+  @@map("publishing_intent_state")
+}
+
+enum PublishingMode {
+  IMMEDIATE @map("immediate")
+  SCHEDULED @map("scheduled")
+
+  @@map("publishing_mode")
+}
+
+enum PlatformExecutionState {
+  NOT_STARTED     @map("not_started")
+  PUBLISHING      @map("publishing")
+  PROCESSING      @map("processing")
+  PUBLISHED       @map("published")
+  FAILED          @map("failed")
+  NEEDS_ATTENTION @map("needs_attention")
+  CANCELLED       @map("cancelled")
+
+  @@map("platform_execution_state")
+}
+
 model User {
-  id                 String    @id @default(uuid()) @db.Uuid
-  cognitoSubject     String    @unique @map("cognito_subject") @db.VarChar(255)
-  email              String    @unique @db.VarChar(320)
-  name               String    @db.VarChar(160)
-  localePreference   Locale    @default(EN) @map("locale_preference")
-  lastWorkspaceId    String?   @map("last_workspace_id") @db.Uuid
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  memberships        Membership[]
-  sessions           Session[]
-  consents           ConsentRecord[]
-  createdWorkspaces  Workspace[] @relation("WorkspaceCreator")
-  invitedMembers     Invitation[] @relation("InvitationActor")
-  auditEvents        AuditEvent[] @relation("AuditActor")
+  id                String             @id @default(uuid()) @db.Uuid
+  cognitoSubject    String             @unique @map("cognito_subject") @db.VarChar(255)
+  email             String             @unique @db.VarChar(320)
+  name              String             @db.VarChar(160)
+  localePreference  Locale             @default(EN) @map("locale_preference")
+  lastWorkspaceId   String?            @map("last_workspace_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships       Membership[]
+  sessions          Session[]
+  consents          ConsentRecord[]
+  createdWorkspaces Workspace[]        @relation("WorkspaceCreator")
+  invitedMembers    Invitation[]       @relation("InvitationActor")
+  auditEvents       AuditEvent[]       @relation("AuditActor")
+  uploadedAssets    SourceAsset[]      @relation("SourceAssetUploader")
+  createdContents   Content[]          @relation("ContentCreator")
+  createdRevisions  ContentRevision[]  @relation("RevisionCreator")
+  approvalDecisions ApprovalDecision[] @relation("ApprovalActor")
+  confirmedIntents  PublishingIntent[] @relation("PublishingConfirmer")
 
   @@map("users")
 }
 
 model Workspace {
-  id              String       @id @default(uuid()) @db.Uuid
-  name            String       @db.VarChar(160)
-  createdByUserId String       @map("created_by_user_id") @db.Uuid
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy       User         @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  memberships     Membership[]
-  invitations     Invitation[]
-  auditEvents     AuditEvent[]
-  channels        Channel[]
+  id                 String              @id @default(uuid()) @db.Uuid
+  name               String              @db.VarChar(160)
+  createdByUserId    String              @map("created_by_user_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy          User                @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships        Membership[]
+  invitations        Invitation[]
+  auditEvents        AuditEvent[]
+  channels           Channel[]
+  sourceAssets       SourceAsset[]
+  contents           Content[]
+  contentRevisions   ContentRevision[]
+  platformVersions   PlatformVersion[]
+  approvalDecisions  ApprovalDecision[]
+  publishingIntents  PublishingIntent[]
+  platformExecutions PlatformExecution[]
 
   @@index([createdByUserId])
   @@map("workspaces")
@@ -171,20 +256,180 @@ model Channel {
   @@map("channels")
 }
 
+model SourceAsset {
+  id                 String            @id @default(uuid()) @db.Uuid
+  workspaceId        String            @map("workspace_id") @db.Uuid
+  contentId          String?           @unique @map("content_id") @db.Uuid
+  objectKey          String            @unique @map("object_key") @db.VarChar(700)
+  originalFilename   String            @map("original_filename") @db.VarChar(255)
+  mediaType          String            @map("media_type") @db.VarChar(160)
+  byteSize           BigInt            @map("byte_size")
+  sha256             String            @db.Char(64)
+  status             SourceAssetStatus @default(PENDING_UPLOAD)
+  ownershipConfirmed Boolean           @map("ownership_confirmed")
+  failureCategory    String?           @map("failure_category") @db.VarChar(80)
+  uploadedByUserId   String            @map("uploaded_by_user_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace          Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content            Content?          @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  uploadedBy         User              @relation("SourceAssetUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  revisions          ContentRevision[]
+
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([workspaceId, uploadedByUserId])
+  @@map("source_assets")
+}
+
+model Content {
+  id                    String             @id @default(uuid()) @db.Uuid
+  workspaceId           String             @map("workspace_id") @db.Uuid
+  internalTitle         String             @map("internal_title") @db.VarChar(160)
+  status                ContentStatus      @default(DRAFT)
+  currentRevisionNumber Int                @default(1) @map("current_revision_number")
+  createdByUserId       String             @map("created_by_user_id") @db.Uuid
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace             Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy             User               @relation("ContentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  sourceAsset           SourceAsset?
+  revisions             ContentRevision[]
+  approvalDecisions     ApprovalDecision[]
+  publishingIntents     PublishingIntent[]
+
+  @@index([workspaceId, status, updatedAt(sort: Desc)])
+  @@map("contents")
+}
+
+model ContentRevision {
+  id                String             @id @default(uuid()) @db.Uuid
+  workspaceId       String             @map("workspace_id") @db.Uuid
+  contentId         String             @map("content_id") @db.Uuid
+  revisionNumber    Int                @map("revision_number")
+  sourceAssetId     String             @map("source_asset_id") @db.Uuid
+  createdByUserId   String             @map("created_by_user_id") @db.Uuid
+  submittedAt       DateTime?          @map("submitted_at") @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content           Content            @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  sourceAsset       SourceAsset        @relation(fields: [sourceAssetId], references: [id], onDelete: Restrict)
+  createdBy         User               @relation("RevisionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  platformVersions  PlatformVersion[]
+  approvalDecision  ApprovalDecision?
+  publishingIntents PublishingIntent[]
+
+  @@unique([contentId, revisionNumber])
+  @@index([workspaceId, contentId, revisionNumber(sort: Desc)])
+  @@map("content_revisions")
+}
+
+model PlatformVersion {
+  id                 String              @id @default(uuid()) @db.Uuid
+  workspaceId        String              @map("workspace_id") @db.Uuid
+  revisionId         String              @map("revision_id") @db.Uuid
+  platform           Platform
+  accountReference   String              @map("account_reference") @db.VarChar(255)
+  accountDisplayName String              @map("account_display_name") @db.VarChar(255)
+  title              String              @db.VarChar(100)
+  description        String              @db.VarChar(5000)
+  privacyStatus      PrivacyStatus       @map("privacy_status")
+  madeForKids        Boolean             @map("made_for_kids")
+  validationStatus   ValidationStatus    @default(VALID) @map("validation_status")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  revision           ContentRevision     @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  platformExecutions PlatformExecution[]
+
+  @@unique([revisionId, platform, accountReference])
+  @@index([workspaceId, revisionId])
+  @@map("platform_versions")
+}
+
+model ApprovalDecision {
+  id          String          @id @default(uuid()) @db.Uuid
+  workspaceId String          @map("workspace_id") @db.Uuid
+  contentId   String          @map("content_id") @db.Uuid
+  revisionId  String          @unique @map("revision_id") @db.Uuid
+  actorUserId String          @map("actor_user_id") @db.Uuid
+  result      ApprovalResult
+  reason      String?         @db.VarChar(1000)
+  decidedAt   DateTime        @default(now()) @map("decided_at") @db.Timestamptz(3)
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content     Content         @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  revision    ContentRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  actor       User            @relation("ApprovalActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, decidedAt(sort: Desc)])
+  @@map("approval_decisions")
+}
+
+model PublishingIntent {
+  id                 String                @id @default(uuid()) @db.Uuid
+  workspaceId        String                @map("workspace_id") @db.Uuid
+  contentId          String                @map("content_id") @db.Uuid
+  revisionId         String                @map("revision_id") @db.Uuid
+  platformVersionIds String[]              @map("platform_version_ids") @db.Uuid
+  accountReferences  String[]              @map("account_references")
+  payloadSnapshot    Json                  @map("payload_snapshot")
+  permissionDecision String                @map("permission_decision") @db.VarChar(40)
+  state              PublishingIntentState
+  mode               PublishingMode
+  confirmedByUserId  String                @map("confirmed_by_user_id") @db.Uuid
+  consentVersion     String                @map("consent_version") @db.VarChar(80)
+  payloadHash        String                @map("payload_hash") @db.Char(64)
+  idempotencyKey     String                @map("idempotency_key") @db.VarChar(255)
+  confirmedAt        DateTime              @map("confirmed_at") @db.Timestamptz(3)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace          Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content            Content               @relation(fields: [contentId], references: [id], onDelete: Restrict)
+  revision           ContentRevision       @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  confirmedBy        User                  @relation("PublishingConfirmer", fields: [confirmedByUserId], references: [id], onDelete: Restrict)
+  executions         PlatformExecution[]
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, contentId, confirmedAt(sort: Desc)])
+  @@map("publishing_intents")
+}
+
+model PlatformExecution {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  workspaceId        String                 @map("workspace_id") @db.Uuid
+  publishingIntentId String                 @map("publishing_intent_id") @db.Uuid
+  platformVersionId  String                 @map("platform_version_id") @db.Uuid
+  operation          String                 @db.VarChar(40)
+  attempt            Int
+  idempotencyKey     String                 @map("idempotency_key") @db.VarChar(255)
+  state              PlatformExecutionState @default(NOT_STARTED)
+  failureCategory    String?                @map("failure_category") @db.VarChar(80)
+  providerId         String?                @map("provider_id") @db.VarChar(255)
+  providerUrl        String?                @map("provider_url") @db.VarChar(1000)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace          Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  publishingIntent   PublishingIntent       @relation(fields: [publishingIntentId], references: [id], onDelete: Cascade)
+  platformVersion    PlatformVersion        @relation(fields: [platformVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([publishingIntentId, platformVersionId])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, state, updatedAt(sort: Desc)])
+  @@map("platform_executions")
+}
+
 model AuditEvent {
-  id            String   @id @default(uuid()) @db.Uuid
-  eventVersion  Int      @default(1) @map("event_version")
-  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
-  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
-  workspaceId   String   @map("workspace_id") @db.Uuid
-  actorUserId   String?  @map("actor_user_id") @db.Uuid
-  actorType     String   @map("actor_type") @db.VarChar(20)
-  action        String   @db.VarChar(80)
-  targetType    String   @map("target_type") @db.VarChar(40)
-  targetId      String   @map("target_id") @db.VarChar(255)
-  result        String   @db.VarChar(20)
-  correlationId String   @map("correlation_id") @db.Uuid
-  metadata      Json     @default("{}")
+  id            String    @id @default(uuid()) @db.Uuid
+  eventVersion  Int       @default(1) @map("event_version")
+  occurredAt    DateTime  @map("occurred_at") @db.Timestamptz(3)
+  recordedAt    DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  workspaceId   String    @map("workspace_id") @db.Uuid
+  actorUserId   String?   @map("actor_user_id") @db.Uuid
+  actorType     String    @map("actor_type") @db.VarChar(20)
+  action        String    @db.VarChar(80)
+  targetType    String    @map("target_type") @db.VarChar(40)
+  targetId      String    @map("target_id") @db.VarChar(255)
+  result        String    @db.VarChar(20)
+  correlationId String    @map("correlation_id") @db.Uuid
+  metadata      Json      @default("{}")
   workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   actor         User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 

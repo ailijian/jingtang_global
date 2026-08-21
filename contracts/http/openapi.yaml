@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: JINGTANG Platform API
   version: 1.0.0
-  description: D2 identity, server session, Workspace, membership, locale, consent, and audit boundary.
+  description: D2 identity and Workspace boundary plus D4 Source Asset, content revision, and approval operations.
 servers:
   - url: /api/v1
 paths:
@@ -117,6 +117,101 @@ paths:
         "200": { description: Membership removed without removing the last Owner/Admin. }
         "403": { $ref: "#/components/responses/PermissionDenied" }
         "409": { description: The change would remove the last Owner/Admin. }
+  /content/assets:
+    post:
+      operationId: uploadSourceAsset
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [asset, ownershipConfirmed]
+              properties:
+                asset: { type: string, format: binary }
+                ownershipConfirmed: { type: string, const: "true" }
+      responses:
+        "201":
+          description: User-owned Source Asset stored privately.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/content/v1/source-asset.schema.json
+        "400": { description: Asset or ownership confirmation is invalid. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "413": { description: Source Asset exceeds the configured maximum. }
+        "503": { description: Storage failed and content creation remains blocked. }
+  /content:
+    get:
+      operationId: listContent
+      responses:
+        "200": { description: Tenant-scoped Content summaries. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+    post:
+      operationId: createContent
+      responses:
+        "201": { description: Draft Content and immutable revision boundary created. }
+        "400": { description: Platform version validation failed. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409":
+          {
+            description: Source Asset is incomplete,
+            failed,
+            owned by another tenant,
+            or already attached.,
+          }
+  /content/{contentId}:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getContentDetail
+      responses:
+        "200": { description: Single operational Content view. }
+        "404": { description: Content is absent from the active Workspace. }
+    patch:
+      operationId: editContentRevision
+      responses:
+        "200": { description: Draft updated or a new Draft revision created after a decision. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409": { description: Pending revisions are immutable. }
+  /content/{contentId}/submit:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: submitContentRevision
+      responses:
+        "200": { description: Exact complete Draft revision submitted for human approval. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409": { description: Content is not in a submittable state. }
+  /content/{contentId}/decision:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: decideContentRevision
+      responses:
+        "200":
+          {
+            description: Exact pending revision approved or rejected; no platform operation starts.,
+          }
+        "400": { description: Rejection reason is missing. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409": { description: Revision is stale or no longer pending. }
+  /activity:
+    get:
+      operationId: listActivity
+      responses:
+        "200": { description: Tenant-scoped append-only audit activity. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
 components:
   securitySchemes:
     sessionCookie:

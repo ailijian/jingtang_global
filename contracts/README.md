@@ -1,7 +1,7 @@
 # JINGTANG Contract Governance
 
 - Status: Approved
-- Contract Governance Revision: 2
+- Contract Governance Revision: 3
 - Effective Date: 2026-08-20
 - Owner: JINGTANG Contract Owner
 - Architecture: [`docs/architecture/README.md`](../docs/architecture/README.md)
@@ -131,4 +131,5 @@ The manifest routes these contracts to D2 or D4. Their machine schemas must pres
 
 ## Revision Record
 
+- Revision 3 — 2026-08-21：D4 实现 Source Asset、Content Lifecycle、Platform Version、Approval、Publishing Intent 与 Platform Execution 合同；审批 API 只改变 Content Lifecycle，不创建 Publishing Intent 或 Platform Execution。
 - Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 `en`/`zh-CN` locale vocabulary、Locale Preference contract 路由与 Consent displayed locale；Revision 1 的 domain 状态、权限、兼容性和 Stage ownership 保持不变。

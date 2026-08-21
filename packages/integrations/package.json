@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.1114.0",
+    "@aws-sdk/client-s3": "catalog:",
     "@jingtang/application": "workspace:*",
     "aws-jwt-verify": "5.2.1"
   }

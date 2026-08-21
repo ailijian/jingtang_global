@@ -68,12 +68,24 @@ export function apiError(error: unknown, requestId: string): NextResponse {
   return NextResponse.json(
     { error: { code, message: "The request could not be completed." }, request_id: requestId },
     {
-      status:
-        code === "membership_not_found" || code === "invalid_invitation"
-          ? 404
-          : code === "last_owner"
-            ? 409
-            : 500,
+      status: (() => {
+        if (
+          code === "membership_not_found" ||
+          code === "invalid_invitation" ||
+          code === "content_not_found"
+        )
+          return 404;
+        if (
+          code === "last_owner" ||
+          code === "invalid_state" ||
+          code === "source_asset_not_ready" ||
+          code === "content_not_ready"
+        )
+          return 409;
+        if (code === "platform_version_required" || code === "rejection_reason_required")
+          return 400;
+        return 500;
+      })(),
     },
   );
 }

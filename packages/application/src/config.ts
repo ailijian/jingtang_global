@@ -29,6 +29,20 @@ const schema = z
     DATA_PURPOSE_VERSION: z.string().min(1),
     TERMS_URL: z.url(),
     PRIVACY_URL: z.url(),
+    OBJECT_STORAGE_ENDPOINT: z.url().optional(),
+    OBJECT_STORAGE_REGION: z.string().min(1).default("ap-southeast-1"),
+    OBJECT_STORAGE_BUCKET: z.string().min(3).max(63),
+    OBJECT_STORAGE_ACCESS_KEY_ID: z.string().min(1),
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
+    OBJECT_STORAGE_FORCE_PATH_STYLE: booleanString,
+    OBJECT_STORAGE_AUTO_CREATE_BUCKET: booleanString,
+    OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION: booleanString,
+    MAX_SOURCE_ASSET_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1_000_000)
+      .max(536_870_912)
+      .default(262_144_000),
   })
   .superRefine((value, context) => {
     if (value.IDENTITY_PROVIDER === "cognito") {
@@ -53,6 +67,13 @@ const schema = z
           code: "custom",
           path: ["IDENTITY_PROVIDER"],
           message: "Deployed environments require Cognito and disable test identity",
+        });
+      }
+      if (!value.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION) {
+        context.addIssue({
+          code: "custom",
+          path: ["OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION"],
+          message: "Deployed environments require server-side object encryption",
         });
       }
     }

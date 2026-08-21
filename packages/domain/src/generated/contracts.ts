@@ -96,3 +96,131 @@ export interface AuditEvent {
     [k: string]: string | number | boolean | null;
   };
 }
+
+export interface SourceAsset {
+  asset_id: string;
+  workspace_id: string;
+  content_id: string | null;
+  filename: string;
+  media_type: string;
+  byte_size: number;
+  sha256: string;
+  status: "pending_upload" | "complete" | "failed";
+  ownership_confirmed: true;
+  failure_category?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Content {
+  content_id: string;
+  workspace_id: string;
+  internal_title: string;
+  status: "draft" | "pending_approval" | "rejected" | "approved";
+  current_revision_id: string;
+  current_revision_number: number;
+  created_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlatformVersion {
+  platform_version_id: string;
+  workspace_id: string;
+  revision_id: string;
+  platform: "youtube";
+  account_reference: string;
+  account_display_name: string;
+  title: string;
+  description: string;
+  privacy_status: "private" | "unlisted" | "public";
+  made_for_kids: boolean;
+  validation_status: "valid" | "invalid";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Approval {
+  approval_id: string;
+  workspace_id: string;
+  content_id: string;
+  revision_id: string;
+  actor_user_id: string;
+  result: "approved" | "rejected";
+  reason: string | null;
+  decided_at: string;
+}
+
+export interface PublishingIntent {
+  publishing_intent_id: string;
+  workspace_id: string;
+  content_id: string;
+  revision_id: string;
+  /**
+   * @minItems 1
+   */
+  platform_version_ids: [string, ...string[]];
+  /**
+   * @minItems 1
+   */
+  account_references: [string, ...string[]];
+  payload_snapshot: {
+    revision_id: string;
+    /**
+     * @minItems 1
+     */
+    versions: [
+      {
+        platform_version_id: string;
+        platform: "youtube";
+        account_reference: string;
+        title: string;
+        description: string;
+        privacy_status: "private" | "unlisted" | "public";
+        made_for_kids: boolean;
+      },
+      ...{
+        platform_version_id: string;
+        platform: "youtube";
+        account_reference: string;
+        title: string;
+        description: string;
+        privacy_status: "private" | "unlisted" | "public";
+        made_for_kids: boolean;
+      }[],
+    ];
+  };
+  permission_decision: "allowed";
+  state: "none" | "ready" | "scheduled" | "cancelled";
+  mode: "immediate" | "scheduled";
+  confirmed_by_user_id: string;
+  consent_version: string;
+  payload_hash: string;
+  idempotency_key: string;
+  confirmed_at: string;
+}
+
+export interface PlatformExecution {
+  platform_execution_id: string;
+  workspace_id: string;
+  publishing_intent_id: string;
+  platform_version_id: string;
+  platform: "youtube";
+  account_reference: string;
+  operation: "publish";
+  attempt: number;
+  idempotency_key: string;
+  state:
+    | "not_started"
+    | "publishing"
+    | "processing"
+    | "published"
+    | "failed"
+    | "needs_attention"
+    | "cancelled";
+  failure_category?: string | null;
+  provider_id?: string | null;
+  provider_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}

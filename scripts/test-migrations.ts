@@ -28,10 +28,10 @@ try {
     "-d",
     "jingtang",
     "-c",
-    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','workspaces','memberships','invitations','consent_records','sessions','channels','audit_events');",
+    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','workspaces','memberships','invitations','consent_records','sessions','channels','audit_events','source_assets','contents','content_revisions','platform_versions','approval_decisions','publishing_intents','platform_executions');",
   ]);
-  if (tableCount.trim() !== "8")
-    throw new Error(`Expected 8 D2 tables, found ${tableCount.trim()}`);
+  if (tableCount.trim() !== "15")
+    throw new Error(`Expected 15 D2-D4 tables, found ${tableCount.trim()}`);
   const { stdout: policyCount } = await execFileAsync("docker", [
     "exec",
     database.name,
@@ -44,7 +44,7 @@ try {
     "-c",
     "SELECT count(*) FROM pg_policies WHERE schemaname='public';",
   ]);
-  if (Number(policyCount.trim()) < 5)
+  if (Number(policyCount.trim()) < 12)
     throw new Error("Expected tenant RLS policies to be installed");
   process.stdout.write(
     "Migration evidence: clean forward deploy, schema status, and RLS policies passed.\n",

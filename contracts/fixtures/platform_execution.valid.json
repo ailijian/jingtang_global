@@ -1,0 +1,17 @@
+{
+  "platform_execution_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "workspace_id": "22222222-2222-4222-8222-222222222222",
+  "publishing_intent_id": "99999999-9999-4999-8999-999999999999",
+  "platform_version_id": "66666666-6666-4666-8666-666666666666",
+  "platform": "youtube",
+  "account_reference": "review-target-youtube",
+  "operation": "publish",
+  "attempt": 1,
+  "idempotency_key": "execution-example-1",
+  "state": "not_started",
+  "failure_category": null,
+  "provider_id": null,
+  "provider_url": null,
+  "created_at": "2026-08-21T12:00:00.000Z",
+  "updated_at": "2026-08-21T12:00:00.000Z"
+}
