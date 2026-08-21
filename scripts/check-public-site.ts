@@ -64,15 +64,30 @@ if (productionCheck) {
     legal_approval: siteConfig.legal.approval_status,
     domain_ownership: siteConfig.production_readiness.domain_ownership,
     dns: siteConfig.production_readiness.dns,
+    tls: siteConfig.production_readiness.tls,
+    legal_data_approval: siteConfig.production_readiness.legal_data_approval,
     rollout: siteConfig.production_readiness.production_rollout,
   };
-  const expected = {
-    config_status: "production_approved",
-    legal_approval: "approved",
-    domain_ownership: "verified",
-    dns: "authorized",
-    rollout: "authorized",
-  };
+  const expected =
+    siteConfig.status === "production"
+      ? {
+          config_status: "production",
+          legal_approval: "approved",
+          domain_ownership: "verified",
+          dns: "deployed_verified",
+          tls: "verified",
+          legal_data_approval: "approved",
+          rollout: "deployed_verified",
+        }
+      : {
+          config_status: "production_approved",
+          legal_approval: "approved",
+          domain_ownership: "verified",
+          dns: "authorized",
+          tls: "pending_production_deployment_evidence",
+          legal_data_approval: "approved",
+          rollout: "authorized",
+        };
   const blocked = Object.entries(required).filter(
     ([key, value]) => value !== expected[key as keyof typeof expected],
   );

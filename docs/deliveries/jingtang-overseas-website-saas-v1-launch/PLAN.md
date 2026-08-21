@@ -18,7 +18,7 @@ PLAN:
 - Resolution source: Repository convention in `AGENTS.md`
 - Mode: Revise
 
-Current State: D0 accepted checkpoint `1f5b9f7` 已建立 Architecture/Security/Data/Contract/Integration Authorities；D1-UI-R2 已于 2026-08-20 获 Human UI Final Approval 并完成 Stage Acceptance。当前仍无产品实现、测试、CI 或发布机制。
+Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E。下一 Stage 为 D4。
 
 Authority readiness: 初始 Delivery Target 由 Approved Baseline 拥有；当前 Approved Design Target 可直接用于 planning。
 
@@ -402,6 +402,15 @@ Stop Condition:
 
 - 新 clone/clean environment 能按 canonical path 启动和验证；真实用户无需人工改库即可按 D1 定稿流程完成身份与 Workspace/团队设置；tenant/RBAC 负向证据、CI、machine contracts 和 UI fidelity 全部阻塞通过。
 
+### D2 Acceptance Record
+
+- Status: Accepted
+- Stage Acceptance: JINGTANG Human Owner 于 2026-08-21 明确批准“批准 D2 Stage Acceptance，并创建 checkpoint”。
+- Self Verification: canonical format、lint、type/static、build、unit、contract、i18n、migration/RLS、integration、platform E2E、security/secret scan 与 production dependency audit 均通过。
+- Code Review: identity/session、tenant isolation、RBAC deny path、migration 与 Secret/PII 边界完成评审，无 blocking finding。
+- Human E2E: Register/Workspace、双语输入保留、Consent 默认未勾选、邀请/接受/双向 Workspace 切换、Viewer deny、最后 Owner 保护、全部角色切换、成员移除与安全回退、Logout、密码重置、locale/Workspace 恢复均通过；320px 导航可见性作为非阻塞观察被 Human Owner 接受。
+- Checkpoint: `27c4729` (`feat: establish D2 platform foundation`).
+
 ## D3 — Official Website Production Launch, Legal Surfaces, and Truthful Capability Status
 
 Goal:
@@ -497,6 +506,18 @@ Required Gates:
 Stop Condition:
 
 - 官网 English 与简体中文页面已在已验证的官方生产域名通过 HTTPS 无登录公开可达；所有要求页面、locale routes/alternates、CTA、表单、法律链接和状态通过 production smoke、双语 parity 与 D1 fidelity review；该域名/法律身份可供后续 OAuth/YouTube review 使用，且不存在无事实支撑的 Available、客户/Partner、认证或安全声明。
+
+### D3 Acceptance Record
+
+- Status: Accepted
+- Stage Acceptance: JINGTANG Human Owner 于 2026-08-21 明确批准“Production Human E2E 通过，批准 D3 Stage Acceptance 并创建 checkpoint”。
+- Production Change Authorization: Human Owner 明确授权 `jingtangai.com` 的 DNS、证书、腾讯云 production deployment、公开 rollout、production-candidate commit 与 push。
+- Legal/Data Disclosure Approval: Human Owner 明确批准更新后的中英双语披露，覆盖腾讯云首尔轻量应用服务器、GoDaddy DNS、Let's Encrypt ACME、有限安全/访问日志，以及官网不处理账号数据、用户内容、OAuth Token 或应用 Secret 的边界。
+- Self Verification: final `pnpm verify`、production release check、33-page static build、28-route bilingual candidate checks、platform E2E 4/4、website E2E 6/6、secret scan 与 production dependency audit 均通过。
+- Code Review: production configuration、email-handoff data boundary、registry/status gating、Caddy security headers、immutable release/rollback、dedicated SSH deployment、pinned container image、Secret exposure 与 D1 UI fidelity 完成评审，无 blocking finding。
+- Production Evidence: production release `347f6b72ee0704e67840b205da3e706ad88f7703` 已部署到腾讯云首尔实例；Cloudflare 与 Google public DNS 均解析至受控生产主机；HTTP 正确 `308` 跳转 HTTPS；Let's Encrypt `jingtangai.com` 证书已签发；17 个公开 HTTPS production routes、双语 `lang`、法律版本、Integration truth 与安全响应头 smoke 全部通过；Caddy 容器持续运行。
+- Human E2E: Human Owner 完成并通过 production website 中英文首页/切换、法律与信任页面、Contact/Book Demo 邮件交接和移动端检查。
+- Checkpoint: created by the repository workflow immediately after this acceptance record; Git history owns the checkpoint identity.
 
 ## D4 — Content, Platform Versions, and Approval Core
 

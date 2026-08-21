@@ -1,6 +1,6 @@
 schema_version: 1
-revision: 4
-status: production_approved
+revision: 5
+status: production
 effective_date: "2026-08-21"
 owner: JINGTANG Human Owner
 
@@ -46,7 +46,7 @@ product_access:
 
 production_readiness:
   domain_ownership: verified
-  dns: authorized
-  tls: pending_production_deployment_evidence
+  dns: deployed_verified
+  tls: verified
   legal_data_approval: approved
-  production_rollout: authorized
+  production_rollout: deployed_verified

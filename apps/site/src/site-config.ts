@@ -4,7 +4,7 @@ import path from "node:path";
 import { parse as parseYaml } from "yaml";
 
 interface PublicSiteConfig {
-  readonly status: "implementation_candidate" | "production_approved";
+  readonly status: "implementation_candidate" | "production_approved" | "production";
   readonly effective_date: string;
   readonly identity: {
     readonly brand: string;
@@ -33,7 +33,7 @@ interface PublicSiteConfig {
     readonly dns: string;
     readonly tls: string;
     readonly legal_data_approval: string;
-    readonly production_rollout: "blocked" | "authorized";
+    readonly production_rollout: "blocked" | "authorized" | "deployed_verified";
   };
 }
 
