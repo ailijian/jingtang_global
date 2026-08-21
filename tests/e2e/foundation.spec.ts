@@ -7,6 +7,13 @@ async function selectLocale(page: Page, locale: "en" | "zh-CN") {
     await page.getByLabel("Language").selectOption("zh-CN");
     await expect(page.getByLabel("你的姓名")).toHaveValue("未提交输入");
   }
+  const policyLocale = locale === "zh-CN" ? "zh-cn" : "en";
+  await expect(
+    page.getByRole("link", { name: locale === "zh-CN" ? "服务条款" : "Terms" }),
+  ).toHaveAttribute("href", `https://jingtangai.com/${policyLocale}/terms/`);
+  await expect(
+    page.getByRole("link", { name: locale === "zh-CN" ? "隐私政策" : "Privacy Policy" }),
+  ).toHaveAttribute("href", `https://jingtangai.com/${policyLocale}/privacy/`);
 }
 
 async function register(

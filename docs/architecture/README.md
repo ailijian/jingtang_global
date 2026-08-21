@@ -1,8 +1,8 @@
 # JINGTANG Current Architecture Authority
 
 - Status: Approved
-- Architecture Revision: 2
-- Effective Date: 2026-08-20
+- Architecture Revision: 4
+- Effective Date: 2026-08-21
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Baseline: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md`](../deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
 - Design input: [`docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md`](../deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md), Approved Revision 1
@@ -34,6 +34,7 @@ The decisions below are build constraints after Human Owner approval. Exact depe
 | A-11 | Use structured JSON logs, OpenTelemetry-compatible traces, CloudWatch metrics/alarms, and a separate append-only audit-event store. | Technical telemetry and user-visible audit history have different schemas and retention; correlation is by opaque IDs. |
 | A-12 | YouTube is the first production integration slice. No other platform adapter or permission is built in this Delivery. Schedule remains disabled until a later verified capability decision. | The build stays aligned with the PLAN and truthful public status registry. |
 | A-13 | Treat `en` and `zh-CN` as first-class application locales, with English as the safe default. Use one versioned message-catalog package across the website, SaaS and server-generated user messages; persist an authenticated user locale preference and keep public website locale routes stable. Machine status/permission values remain language-neutral, and user-authored content is never translated by locale switching. | Translation cannot fork domain meaning or capability truth; SSR and client hydration resolve the same locale; the UI can switch languages without recreating Workspace, draft, task or external-write state. |
+| A-14 | Host the D3 static public website on the Human-controlled Tencent Cloud Lighthouse production instance in Seoul. Serve the immutable Next.js export through a pinned Caddy container, obtain and renew the `jingtangai.com` certificate through ACME, keep DNS at the Human-controlled registrar, and deploy atomically over dedicated SSH access. | The public website remains independently deployable and has no application database or secret. A-03～A-06 and A-10 continue to govern the not-yet-production SaaS/worker boundary; this D3 amendment does not silently migrate those future data services. |
 
 ## Repository and Module Boundaries
 
@@ -56,7 +57,7 @@ packages/
 
 contracts/                machine-readable payload/API/event authority
 config/integrations.yaml  public and product integration capability truth
-infra/                    AWS CDK stacks by environment
+infra/                    AWS CDK for the planned SaaS foundation; Tencent website runtime configuration
 ```
 
 Dependencies point inward: deployables may depend on application/domain packages; domain packages do not import UI, AWS, Cognito, Prisma, SQS, or YouTube SDKs. Platform adapters implement interfaces defined at the application boundary. Cross-module writes go through application use cases, not direct table access.
@@ -65,9 +66,10 @@ Dependencies point inward: deployables may depend on application/domain packages
 
 ### Public website
 
-- Next.js static output is stored in a private S3 bucket and served through CloudFront with TLS and security headers.
-- Only public website assets may be cached at global edge locations. Authenticated SaaS pages, user content, OAuth responses, and API data are excluded.
-- The website has an independent deployment pipeline so D3 does not expose an incomplete SaaS.
+- Next.js static output is deployed as an immutable release under `/srv/jingtang/public-site/releases/` on the Human-controlled Tencent Cloud Lighthouse instance in Seoul and activated through a `current` symlink.
+- A pinned Caddy container serves only the static website, terminates TLS 1.2+, renews the `jingtangai.com` ACME certificate, emits bounded access logs, and applies the repository-owned security-header policy.
+- GoDaddy remains the authoritative DNS provider. The website deploys independently over a dedicated SSH key so D3 does not expose an incomplete SaaS or require long-lived general cloud credentials in CI.
+- Authenticated SaaS pages, account data, user content, OAuth responses, API data, and platform secrets are prohibited from this host and deployment artifact.
 
 ### SaaS and worker
 
@@ -82,7 +84,7 @@ Dependencies point inward: deployables may depend on application/domain packages
 | --- | --- | --- |
 | local/test | Local or ephemeral test resources; synthetic data only | No production credentials or real publish |
 | staging | Non-production AWS account and Google Cloud test project | Allow-listed test users/channels; capability never marked Available |
-| production | Dedicated AWS account and Google Cloud production project | Verified domains, protected deploy, least privilege, production audit |
+| production | D3 public website isolated on a Tencent Cloud Lighthouse host; planned SaaS remains scoped to a dedicated AWS account; Google Cloud production project is separate | Verified domains, protected deploy, least privilege, production audit |
 
 No database, bucket, KMS key, queue, OAuth client, redirect URI, secret, or log destination is shared between staging and production.
 
@@ -155,11 +157,12 @@ Repository records contain no secret values. Functional owners are accountable n
 
 | Item | Current evidence | Accountable owner | Freeze/evidence entry | Blocking Gate |
 | --- | --- | --- | --- | --- |
-| Official primary domain | Not yet frozen | JINGTANG Executive/Brand Owner | DNS registrar + approval recorded here as a future revision | D3 production website |
-| Domain support email | Not yet frozen | JINGTANG Support Owner | Mail system verification + OAuth consent screen | D3 production website |
-| Unique English legal entity expression | Chinese legal entity is fixed by Baseline; English expression is not yet legally verified | JINGTANG Legal Owner | Legal approval recorded here and copied verbatim to production configuration | D3 production website |
-| DNS and Search Console ownership | No repository evidence | JINGTANG Infrastructure Owner | Registrar, Route 53, and Search Console ownership evidence | D3 and Google verification |
-| Production AWS account and Singapore region access | Not provisioned by D0 | JINGTANG Infrastructure Owner | Protected infrastructure inventory | D3/D7 deployment |
+| Official primary domain | `jingtangai.com` — Human Owner frozen 2026-08-21; ownership evidence pending | JINGTANG Executive/Brand Owner | [`config/public-site.yaml`](../../config/public-site.yaml) + DNS registrar/Search Console evidence | D3 production website |
+| Domain support email | `developer@jingtangai.com` — Human Owner frozen 2026-08-21; mailbox verification pending | JINGTANG Support Owner | [`config/public-site.yaml`](../../config/public-site.yaml) + mail system/OAuth consent-screen evidence | D3 production website |
+| Unique English legal entity expression | `Jingtang (Shanghai) Intelligent Technology Co., Ltd.` — Human Owner frozen 2026-08-21 | JINGTANG Legal Owner | [`config/public-site.yaml`](../../config/public-site.yaml); use verbatim on every production identity surface | D3 production website |
+| DNS and Search Console ownership | `jingtangai.com` resolves to the Human-controlled Tencent production host; registrar and Search Console evidence remain external | JINGTANG Infrastructure Owner | GoDaddy registrar, production TLS, and Search Console evidence | D3 and Google verification |
+| Production public website host | Tencent Cloud Lighthouse in Seoul; dedicated production SSH access verified 2026-08-21 | JINGTANG Infrastructure Owner | Protected host inventory plus production smoke evidence | D3 production website |
+| Production AWS account and Singapore region access | Not provisioned by D0; still relevant only to the planned SaaS/worker boundary after D3 | JINGTANG Infrastructure Owner | Protected infrastructure inventory | D5/D7 deployment |
 | Google Cloud test and production projects | No repository evidence | JINGTANG YouTube Integration Owner | Project IDs and IAM owner list in protected inventory; never client secrets | D5 OAuth |
 | YouTube reviewer/test channel | No repository evidence | JINGTANG YouTube Integration Owner | Protected reviewer inventory | D5 Human E2E |
 | OAuth/YouTube support contact | No repository evidence | JINGTANG Support Owner | Reachable domain email in OAuth project and public pages | D5 OAuth |
@@ -195,3 +198,7 @@ The JINGTANG Human Owner explicitly approved D0 Architecture Revision 1 together
 This approval makes the four-document package the accepted D0 Authority. It approves the decisions and downstream constraints recorded here; it does not claim that cloud resources, product code, credentials, Developer Apps, external verification, or production state already exist.
 
 On 2026-08-20, the JINGTANG Human Owner authorized the Baseline Revision 2 bilingual amendment with “我想确认有中英双语吗？如果没有，请加这条需求”. Architecture Revision 2 adds only the necessary i18n implementation boundary in A-13 and preserves all accepted Revision 1 decisions, external readiness states, and D0 checkpoint evidence.
+
+On 2026-08-21, the JINGTANG Human Owner supplied and confirmed `jingtangai.com`, `developer@jingtangai.com`, and `Jingtang (Shanghai) Intelligent Technology Co., Ltd.` as the exact D3 official-domain, support-email, and English legal-entity values, and approved the D3 Legal/Data Disclosure package. Architecture Revision 3 freezes those identity inputs and routes their machine representation and approval state to `config/public-site.yaml`; it does not claim DNS ownership, mailbox verification, TLS, or production deployment evidence.
+
+On 2026-08-21, the JINGTANG Human Owner clarified that the production server is in Tencent Cloud and completed dedicated SSH-key and firewall setup for the selected Lighthouse instance. Architecture Revision 4 makes that instance the D3 public-website target, replaces the unexecuted S3/CloudFront website route with an atomic Caddy/static-export deployment, and leaves the future SaaS/worker cloud boundary unchanged pending a separately authorized architecture decision. The Human Owner then explicitly approved the amended bilingual Legal/Data Disclosure covering Tencent Cloud Seoul, GoDaddy DNS, Let's Encrypt ACME, and the restricted public-website data boundary, and authorized the production-candidate commit and rollout.

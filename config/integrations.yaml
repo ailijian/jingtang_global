@@ -3,7 +3,7 @@ revision: 2
 status: approved
 effective_date: "2026-08-20"
 owner: JINGTANG Integration Owner
-last_policy_verification_date: "2026-08-20"
+last_policy_verification_date: "2026-08-21"
 revision_note: Baseline Revision 2 bilingual rendering constraint; capability truth and availability remain unchanged
 
 authority:
@@ -27,16 +27,16 @@ authority:
 policy_sources:
   google_oauth_production:
     url: https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance
-    verified_on: "2026-08-20"
+    verified_on: "2026-08-21"
   youtube_developer_policies:
     url: https://developers.google.com/youtube/terms/developer-policies
-    verified_on: "2026-08-20"
+    verified_on: "2026-08-21"
   youtube_videos_insert:
     url: https://developers.google.com/youtube/v3/docs/videos/insert
-    verified_on: "2026-08-20"
+    verified_on: "2026-08-21"
   google_youtube_scope_catalog:
     url: https://developers.google.com/identity/protocols/oauth2/scopes#youtube
-    verified_on: "2026-08-20"
+    verified_on: "2026-08-21"
 
 integrations:
   youtube:

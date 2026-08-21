@@ -9,6 +9,7 @@ dist/
 out/
 coverage/
 packages/db/src/generated/
+资料/
 
 # Local configuration and secrets
 .env

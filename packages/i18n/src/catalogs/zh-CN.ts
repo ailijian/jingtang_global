@@ -83,4 +83,362 @@ export const zhCN: Record<keyof typeof en, string> = {
   "stage.later": "稍后",
   "stage.later.description": "后续 Stage 提供",
   "permission.denied": "当前角色不允许执行此操作。",
+  "site.skipToContent": "跳到主要内容",
+  "site.nav.platform": "产品平台",
+  "site.nav.integrations": "平台集成",
+  "site.nav.solutions": "解决方案",
+  "site.nav.security": "安全",
+  "site.nav.company": "公司",
+  "site.nav.socialPublishing": "社交发布",
+  "site.nav.workflowApprovals": "工作流与审批",
+  "site.nav.about": "关于我们",
+  "site.nav.contact": "联系我们",
+  "site.nav.privacy": "隐私政策",
+  "site.nav.terms": "服务条款",
+  "site.nav.dataDeletion": "数据删除",
+  "site.action.signIn": "登录",
+  "site.action.bookDemo": "预约演示",
+  "site.action.explorePlatform": "了解产品平台",
+  "site.action.learnMore": "了解更多",
+  "site.action.emailSupport": "发送邮件给 JINGTANG",
+  "site.action.prepareEmail": "准备邮件请求",
+  "site.action.openEmail": "打开邮件草稿",
+  "site.external.youtubeTerms": "YouTube 服务条款",
+  "site.external.googlePrivacy": "Google 隐私政策",
+  "site.external.googleSecurity": "Google 安全设置",
+  "site.external.readYouTubeTerms": "阅读 YouTube 服务条款",
+  "site.external.openGoogleSecurity": "打开 Google 安全设置",
+  "site.menu.open": "菜单",
+  "site.menu.label": "官网导航",
+  "site.locale.switchToZh": "切换至简体中文",
+  "site.locale.switchToEn": "Switch to English",
+  "site.status.available": "可用",
+  "site.status.betaEarlyAccess": "测试版 / 抢先体验",
+  "site.status.comingSoon": "即将推出",
+  "site.status.scheduleUnavailable": "暂不支持定时发布",
+  "site.status.privateBeta": "私有测试版 · 尚未公开上线",
+  "site.common.truthNote":
+    "能力标签和操作均来自已批准的 Integration Registry。不可用能力不会提供可执行操作。",
+  "site.common.finalCtaTitle": "让全球团队拥有更从容的发布协作。",
+  "site.common.finalCtaBody": "告诉我们你的渠道、审批边界和当前发布工作流。",
+  "site.footer.positioning": "全球营销科技公司",
+  "site.footer.identity": "运营主体：{legalEntity}",
+  "site.footer.contact": "联系",
+  "site.footer.platform": "产品平台",
+  "site.footer.company": "公司",
+  "site.footer.legal": "法律",
+  "site.footer.rights": "© {year} JINGTANG。保留所有权利。",
+  "site.home.metaTitle": "可控的全球社交发布",
+  "site.home.metaDescription":
+    "JINGTANG 为企业团队提供清晰、由用户控制的社交内容准备、审批、发布与结果跟踪路径。",
+  "site.home.eyebrow": "全球营销基础设施",
+  "site.home.title": "面向全球发布，始终由你掌控。",
+  "site.home.lead":
+    "为企业团队打造从容清晰的工作空间，用于准备、审批、发布和跟踪社交内容——每个账号、决定和外部操作都清楚可见。",
+  "site.home.footnote": "英文优先 · 企业审批 · 用户控制发布",
+  "site.home.workflow.label": "一个可控工作流",
+  "site.home.workflow.note": "产品方向 · 能力仍受 Registry Gate 约束",
+  "site.home.workflow.create": "创建",
+  "site.home.workflow.createDetail": "用户自有 Source Asset",
+  "site.home.workflow.approve": "审批",
+  "site.home.workflow.approveDetail": "准确版本 · 清晰角色",
+  "site.home.workflow.confirm": "确认",
+  "site.home.workflow.confirmDetail": "渠道 · 字段 · 隐私",
+  "site.home.workflow.track": "跟踪",
+  "site.home.workflow.trackDetail": "每个渠道的真实结果",
+  "site.home.workflow.ready": "已就绪",
+  "site.home.workflow.pending": "待处理",
+  "site.home.workflow.userAction": "用户操作",
+  "site.home.workflow.perChannel": "按渠道",
+  "site.home.platform.kicker": "01 / 产品平台",
+  "site.home.platform.title": "为重视清晰边界、拒绝自动化噪声的团队打造基础设施。",
+  "site.home.platform.a.title": "一个源文件，清晰的平台版本。",
+  "site.home.platform.a.body":
+    "保留用户自有 Source Asset，为不同平台创建彼此独立的版本，不在后台静默改变原始内容。",
+  "site.home.platform.b.title": "审批始终由人完成。",
+  "site.home.platform.b.body": "编辑者提交准确版本，审批者作出决定；发布仍是独立、明确的最终确认。",
+  "site.home.platform.c.title": "每个结果都如实呈现。",
+  "site.home.platform.c.body":
+    "发布中、处理中、已发布、失败和需要处理，按每个平台 Execution 分别保持可见。",
+  "site.home.integrations.kicker": "02 / 平台集成",
+  "site.home.integrations.title": "官方授权，最小访问，真实状态。",
+  "site.home.trust.kicker": "03 / 信任",
+  "site.home.trust.title": "在每个信任边界让控制清晰可见。",
+  "site.home.trust.a.title": "官方连接",
+  "site.home.trust.a.body": "平台授权通过官方流程完成。JINGTANG 永远不会索取平台密码。",
+  "site.home.trust.b.title": "准确确认",
+  "site.home.trust.b.body": "外部写入开始前，目标账号、最终字段、隐私选择和发布模式保持清晰可见。",
+  "site.home.trust.c.title": "真实断开",
+  "site.home.trust.c.body":
+    "Disconnect 的设计会停止后续操作、撤销授权、移除 Token，并跟踪适用的数据清理。",
+  "site.social.metaTitle": "可控社交发布",
+  "site.social.metaDescription":
+    "准备用户自有素材，创建平台专属版本，确认准确目标，并跟踪真实执行状态。",
+  "site.social.eyebrow": "产品平台 / 社交发布",
+  "site.social.title": "一个 Source Asset，各平台独立决策。",
+  "site.social.lead":
+    "JINGTANG 围绕组织拥有或获授权使用的内容设计。每个平台版本、账号选择和外部操作都必须明确。",
+  "site.social.section1.title": "完整保留源内容",
+  "site.social.section1.body":
+    "Source Asset 与平台版本相互独立。界面语言切换不会翻译、改写、添加水印或附加推广文字。",
+  "site.social.section2.title": "按真实平台定制",
+  "site.social.section2.body":
+    "字段和限制遵循各平台真实能力。统一工作空间不会掩盖账号、元数据、隐私、受众或定时能力差异。",
+  "site.social.section3.title": "任何写入前都需确认",
+  "site.social.section3.body":
+    "审批与发布相互独立。有权发布者必须在执行前查看并确认准确账号、内容、字段、隐私和模式。",
+  "site.social.section4.title": "跟踪实际发生的结果",
+  "site.social.section4.body":
+    "处理中不等于已发布。失败与需要处理状态按平台分别保留，并提供安全恢复路径。",
+  "site.workflow.metaTitle": "工作流与审批",
+  "site.workflow.metaDescription": "在受租户边界保护的工作空间中分离编辑、审批、发布与查看责任。",
+  "site.workflow.eyebrow": "产品平台 / 工作流与审批",
+  "site.workflow.title": "人工判断始终留在工作流中。",
+  "site.workflow.lead":
+    "工作空间为成员、角色、内容、渠道、审批、发布活动与审计历史建立清晰的企业边界。",
+  "site.workflow.section1.title": "四类容易理解的角色",
+  "site.workflow.section1.body":
+    "Owner / Admin 管理工作空间与渠道，Editor 准备并提交，Approver / Publisher 决策并发布，Viewer 保持只读。",
+  "site.workflow.section2.title": "审批准确版本",
+  "site.workflow.section2.body":
+    "提交、批准和驳回均引用具体版本。修改已批准内容会生成新版本并需要重新审批。",
+  "site.workflow.section3.title": "批准绝不等同于发布",
+  "site.workflow.section3.body":
+    "批准只改变工作流状态。独立的发布确认才是可能创建外部 Execution 的用户操作。",
+  "site.workflow.section4.title": "团队能够读懂的审计轨迹",
+  "site.workflow.section4.body":
+    "重要的身份、成员、审批、渠道、发布与删除操作均设计为可在工作空间内追溯。",
+  "site.integrations.metaTitle": "平台集成状态",
+  "site.integrations.metaDescription":
+    "查看每个 JINGTANG Integration 当前由 Registry 驱动的可用与能力状态。",
+  "site.integrations.eyebrow": "平台集成",
+  "site.integrations.title": "先有真实状态，再做能力承诺。",
+  "site.integrations.lead":
+    "只有经生产验证的能力才能标为可用。计划中的渠道在实现、授权和运营证据通过适用 Gate 前均不可执行。",
+  "site.integrations.youtube.body":
+    "首个计划中的生产渠道，用于可控视频发布。D3 阶段不提供 OAuth、发布或跟踪能力。",
+  "site.integrations.facebook.body": "Wave 1 产品方向；当前 Delivery 计划不包含连接或发布能力。",
+  "site.integrations.instagram.body": "Wave 1 产品方向；当前 Delivery 计划不包含连接或发布能力。",
+  "site.integrations.tiktok.body": "Wave 2 方向，不在当前 Delivery 范围内。",
+  "site.integrations.linkedin.body": "后续集成方向，不在当前 Delivery 范围内。",
+  "site.integrations.pinterest.body": "后续集成方向，不在当前 Delivery 范围内。",
+  "site.integrations.x.body": "后续集成方向，不在当前 Delivery 范围内。",
+  "site.integrations.capability.connect": "连接",
+  "site.integrations.capability.publish": "立即发布",
+  "site.integrations.capability.schedule": "定时发布",
+  "site.integrations.capability.track": "跟踪结果",
+  "site.youtube.metaTitle": "YouTube 集成状态",
+  "site.youtube.metaDescription":
+    "了解计划中的 YouTube 授权、发布控制、数据处理、删除路径与当前即将推出状态。",
+  "site.youtube.eyebrow": "平台集成 / YouTube",
+  "site.youtube.title": "面向可控视频发布设计，当前尚不可用。",
+  "site.youtube.lead":
+    "YouTube 是首个计划中的生产渠道。D3 先提供公共身份与披露页面，之后才会在 D5 进入受保护的 OAuth 与真实发布实施。",
+  "site.youtube.limit.title": "当前限制",
+  "site.youtube.limit.body":
+    "连接、立即发布、结果跟踪、重新授权和断开均为即将推出；暂不支持定时发布。本页面不会启动生产授权请求。",
+  "site.youtube.auth.title": "官方授权与最小访问",
+  "site.youtube.auth.body":
+    "计划中的连接使用 Google 官方 OAuth 2.0 Web 流程，并只申请已批准上传闭环所需的最小 Scope。JINGTANG 不会索取或保存 YouTube 密码或浏览器 Cookie。",
+  "site.youtube.control.title": "由用户控制的外部操作",
+  "site.youtube.control.body":
+    "计划中的发布流程会在上传前明确展示 Channel、视频、可编辑标题与描述、隐私、受众设置、预览和独立最终确认。",
+  "site.youtube.data.title": "授权数据与撤销",
+  "site.youtube.data.body":
+    "实现后，普通 Authorized Data 将在 30 天内刷新或删除。应用内撤销会立即阻止新任务、尝试程序化吊销 Token，并尽快且最迟在 7 天内删除适用 Authorized Data。",
+  "site.youtube.audit.title": "Verification 与 Audit 的真实状态",
+  "site.youtube.audit.body":
+    "符合条件的未验证 API Project 上传内容会被限制为私密可见，直到通过要求的 Audit。获得真实生产证据前，JINGTANG 不会把公开发布描述为可用。",
+  "site.solutions.metaTitle": "解决方案",
+  "site.solutions.metaDescription":
+    "了解 JINGTANG 社交发布产品、专业服务与 AI Visibility 抢先体验之间的清晰边界。",
+  "site.solutions.eyebrow": "解决方案",
+  "site.solutions.title": "清晰、可理解的产品边界。",
+  "site.solutions.lead":
+    "JINGTANG 将可控发布产品、专业服务与探索性能力明确区分，不用一个标签代替另一个。",
+  "site.solutions.product.title": "社交发布产品",
+  "site.solutions.product.body":
+    "面向 B2B 多租户 SaaS 的产品方向，覆盖团队角色、平台专属内容、审批、明确发布、结果、撤销与删除。",
+  "site.solutions.services.title": "专业服务",
+  "site.solutions.services.body":
+    "人工提供的策略与实施支持可单独约定，不会被表示为自动化 SaaS 功能。",
+  "site.solutions.ai.title": "AI Visibility · 服务 / 抢先体验",
+  "site.solutions.ai.body":
+    "AI Visibility 不是正式可用的 SaaS 能力，也不承诺排名或推荐结果。任何探索都需要独立约定并以证据为基础。",
+  "site.solutions.fit.title": "为重视可控协作的团队设计",
+  "site.solutions.fit.body":
+    "V1 方向更适合重视账号归属、角色分离、审批证据和审慎外部操作，而非追求广泛自动化的组织。",
+  "site.security.metaTitle": "安全与信任",
+  "site.security.metaDescription":
+    "了解 JINGTANG 当前安全承诺、生产证据边界、数据联系路径与认证状态。",
+  "site.security.eyebrow": "安全",
+  "site.security.title": "信任声明必须跟随证据。",
+  "site.security.lead":
+    "本页面区分已实现的产品保护、生产控制义务和仍待完成的证据。JINGTANG 不会宣称尚未取得的认证或平台批准。",
+  "site.security.current.title": "当前实现边界",
+  "site.security.current.body":
+    "可运行基础已执行租户边界、默认拒绝的角色权限、服务端会话、审计事件、Secret 扫描、Migration 检查与自动验证。这些控制本身不能证明生产部署状态。",
+  "site.security.production.title": "SaaS 上线前必须验证的生产控制",
+  "site.security.production.body":
+    "TLS、AWS 新加坡加密存储、托管 Secret、OAuth Token 信封加密、环境隔离、备份、访问记录、事件响应和漏洞管理，仍需在后续 Gate 提供真实生产证据。",
+  "site.security.website.title": "公共网站边界",
+  "site.security.website.body":
+    "D3 官网按静态公共页面设计，不包含广告追踪、Analytics 处理方、账号数据、OAuth Token 或用户内容。只有访客明确打开邮件草稿后，联系信息才会离开浏览器。",
+  "site.security.certification.title": "认证状态",
+  "site.security.certification.body":
+    "JINGTANG 目前不会在本网站宣称 ISO、SOC、平台 Partner 或其他第三方认证。",
+  "site.about.metaTitle": "关于 JINGTANG",
+  "site.about.metaDescription":
+    "了解 JINGTANG 的公司身份、全球营销基础设施战略与可控发布产品方向。",
+  "site.about.eyebrow": "公司 / 关于我们",
+  "site.about.title": "以克制方式建设全球营销基础设施。",
+  "site.about.lead":
+    "JINGTANG 是一家全球营销科技公司，致力于帮助组织以更清晰的归属、决策和外部操作开展全球营销工作。",
+  "site.about.company.title": "公司身份",
+  "site.about.company.body": "JINGTANG 的运营主体为 {legalEntity}。",
+  "site.about.strategy.title": "战略方向",
+  "site.about.strategy.body":
+    "我们的战略是全球营销基础设施：重视长期系统与运营清晰度，而非夸大功能数量。",
+  "site.about.product.title": "首个产品方向",
+  "site.about.product.body":
+    "全球社交发布 + 企业内容审批，以 Connect → Create → Customize → Approve → Publish → Track → Revoke → Delete 建立明确边界。",
+  "site.contact.metaTitle": "联系 JINGTANG",
+  "site.contact.metaDescription":
+    "就可控社交发布、企业审批、专业服务、开发者、隐私或数据问题联系 JINGTANG。",
+  "site.contact.eyebrow": "公司 / 联系我们",
+  "site.contact.title": "从你需要控制的工作流开始。",
+  "site.contact.lead":
+    "可通过下方邮件路径咨询产品、演示、开发者、安全、隐私或数据删除问题。本网站不会保存消息。",
+  "site.demo.metaTitle": "预约演示",
+  "site.demo.metaDescription": "为 JINGTANG 产品或工作流沟通准备邮件请求。",
+  "site.demo.eyebrow": "预约演示",
+  "site.demo.title": "告诉我们发布控制最重要的环节。",
+  "site.demo.lead":
+    "只需提供形成有效沟通所需的最少业务背景。网站会准备邮件草稿，是否发送由你决定。",
+  "site.form.name": "姓名",
+  "site.form.email": "企业邮箱",
+  "site.form.company": "公司",
+  "site.form.message": "你希望控制或改善什么？",
+  "site.form.namePlaceholder": "你的姓名",
+  "site.form.emailPlaceholder": "name@company.com",
+  "site.form.companyPlaceholder": "公司名称",
+  "site.form.messagePlaceholder": "渠道、角色、审批边界或当前工作流",
+  "site.form.required": "请填写所有字段后再准备邮件。",
+  "site.form.readyTitle": "邮件草稿已准备完成。",
+  "site.form.readyBody":
+    "本网站尚未发送或保存任何内容。请在邮件应用中打开草稿、检查内容，并只在你准备好后发送。",
+  "site.form.notice":
+    "表单内容会留在当前浏览器，直到你明确打开邮件草稿。发送后，消息由你的邮件提供商与 JINGTANG 域名邮箱按照隐私政策处理。",
+  "site.form.subject": "来自 {company} 的 JINGTANG 业务咨询",
+  "site.signIn.metaTitle": "JINGTANG 登录状态",
+  "site.signIn.metaDescription":
+    "JINGTANG SaaS 仍处于私有测试阶段，在生产入口验证完成前不会宣传公开登录地址。",
+  "site.signIn.eyebrow": "JINGTANG 工作空间",
+  "site.signIn.title": "私有测试访问尚未向公众开放。",
+  "site.signIn.lead":
+    "应用基础已可在受控环境运行，但生产应用地址尚未冻结或验证。本页面不会把访客发送到 mock 或预览登录页。",
+  "site.signIn.existing.title": "已经是获授权测试用户？",
+  "site.signIn.existing.body":
+    "请使用 JINGTANG 联系人直接提供的环境地址，不要在未验证域名中输入凭据。",
+  "site.signIn.contact.title": "需要访问说明？",
+  "site.signIn.contact.body": "请联系本网站显示的已确认域名邮箱。",
+  "site.legal.version": "政策版本 {version}",
+  "site.legal.effective": "生效日期 {date}",
+  "site.legal.approvalPending":
+    "该生产候选披露尚未获得 Human Legal/Data Disclosure Approval，因此禁止公开上线。",
+  "site.privacy.metaTitle": "隐私政策",
+  "site.privacy.metaDescription":
+    "JINGTANG 如何收集、使用、保存、共享、保留、保护和删除官网、工作空间、内容与 YouTube 相关数据。",
+  "site.privacy.eyebrow": "法律 / 隐私",
+  "site.privacy.title": "隐私政策",
+  "site.privacy.lead":
+    "本政策说明 JINGTANG 如何处理公共网站、可控发布工作空间、支持联系以及计划中的官方平台集成数据。",
+  "site.privacy.scope.title": "1. 我们是谁与适用范围",
+  "site.privacy.scope.body":
+    "JINGTANG 的运营主体为 {legalEntity}。本政策适用于 jingtangai.com、JINGTANG 工作空间、官方支持联系以及我们明确标为可用的 Integration。",
+  "site.privacy.collect.title": "2. 我们收集的数据",
+  "site.privacy.collect.body":
+    "根据所用功能，数据可能包括账号身份与语言偏好、Consent 证据、工作空间/成员/角色、用户自有素材与内容元数据、审批和发布记录、已连接渠道标识与 Authorized API Data、审计事件、支持消息及有限基础设施安全信号。我们不会索取平台密码。",
+  "site.privacy.use.title": "3. 使用数据的目的",
+  "site.privacy.use.body":
+    "我们使用数据提供用户请求的身份、工作空间、审批、发布、跟踪、支持、安全、审计、撤销与删除功能，保留用户选择，并履行适用的平台和法律义务。我们不会把授权平台数据静默用于无关广告或 AI 训练。",
+  "site.privacy.processors.title": "4. 处理方、区域与跨境",
+  "site.privacy.processors.body":
+    "已批准的生产架构仍计划将主要应用数据与计算置于 AWS 新加坡（ap-southeast-1）。D3 公共网站的静态资源和有限安全/访问日志由 JINGTANG 控制的腾讯云首尔轻量应用服务器处理。GitHub 只处理源码和合成 CI 数据。Google/YouTube 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。在应用路径获得真实证据前，SaaS 生产使用保持阻断。",
+  "site.privacy.youtube.title": "5. Google 与 YouTube 数据",
+  "site.privacy.youtube.body":
+    "若 YouTube 被标为可用，JINGTANG 将通过官方 OAuth 使用 YouTube API Services，并仅执行界面向用户明确说明的功能。相关使用同时受 YouTube 服务条款和 Google 隐私政策约束。除计划中的 JINGTANG Disconnect 外，用户也可以在 Google 安全设置中撤销访问。",
+  "site.privacy.retention.title": "6. 保留与删除",
+  "site.privacy.retention.body":
+    "工作空间有效期间保留提供服务所需的数据。获授权删除会立即禁止访问，并在 7 天内删除适用在线数据；加密备份在 35 天内到期，恢复时会重放删除账本。无持续业务关系的网站咨询在 180 天后删除。普通 YouTube Authorized Data 在 30 天内刷新或删除；撤销或请求删除的适用数据会尽快且最迟在 7 天内删除。",
+  "site.privacy.cookies.title": "7. Cookie 与网站测量",
+  "site.privacy.cookies.body":
+    "D3 公共网站不使用广告追踪或 Analytics 处理方。访客明确切换语言时，可能保存第一方语言偏好。认证应用上线后，会使用提供用户所请求服务所必需的安全会话技术。",
+  "site.privacy.security.title": "8. 安全",
+  "site.privacy.security.body":
+    "JINGTANG 可运行基础已经执行租户与角色边界；SaaS 生产上线前还必须验证 TLS、加密、托管 Secret、生产访问限制与记录、备份、事件响应和漏洞管理。Security 页面明确区分已实现控制与待验证生产证据。",
+  "site.privacy.rights.title": "9. 用户选择与联系",
+  "site.privacy.rights.body":
+    "用户可以通过本网站的支持邮箱请求访问、更正、删除，或就 Consent 与撤销寻求帮助。为保护工作空间和相关个人，我们会验证请求权限。适用法律可能提供其他权利。",
+  "site.privacy.changes.title": "10. 政策变更",
+  "site.privacy.changes.body":
+    "重大政策变更会使用新版本；如有要求，受影响平台功能继续前会阻断并要求重新同意。英文与简体中文页面表达相同政策含义。",
+  "site.terms.metaTitle": "服务条款",
+  "site.terms.metaDescription":
+    "适用于 JINGTANG 官网、工作空间、可控发布产品和官方平台集成的使用条款。",
+  "site.terms.eyebrow": "法律 / 条款",
+  "site.terms.title": "服务条款",
+  "site.terms.lead":
+    "本条款适用于 JINGTANG 公共网站、私有测试工作空间、另行约定的专业服务，以及明确标为可用的 Integration。",
+  "site.terms.agreement.title": "1. 协议与运营主体",
+  "site.terms.agreement.body":
+    "服务运营主体为 {legalEntity}。创建账号或使用可用服务即表示你同意本条款与隐私政策。若代表组织使用，你确认有权约束该组织。",
+  "site.terms.service.title": "2. 服务边界",
+  "site.terms.service.body":
+    "JINGTANG 仅按照当前状态提供可控社交发布与企业内容审批能力。测试版、抢先体验、即将推出、暂不支持定时发布和私有测试限制均属于服务说明，不构成可用性承诺。",
+  "site.terms.accounts.title": "3. 账号、工作空间与角色",
+  "site.terms.accounts.body":
+    "用户必须提供准确账号信息、保护访问安全，并只使用获授权的工作空间与角色。工作空间 Owner 对成员与角色分配负责。角色执行不能替代组织自身审批义务。",
+  "site.terms.content.title": "4. 用户内容与指令",
+  "site.terms.content.body":
+    "你保留所提供内容的所有权，并确认拥有或取得存储、调整、审批和发布所需权限。你只授予 JINGTANG 执行明确指令所需的有限权利。JINGTANG 不取得内容所有权，也不会自动添加水印、Logo、链接或推广文字。",
+  "site.terms.control.title": "5. 发布控制",
+  "site.terms.control.body":
+    "只有获授权用户可以选择账号、审批内容、确认发布、在能力已验证时安排定时、撤销授权或请求删除。审批与发布是两个独立操作。平台处理、审核、配额和可用性由对应平台控制。",
+  "site.terms.youtube.title": "6. YouTube 与外部服务",
+  "site.terms.youtube.body":
+    "若 YouTube 功能被标为可用，使用该功能也表示同意 YouTube 服务条款。Google 与 YouTube 按其条款和隐私政策处理数据。其他 Integration 只有在 JINGTANG 根据已验证生产能力明确标注后才可使用。",
+  "site.terms.prohibited.title": "7. 禁止行为",
+  "site.terms.prohibited.body":
+    "不得利用 JINGTANG 违反法律、平台规则、知识产权或隐私权；绕过授权或角色边界；上传恶意软件；探测其他租户；歪曲身份；抓取凭据；或发布未获授权使用的内容。",
+  "site.terms.availability.title": "8. 可用性与变更",
+  "site.terms.availability.body":
+    "预发布能力可能变化、暂停或继续不可用。为保护用户、数据、平台或服务，JINGTANG 可以限制访问。重大条款变更会使用新版本，并提供适用通知或 Consent。",
+  "site.terms.liability.title": "9. 责任与适用法律",
+  "site.terms.liability.body":
+    "各方对自身行为与义务负责。外部平台可以独立拒绝、延迟、限制、删除或改变内容。任何保证、责任限制、强制性权利和争议规则，只在适用法律和另行签署协议允许的范围内适用。",
+  "site.terms.contact.title": "10. 联系",
+  "site.terms.contact.body": "如对本条款有疑问，可发送邮件至本网站显示的已确认域名邮箱。",
+  "site.deletion.metaTitle": "数据删除",
+  "site.deletion.metaDescription":
+    "如何请求删除 JINGTANG 保存的数据、断开计划中的平台授权，以及单独删除第三方平台内容。",
+  "site.deletion.eyebrow": "信任 / 数据删除",
+  "site.deletion.title": "通过正确系统删除正确的数据。",
+  "site.deletion.lead":
+    "删除 JINGTANG 保存的数据、断开授权平台账号，以及删除第三方平台保存的内容，是三个不同操作。",
+  "site.deletion.jingtang.title": "删除 JINGTANG 保存的数据",
+  "site.deletion.jingtang.body":
+    "在产品内请求流程完成生产验证前，请使用账号邮箱向下方支持地址发送请求。请说明工作空间和请求范围，不要发送密码、OAuth Token 或无关内容。JINGTANG 会验证权限、立即禁止受影响访问，并在 7 天内删除适用在线数据。",
+  "site.deletion.disconnect.title": "断开并撤销平台访问",
+  "site.deletion.disconnect.body":
+    "YouTube 连接可用后，产品内 Disconnect 会停止新的 API 操作、尝试立即程序化吊销 Token、清除已保存 Token，并清理适用 Authorized Data。用户也可以通过 Google 安全设置撤销访问。",
+  "site.deletion.thirdParty.title": "删除 YouTube 或其他平台保存的内容",
+  "site.deletion.thirdParty.body":
+    "删除 JINGTANG 数据或断开授权不会删除 YouTube 或其他平台保存的内容。请使用对应平台自身应用或明确支持第三方内容删除的授权客户端。JINGTANG V1 不宣称具备该能力。",
+  "site.deletion.timeline.title": "时间与备份",
+  "site.deletion.timeline.body":
+    "获授权请求或产品内撤销后，适用在线用户数据与 Authorized Data 会尽快且最迟在 7 天内删除。通过有效性检查发现的外部撤销，会在适用的 30 天上限内清理。隔离加密备份在 35 天内到期，恢复数据对外服务前会重放删除记录。",
+  "site.deletion.request.title": "请求删除或获取帮助",
+  "site.deletion.request.body":
+    "请使用已确认域名邮箱。JINGTANG 只会索取验证身份和确定请求范围所需的信息。",
 };

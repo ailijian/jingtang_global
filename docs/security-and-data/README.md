@@ -1,8 +1,8 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 2
-- Effective Date: 2026-08-20
+- Security/Data Revision: 4
+- Effective Date: 2026-08-21
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
 - Architecture dependency: [`docs/architecture/README.md`](../architecture/README.md)
@@ -30,7 +30,7 @@ Production data is prohibited in local development, CI fixtures, screenshots, de
 | Processor/system | Purpose | Data/region decision |
 | --- | --- | --- |
 | AWS Singapore (`ap-southeast-1`) | SaaS compute, Cognito identity, RDS, S3, SQS, KMS, Secrets Manager, SES, CloudWatch, backups | Primary production application data remains in Singapore; Multi-AZ and backups remain in-region |
-| AWS global edge services | Route 53, TLS/DNS, public website CloudFront delivery | Public website data only; authenticated API/user content is not edge-cached |
+| Tencent Cloud Lighthouse (Seoul), GoDaddy DNS, and Let's Encrypt ACME | D3 public website static delivery, DNS, TLS certificate issuance/renewal, and bounded security/access logs | Public website assets plus limited request/security metadata only; no authenticated API data, user content, OAuth token, or application secret is processed on this host |
 | Google/YouTube | User-directed OAuth, channel identification, video upload, status tracking, revocation | Google processes data under its platform terms and global infrastructure after explicit user action |
 | GitHub | Source repository and Actions CI | Source code and synthetic fixtures only; no production data or long-lived cloud key |
 | User mail provider | Invitation, password/identity, security, support messages | Minimum message content; no OAuth token, source asset, or unpublished post body |
@@ -50,7 +50,7 @@ Adding analytics, CRM, customer support, error-reporting, CDN, AI, or marketing 
 | DF-07 | Track result | YouTube video ID/URL, publish/processing status, failure category, timestamps | RDS execution record; provider payload minimized/redacted | Authorized Workspace users | API-derived values refresh/delete every 30 days; user/revocation deletion paths below |
 | DF-08 | Disconnect/delete | Requester, target, reason code, timestamps, revocation result, cleanup jobs | Deny marker + audit/deletion ledger in RDS; worker cleanup | Google revocation endpoint when applicable | New API calls stop before cleanup; token revocation is immediate attempt; retry is bounded and observable |
 | DF-09 | Audit/telemetry | Actor/workspace/action/target/result/time, correlation IDs, safe error codes, infrastructure signals | Append-only audit table and restricted CloudWatch logs/metrics | Authorized Workspace Activity view; restricted operators | No token/raw media/final content; retention and pseudonymization per matrix |
-| DF-10 | Website demo/contact | Business contact details and free-text inquiry | Separate least-privilege lead store/mailbox selected in D3 | JINGTANG sales/support | Notice at collection; purge inactive inquiry per matrix |
+| DF-10 | Website demo/contact | Business contact details and free-text inquiry | Values remain in the visitor's browser until they explicitly open an email draft to `developer@jingtangai.com`; the resulting message is held in the domain mailbox | JINGTANG support | Notice at collection; no website database or analytics copy; purge inactive inquiry per matrix |
 
 ## Retention Matrix
 
@@ -119,3 +119,5 @@ D6 must replace design-time assertions with observed evidence for processor inve
 ## Revision Record
 
 - Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 locale preference 与 Consent displayed locale 数据字段；未增加处理方、区域、数据用途或更长保留期，Revision 1 的安全与删除边界保持不变。
+- Revision 3 — 2026-08-21：D3 选择域名邮箱作为官网 Contact/Demo 的明确联系路径。表单只在浏览器内准备邮件内容，访客明确打开邮件草稿后由其邮件提供商发送至 `developer@jingtangai.com`；不新增网站数据库、Analytics、CRM、处理方、数据用途或更长保留期。
+- Revision 4 — 2026-08-21：Human Owner 将 D3 公共官网生产目标明确为腾讯云首尔轻量应用服务器；增加腾讯云、GoDaddy DNS 与 Let's Encrypt ACME 的公开静态资源、TLS 和有限安全/访问日志处理边界。官网仍不处理账号数据、用户内容、OAuth Token 或应用 Secret；Human Owner 已明确批准更新后的中英双语 Legal/Data Disclosure，并授权 production-candidate commit 与公开 rollout。

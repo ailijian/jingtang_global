@@ -1,0 +1,44 @@
+name: Deploy public website
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-public-website
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production-website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare dedicated production SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.TENCENT_LIGHTHOUSE_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ vars.TENCENT_LIGHTHOUSE_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Deploy immutable website release
+        env:
+          SITE_RELEASE_ID: ${{ github.sha }}
+          SITE_SSH_TARGET: ${{ vars.TENCENT_LIGHTHOUSE_USER }}@${{ vars.TENCENT_LIGHTHOUSE_HOST }}
+        run: SITE_SSH_IDENTITY="$HOME/.ssh/id_ed25519" pnpm site:deploy:tencent
+      - name: Production smoke
+        run: pnpm site:production-smoke

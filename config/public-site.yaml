@@ -1,0 +1,52 @@
+schema_version: 1
+revision: 4
+status: production_approved
+effective_date: "2026-08-21"
+owner: JINGTANG Human Owner
+
+identity:
+  brand: JINGTANG
+  official_domain: jingtangai.com
+  canonical_origin: https://jingtangai.com
+  support_email: developer@jingtangai.com
+  legal_entity:
+    en: Jingtang (Shanghai) Intelligent Technology Co., Ltd.
+    zh-CN: 鲸汤（上海）智能科技有限公司
+  freeze:
+    status: approved
+    approved_on: "2026-08-21"
+    approval_provenance: Human Owner supplied and confirmed the exact values for D3 implementation
+
+legal:
+  policy_version: "2026-08-21"
+  effective_date: "2026-08-21"
+  approval_status: approved
+  routes:
+    en:
+      privacy: /en/privacy/
+      terms: /en/terms/
+      data_deletion: /en/data-deletion/
+      security: /en/security/
+    zh-CN:
+      privacy: /zh-cn/privacy/
+      terms: /zh-cn/terms/
+      data_deletion: /zh-cn/data-deletion/
+      security: /zh-cn/security/
+
+contact:
+  method: email_handoff
+  destination: developer@jingtangai.com
+  storage: domain_mailbox
+  inactive_retention_days: 180
+  notice: Form values remain in the browser until the visitor explicitly opens an email draft.
+
+product_access:
+  public_status: private_beta_prelaunch
+  sign_in_action: unavailable_until_production_application_url_is_frozen
+
+production_readiness:
+  domain_ownership: verified
+  dns: authorized
+  tls: pending_production_deployment_evidence
+  legal_data_approval: approved
+  production_rollout: authorized

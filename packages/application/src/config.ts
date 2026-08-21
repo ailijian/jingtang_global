@@ -5,6 +5,12 @@ const booleanString = z
   .default("false")
   .transform((value) => value === "true");
 
+const productionPolicy = {
+  version: "2026-08-21",
+  termsUrl: "https://jingtangai.com/en/terms/",
+  privacyUrl: "https://jingtangai.com/en/privacy/",
+} as const;
+
 const schema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -63,11 +69,23 @@ const schema = z
         PRIVACY_VERSION: value.PRIVACY_VERSION,
         DATA_PURPOSE_VERSION: value.DATA_PURPOSE_VERSION,
       })) {
-        if (entry.startsWith("d2-test-")) {
+        if (entry !== productionPolicy.version) {
           context.addIssue({
             code: "custom",
             path: [key],
-            message: "Test policy versions cannot run in production",
+            message: `Production requires policy version ${productionPolicy.version}`,
+          });
+        }
+      }
+      for (const [key, actual, expected] of [
+        ["TERMS_URL", value.TERMS_URL, productionPolicy.termsUrl],
+        ["PRIVACY_URL", value.PRIVACY_URL, productionPolicy.privacyUrl],
+      ] as const) {
+        if (actual !== expected) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: `Production requires the official same-domain policy URL ${expected}`,
           });
         }
       }

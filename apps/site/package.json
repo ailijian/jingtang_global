@@ -9,10 +9,13 @@
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
+    "@jingtang/domain": "workspace:*",
+    "@jingtang/i18n": "workspace:*",
     "@jingtang/ui": "workspace:*",
     "next": "16.3.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@types/react": "19.2.18",

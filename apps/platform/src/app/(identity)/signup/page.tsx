@@ -6,6 +6,8 @@ import { getRuntime } from "../../../server/runtime";
 export default async function SignupPage() {
   const locale = await pageLocale();
   const config = getRuntime().config;
+  const localizePolicyUrl = (url: string) =>
+    locale === "zh-CN" ? url.replace("/en/", "/zh-cn/") : url;
   return (
     <>
       <p className="eyebrow">JINGTANG WORKSPACE</p>
@@ -14,7 +16,10 @@ export default async function SignupPage() {
       <AuthForm
         mode="signup"
         locale={locale}
-        policyLinks={{ terms: config.TERMS_URL, privacy: config.PRIVACY_URL }}
+        policyLinks={{
+          terms: localizePolicyUrl(config.TERMS_URL),
+          privacy: localizePolicyUrl(config.PRIVACY_URL),
+        }}
       />
     </>
   );

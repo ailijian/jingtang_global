@@ -4,8 +4,14 @@
     "jsx": "preserve",
     "noEmit": true,
     "incremental": true,
+    "paths": {},
     "plugins": [{ "name": "next" }]
   },
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/i18n" },
+    { "path": "../../packages/ui" }
+  ],
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

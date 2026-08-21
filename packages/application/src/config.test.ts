@@ -10,11 +10,11 @@ const base = {
   IDENTITY_PROVIDER: "mock",
   ALLOW_TEST_IDENTITY: "true",
   SESSION_COOKIE_SECRET: "a-secure-test-secret-with-32-characters",
-  TERMS_VERSION: "d2-test-terms-v1",
-  PRIVACY_VERSION: "d2-test-privacy-v1",
-  DATA_PURPOSE_VERSION: "d2-test-purpose-v1",
-  TERMS_URL: "https://example.invalid/terms",
-  PRIVACY_URL: "https://example.invalid/privacy",
+  TERMS_VERSION: "2026-08-21",
+  PRIVACY_VERSION: "2026-08-21",
+  DATA_PURPOSE_VERSION: "2026-08-21",
+  TERMS_URL: "https://jingtangai.com/en/terms/",
+  PRIVACY_URL: "https://jingtangai.com/en/privacy/",
 };
 
 describe("environment isolation", () => {
@@ -22,7 +22,7 @@ describe("environment isolation", () => {
     expect(parseAppConfig(base).APP_ENV).toBe("test");
   });
 
-  it("rejects mock identity and test policy versions in production", () => {
+  it("rejects synthetic identity in production", () => {
     expect(() =>
       parseAppConfig({
         ...base,
@@ -35,5 +35,26 @@ describe("environment isolation", () => {
 
   it("rejects synthetic identity in staging", () => {
     expect(() => parseAppConfig({ ...base, APP_ENV: "staging" })).toThrow();
+  });
+
+  it("requires the frozen policy version and same-domain URLs in production", () => {
+    const production = {
+      ...base,
+      NODE_ENV: "production",
+      APP_ENV: "production",
+      APP_BASE_URL: "https://app.jingtangai.com",
+      IDENTITY_PROVIDER: "cognito",
+      ALLOW_TEST_IDENTITY: "false",
+      COGNITO_USER_POOL_ID: "ap-southeast-1_example",
+      COGNITO_CLIENT_ID: "example-client",
+    };
+    expect(parseAppConfig(production).TERMS_URL).toBe("https://jingtangai.com/en/terms/");
+    expect(() =>
+      parseAppConfig({
+        ...production,
+        TERMS_VERSION: "obsolete",
+        TERMS_URL: "https://example.com",
+      }),
+    ).toThrow();
   });
 });
