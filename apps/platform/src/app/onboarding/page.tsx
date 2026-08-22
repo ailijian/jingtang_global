@@ -7,7 +7,11 @@ import { pageSession } from "../../server/auth";
 import { pageLocale } from "../../server/locale";
 import { getRuntime } from "../../server/runtime";
 
-export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{ readonly invite?: string | readonly string[] }>;
+}) {
   const [session, locale, query] = await Promise.all([pageSession(), pageLocale(), searchParams]);
   if (!session) redirect("/login");
   if (session.currentWorkspaceId && typeof query.invite !== "string") redirect("/app");
