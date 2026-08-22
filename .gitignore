@@ -5,6 +5,7 @@
 node_modules/
 .pnpm-store/
 .next/
+.next-e2e/
 dist/
 out/
 coverage/
@@ -16,6 +17,7 @@ packages/db/src/generated/
 .env.*
 !.env.example
 !.env.*.example
+.local/
 
 # Test and tool output
 playwright-report/

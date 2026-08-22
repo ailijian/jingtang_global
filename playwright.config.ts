@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const platformPort = process.env.E2E_PORT ?? "3100";
+const platformBaseUrl = `http://127.0.0.1:${platformPort}`;
+
 export default defineConfig({
   testDir: "tests/e2e",
   testIgnore: /site\.spec\.ts/,
@@ -8,7 +11,7 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 10_000 },
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: platformBaseUrl,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -22,7 +25,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "pnpm tsx scripts/start-e2e.ts",
-    url: "http://127.0.0.1:3100/login",
+    url: `${platformBaseUrl}/login`,
     reuseExistingServer: false,
     timeout: 120_000,
   },

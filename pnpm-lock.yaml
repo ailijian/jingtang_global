@@ -148,6 +148,18 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 'catalog:'
+        version: 3.1114.0
+      '@jingtang/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@jingtang/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@jingtang/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@jingtang/observability':
         specifier: workspace:*
         version: link:../../packages/observability

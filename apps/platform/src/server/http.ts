@@ -77,13 +77,23 @@ export function apiError(error: unknown, requestId: string): NextResponse {
           return 404;
         if (
           code === "last_owner" ||
+          code === "channel_already_connected" ||
+          code === "channel_connection_in_progress" ||
           code === "invalid_state" ||
           code === "source_asset_not_ready" ||
-          code === "content_not_ready"
+          code === "content_not_ready" ||
+          code === "content_not_publishable" ||
+          code === "idempotency_conflict"
         )
           return 409;
-        if (code === "platform_version_required" || code === "rejection_reason_required")
+        if (
+          code === "platform_version_required" ||
+          code === "rejection_reason_required" ||
+          code === "unsupported_platform_selection" ||
+          code === "youtube_test_upload_must_be_private"
+        )
           return 400;
+        if (code === "connected_channel_not_found") return 404;
         return 500;
       })(),
     },

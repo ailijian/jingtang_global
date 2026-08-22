@@ -18,7 +18,7 @@ PLAN:
 - Resolution source: Repository convention in `AGENTS.md`
 - Mode: Revise
 
-Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance；D4 已通过 Self Verification、Code Review 与 Acceptance Review，并依据 Human Owner 的明确授权将本 Stage Human E2E 延后至 D7 最终统一验收后获准推进。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E。下一 Stage 为 D5。
+Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance；D4 已通过 Self Verification、Code Review 与 Acceptance Review，并依据 Human Owner 的明确授权将本 Stage Human E2E 延后至 D7 最终统一验收后获准推进。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E；D4 checkpoint `079932a` 建立真实对象存储、Content/Platform Version、Approval 与 Activity 的 pre-publish 核心。D5 已完成真实 Google/YouTube OAuth 与私密上传主路径，但 2026-08-22 独立 re-review 发现最终 Publish Confirmation、deterministic fault coverage、D5 local outbox 与 D7 TDMQ 边界、Registry truth 和 attributable blocking CI 仍需修正；Human Owner 已授权实施最小修正，D5 当前未获 Stage Acceptance。
 
 Authority readiness: 初始 Delivery Target 由 Approved Baseline 拥有；当前 Approved Design Target 可直接用于 planning。
 
@@ -30,7 +30,7 @@ Critical unknowns: None blocking plan generation。技术栈、部署区域、�
 
 Verification strategy: Ready；D2 必须先建立 canonical build、lint、type/static、unit、contract、migration、integration、E2E、安全与 CI 能力，之后的 Stage 只能引用这些真实机制。
 
-Replanning: Required and completed；Human Owner 于 2026-08-20 批准 Baseline Revision 2 Amendment，新增官网与 SaaS 的 English / 简体中文要求。D0 已接受 checkpoint 保持有效，并仅补充 i18n 实现约束；尚未接受的 D1 package 升级为双语版本，D2～D7 增加 locale contract、实现与验证路由，不改变既有 Stage 顺序、平台边界或产品语义。
+Replanning: Required and completed；Human Owner 于 2026-08-20 批准 Baseline Revision 2 Amendment，新增官网与 SaaS 的 English / 简体中文要求。D0 已接受 checkpoint 保持有效，并仅补充 i18n 实现约束；尚未接受的 D1 package 升级为双语版本，D2～D7 增加 locale contract、实现与验证路由，不改变既有 Stage 顺序、平台边界或产品语义。2026-08-22 D5 re-review 后，Human Owner 又授权按最小修正治理 D5/D7 环境边界：D5 使用受保护本地 Google Test-project harness 证明真实 OAuth/API 语义，D7 继续唯一拥有腾讯云 deployed SaaS、TDMQ 和 production/reviewer 证明；Baseline 与 Stage 顺序不变。
 
 Proceeding to Plan Generation.
 
@@ -620,7 +620,7 @@ Stop Condition:
 
 Goal:
 
-在受保护的 production-equivalent integration environment 中，以实际 Google/YouTube Developer Project、真实授权账号和真实 API 建立 Connect → Customize → Confirm → Publish → Track vertical slice，同时准确执行当前审核/可见性限制；D7 唯一拥有 SaaS production/reviewer launch 与生产 AC 证明。
+在受保护本地 test harness 中，以实际 Google Test Project、真实授权账号和真实 API 建立 production-equivalent OAuth/API semantics 的 Connect → Customize → Confirm → Publish → Track vertical slice，同时准确执行当前审核/可见性限制；D7 唯一拥有腾讯云 deployed SaaS、TDMQ、production/reviewer launch 与生产 AC 证明。
 
 Authoritative References:
 
@@ -632,7 +632,7 @@ Authoritative References:
 
 Deliverables:
 
-- 按 D0 Architecture 和执行时 Google policy 使用隔离的 testing/integration 与 production project/config；在受保护 integration environment 配置 production-equivalent Google OAuth，使用当前功能所需的最小 Scope，不获取平台密码/Cookie，Token 加密且不进入前端、普通日志、错误或 Git。
+- 按 D0 Architecture 和执行时 Google policy 使用隔离的 Test 与 Production Google project/config；在受保护本地 test harness 配置 production-equivalent Google OAuth/API semantics，使用当前功能所需的最小 Scope，不获取平台密码/Cookie，Token 加密且不进入前端、普通日志、错误或 Git。该 harness 不构成 deployed integration/production environment，D7 仍必须实现腾讯 TDMQ 路径。
 - 实现 Channels-owned Connect YouTube、OAuth return、Connected/Reauthorization Required/Disconnected 状态与账号/Channel 选择；其他页面复用该 flow。
 - 在第一次 YouTube Connect/API 使用前执行当前 Terms/Privacy consent/re-consent；Cancel 不启动 OAuth/API，version/timestamp 可审计。
 - English 与简体中文显示同一 canonical Terms/Privacy version、Scope purpose、平台限制和确认语义；Consent/Audit 记录保留展示 locale，但 locale 不改变授权范围或外部写入含义。
@@ -710,7 +710,24 @@ Required Gates:
 
 Stop Condition:
 
-- 一个真实授权账号在受保护 production-equivalent integration environment 中完成实际 OAuth 与 YouTube API publish/track；所有结果、限制、状态和恢复动作真实；Token/Scope/tenant/idempotency 证据通过，且任何未获批准的能力保持不可用或准确受限。生产/评审环境证明明确保留给 D7。
+- 一个真实授权账号在受保护本地 test harness 中完成实际 OAuth 与 YouTube API publish/track；所有结果、限制、状态和恢复动作真实；Token/Scope/tenant/idempotency 证据通过，且任何未获批准的能力保持不可用或准确受限。Tencent TDMQ、生产/评审环境证明明确保留给 D7。
+
+### D5 Entry Record
+
+- Status: Minimum corrections implemented and locally verified — attributable blocking CI、new Code Review and independent Acceptance Review required
+- Policy Verification: 2026-08-21 已复核 Google OAuth production compliance、YouTube Developer Policies、YouTube Data API Discovery、scope catalog、`channels.list`、`videos.insert` 与 `videos.list` 当前官方资料。
+- Scope Decision: Human Owner 于 2026-08-21 明确批准最小 Scope 为 `youtube.upload` + `youtube.readonly`；前者只用于明确确认后的 `videos.insert`，后者只用于 `channels.list mine=true` 的目标 Channel 识别和对该次上传返回 video ID 的 owner-only `videos.list` 处理状态跟踪。任何额外 Scope 仍需新的明确批准。
+- Architecture Direction: Human Owner 同日批准将未实施的 SaaS/worker cloud target 从 AWS 修订为腾讯云；Architecture Revision 5 与 Security/Data Revision 5 已冻结腾讯云新加坡 SaaS target、CIAM、TencentDB、COS、TDMQ、Secrets Manager/KMS、CLS/Cloud Monitor 和 Terraform 边界。2026-08-22 最小修正授权形成 Architecture/Security Revision 6：D5 受保护本地 harness 允许 PostgreSQL outbox worker 作为 test-only adapter，D7 deployed environment 仍被 dispatcher → Tencent TDMQ → worker 阻塞。相关腾讯 SaaS 资源仍未声称已创建。
+- External Readiness: Human Owner 于 2026-08-21 完成 `jingtangai.com` Search Console ownership；创建并分离 `Jingtang Global Test` 与 `Jingtang Global Production` Google Cloud projects；在两项目启用 YouTube Data API v3；配置相同的 `youtube.upload` + `youtube.readonly`；将 Test Audience 保持 Testing 并加入受保护测试用户；完成 OAuth branding、Homepage、Privacy、Terms 与 Authorized Domain 配置；按冻结 callback 创建 Test Web OAuth client，并将 Client ID/Secret 仅写入 Git-ignored 本地环境。Human Owner 随后使用 Test Audience 中的真实账号完成 OAuth、Scope grant、callback、Channel identity 和 Connected UI 验证；Node 服务端代理启动缺口已修复，callback 请求日志已禁止以避免授权码进入普通日志。Production User Support Email 暂由项目 Owner 的 Google Account 承担，`developer@jingtangai.com` 尚未成为可选 Google Account，必须在最终 production verification/review 前替换或完成正式支持账号治理。此记录不包含或证明任何 Secret、授权码或 Token 值。
+- Callback Contract: Test redirect 固定为 `http://localhost:3100/api/v1/channels/youtube/oauth/callback`；production candidate 为 `https://app.jingtangai.com/api/v1/channels/youtube/oauth/callback`，后者在 SaaS domain/DNS/TLS 和 production client 获准前不得配置或声称可用。实现使用 S256 PKCE、加密 HttpOnly SameSite cookie、Session/User/Workspace/locale binding、10 分钟过期、exact Scope validation 和 server-only envelope token boundary。
+- External Write Authorization: Human Owner 已亲自完成上述 Google Console configuration。真实 OAuth、真实 YouTube upload、腾讯 SaaS production deployment 和公开 capability rollout 仍需各自适用的明确授权与 Gate；本记录不扩张这些权限。
+- Implementation Evidence: 2026-08-21～2026-08-22 已在受保护本地 test harness 完成真实 Google OAuth、目标 Channel 识别、用户自有素材上传、YouTube metadata customization、独立 Approval 与 Publish Confirmation、后台私密 resumable upload、processing/result track、平台 ID/URL、历史与恢复 UI。真实视频 `WH8rX1F_I2Y` 以标题 `YouTube标题测试` 私密上传至 Channel `李健`（`UCaaqyHYuTfoQ8sU8ApLqdHQ`），Human Owner 已在 YouTube Studio 确认该视频、Channel 与私密状态。该证据只证明 D5 production-equivalent OAuth/API semantics，不替代 D7 的 Tencent TDMQ、production/reviewer 或 AC-07 证明。
+- Human E2E: Human Owner 已确认真实 OAuth/Channel 连接、私密上传与结果 URL、重启及密码重置后 Workspace/Channel/Content 持久恢复、English/简体中文成功路径、locale 切换不重复外部写入、public visibility 和 Schedule 均无可执行入口；同时确认 Failed/Needs Attention 可理解状态、不误报 Published、Return to Content 和 English 故障界面。原故障状态的生成 provenance 不作为 Stage 证明；最小修正新增仅允许 `APP_ENV=test` 的 deterministic YouTube fault adapter，由重新验证证明 timeout、quota、OAuth expiry、processing failure 和 ambiguous upload，而不调用真实 YouTube upload。
+- Self Verification: 2026-08-22 以独立 `E2E_PORT=3110` 和 `.next-e2e` 运行最终 `pnpm verify`，在保留 Human Owner 本地 3100 开发服务的最终代码状态通过；包含 format、lint、typecheck、production build、53/53 unit、contract compatibility、5/5 i18n tests 与 497 个双语键、28 个官网双语路由检查、4 个 migration 与 RLS、22/22 integration、5/5 SaaS E2E、6/6 website E2E、252 个仓库文件 secret scan，以及 production dependency audit 无已知漏洞。SaaS E2E 现明确覆盖最终确认的 Video、Title、Description、Channel、Privacy、Audience、Platform Preview 与 Publish Now mode，并在 320px 验证导航可见且无 document overflow；deterministic adapter 单元测试覆盖 timeout、quota、OAuth expiry、processing failure 和 ambiguous upload，且证明受控故障不调用真实 upload。
+- Code Review: 2026-08-22 前次审查聚焦 OAuth state/PKCE/session/tenant binding、Scope exact match、Token encryption/redaction、refresh、tenant transaction、immutable publish payload、idempotency、lease/retry 与状态映射；其 callback mutation-context 与 `CONNECTING` conditional-update findings 已修复并具备回归覆盖。该审查早于本轮最终确认、deterministic fault adapter、D5/D7 boundary、Registry 和 E2E isolation 修正，不能替代修正后的新 Code Review；new Code Review pending。
+- Production Change Authorization: Not invoked for D5 execution。D5 未部署 SaaS、未修改线上 OAuth client/domain，也未将受限 YouTube capability 对外 rollout；现有官网继续保持真实 Beta/私密限制与 Schedule Not Available。SaaS production/reviewer deployment、production client 和公开 capability rollout 仍由 D7 Gate 与新的明确授权拥有。
+- Platform Policy Readiness: PASS（2026-08-22）。执行时复核官方 OAuth Scope catalog、OAuth policy、YouTube Developer Policies 与 `videos.insert`：`youtube.upload` 仅服务明确确认后的上传，`youtube.readonly` 仅服务 owner Channel identity 与本次上传结果跟踪；界面在外部写入前明确展示 Channel、Title、Description、Privacy、Audience、Preview 和独立确认；未审核 Test project 仅允许 Private，且 OAuth 使用顶层 Google redirect。D6 仍必须实现 programmatic revoke、授权数据删除/刷新和 7/30 天 retention，D7 前仍必须治理正式 Production User Support Email；这些是后续 Stage 的已知阻塞义务，不是 D5 integration slice 的未完成项。
+- Acceptance Review: 2026-08-22 独立 re-review 结论为 FAIL，发现最终确认未重复 Video/Description/Preview/mode、D5/D7 queue authority 未真实反映本地执行、deterministic failure evidence 不足、Registry 过时且当前 target 缺少 blocking CI。Human Owner 授权的最小修正现已实施并通过本地全量验证；Stage 仍未接受，必须先取得 attributable blocking CI、新 Code Review 与独立 Acceptance Review 的新结论，旧结论不得作为通过证据。
 
 ## D6 — Revocation, Deletion, Audit, Security, and Operations
 

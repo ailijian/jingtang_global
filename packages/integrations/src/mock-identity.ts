@@ -1,4 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 import {
   ApplicationError,
@@ -13,8 +15,74 @@ interface MockRecord extends IdentityProfile {
   resetRequested: boolean;
 }
 
+interface StoredMockRecord extends IdentityProfile {
+  readonly salt: string;
+  readonly passwordHash: string;
+  readonly resetRequested: boolean;
+}
+
+interface MockIdentityOptions {
+  readonly storagePath?: string;
+  readonly resolveExistingProfile?: (email: string) => Promise<IdentityProfile | null>;
+}
+
 export class MockIdentityProvider implements IdentityProvider {
   private readonly records = new Map<string, MockRecord>();
+  private readonly storagePath: string | undefined;
+  private readonly resolveExistingProfile:
+    MockIdentityOptions["resolveExistingProfile"] | undefined;
+
+  public constructor(options: MockIdentityOptions = {}) {
+    this.storagePath = options.storagePath;
+    this.resolveExistingProfile = options.resolveExistingProfile;
+    if (!this.storagePath) return;
+    try {
+      const stored = JSON.parse(readFileSync(this.storagePath, "utf8")) as unknown;
+      if (!Array.isArray(stored)) throw new Error("local_identity_store_invalid");
+      for (const value of stored) {
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          typeof (value as StoredMockRecord).subject !== "string" ||
+          typeof (value as StoredMockRecord).email !== "string" ||
+          typeof (value as StoredMockRecord).name !== "string" ||
+          typeof (value as StoredMockRecord).salt !== "string" ||
+          typeof (value as StoredMockRecord).passwordHash !== "string" ||
+          typeof (value as StoredMockRecord).resetRequested !== "boolean"
+        ) {
+          throw new Error("local_identity_store_invalid");
+        }
+        const entry = value as StoredMockRecord;
+        this.records.set(entry.email, {
+          subject: entry.subject,
+          email: entry.email,
+          name: entry.name,
+          salt: Buffer.from(entry.salt, "base64"),
+          passwordHash: Buffer.from(entry.passwordHash, "base64"),
+          resetRequested: entry.resetRequested,
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return;
+      throw error;
+    }
+  }
+
+  private persist(): void {
+    if (!this.storagePath) return;
+    const stored: StoredMockRecord[] = [...this.records.values()].map((entry) => ({
+      subject: entry.subject,
+      email: entry.email,
+      name: entry.name,
+      salt: entry.salt.toString("base64"),
+      passwordHash: entry.passwordHash.toString("base64"),
+      resetRequested: entry.resetRequested,
+    }));
+    mkdirSync(dirname(this.storagePath), { recursive: true, mode: 0o700 });
+    const temporaryPath = `${this.storagePath}.tmp`;
+    writeFileSync(temporaryPath, `${JSON.stringify(stored)}\n`, { mode: 0o600 });
+    renameSync(temporaryPath, this.storagePath);
+  }
 
   public signUp(input: {
     readonly email: string;
@@ -34,6 +102,7 @@ export class MockIdentityProvider implements IdentityProvider {
       passwordHash: scryptSync(input.password, salt, 64),
       resetRequested: false,
     });
+    this.persist();
     return Promise.resolve({ subject, confirmed: true });
   }
 
@@ -54,10 +123,27 @@ export class MockIdentityProvider implements IdentityProvider {
     return Promise.resolve({ subject: record.subject, email: record.email, name: record.name });
   }
 
-  public requestPasswordReset(email: string): Promise<void> {
-    const record = this.records.get(email.trim().toLowerCase());
-    if (record) record.resetRequested = true;
-    return Promise.resolve();
+  public async requestPasswordReset(email: string): Promise<void> {
+    const normalizedEmail = email.trim().toLowerCase();
+    let record = this.records.get(normalizedEmail);
+    if (!record && this.resolveExistingProfile) {
+      const profile = await this.resolveExistingProfile(normalizedEmail);
+      if (profile) {
+        const salt = randomBytes(16);
+        record = {
+          ...profile,
+          email: normalizedEmail,
+          salt,
+          passwordHash: scryptSync(randomBytes(32), salt, 64),
+          resetRequested: true,
+        };
+        this.records.set(normalizedEmail, record);
+      }
+    }
+    if (record) {
+      record.resetRequested = true;
+      this.persist();
+    }
   }
 
   public confirmPasswordReset(input: {
@@ -71,6 +157,7 @@ export class MockIdentityProvider implements IdentityProvider {
     }
     record.passwordHash = scryptSync(input.newPassword, record.salt, 64);
     record.resetRequested = false;
+    this.persist();
     return Promise.resolve();
   }
 }

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "dev": "node --use-env-proxy scripts/dev.mjs",
     "start": "next start --port 3100",
     "build": "next build",
     "typecheck": "tsc --noEmit --pretty false"

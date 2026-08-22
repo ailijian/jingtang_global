@@ -8,6 +8,12 @@ const appDirectory = path.dirname(fileURLToPath(import.meta.url));
 loadEnvConfig(path.resolve(appDirectory, "../.."));
 
 const config: NextConfig = {
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+  logging: {
+    incomingRequests: {
+      ignore: [/\/api\/v1\/channels\/youtube\/oauth\/callback/u],
+    },
+  },
   reactStrictMode: true,
 };
 

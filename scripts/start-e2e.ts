@@ -16,13 +16,15 @@ const database = await startDisposablePostgres();
 const storage = await startDisposableObjectStorage();
 deployMigrations(database);
 runChecked("pnpm", ["build:packages"]);
+const platformPort = process.env.E2E_PORT ?? "3100";
 
 const environment: NodeJS.ProcessEnv = {
   ...migrationEnvironment(database),
   ...objectStorageEnvironment(storage),
   NODE_ENV: "development",
   APP_ENV: "test",
-  APP_BASE_URL: "http://127.0.0.1:3100",
+  APP_BASE_URL: `http://127.0.0.1:${platformPort}`,
+  NEXT_DIST_DIR: ".next-e2e",
   IDENTITY_PROVIDER: "mock",
   ALLOW_TEST_IDENTITY: "true",
   SESSION_COOKIE_SECRET: "e2e-session-cookie-secret-at-least-32-bytes",
@@ -35,7 +37,7 @@ const environment: NodeJS.ProcessEnv = {
 
 const child = spawnInherited(
   "pnpm",
-  ["--filter", "@jingtang/platform", "dev", "--hostname", "127.0.0.1"],
+  ["--filter", "@jingtang/platform", "dev", "--hostname", "127.0.0.1", "--port", platformPort],
   environment,
 );
 let stopping = false;

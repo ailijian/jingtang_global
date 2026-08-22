@@ -15,10 +15,13 @@ export interface AuditTarget {
     | "invitation"
     | "consent"
     | "session"
+    | "channel"
     | "source_asset"
     | "content"
     | "content_revision"
-    | "approval";
+    | "approval"
+    | "publishing_intent"
+    | "platform_execution";
   readonly id: string;
 }
 
@@ -34,6 +37,11 @@ export const auditActions = [
   "member.joined",
   "member.removed",
   "member.role_changed",
+  "channel.connection_started",
+  "channel.connected",
+  "channel.connection_denied",
+  "channel.reauthorization_required",
+  "channel.disconnected",
   "locale.changed",
   "source_asset.uploaded",
   "source_asset.upload_failed",
@@ -42,6 +50,11 @@ export const auditActions = [
   "content.submitted",
   "content.approved",
   "content.rejected",
+  "publishing.confirmed",
+  "platform.publish_started",
+  "platform.uploaded",
+  "platform.published",
+  "platform.publish_failed",
   "authorization.denied",
 ] as const;
 

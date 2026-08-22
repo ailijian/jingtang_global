@@ -206,6 +206,47 @@ paths:
         "400": { description: Rejection reason is missing. }
         "403": { $ref: "#/components/responses/PermissionDenied" }
         "409": { description: Revision is stale or no longer pending. }
+  /content/{contentId}/publish:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: confirmContentPublishing
+      description: Creates one immutable tenant-bound Publishing Intent, Platform Execution, outbox message, and audit record without performing the external upload in the request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revisionId, idempotencyKey, confirmed]
+              properties:
+                revisionId: { type: string, format: uuid }
+                idempotencyKey: { type: string, format: uuid }
+                confirmed: { type: boolean, const: true }
+      responses:
+        "202":
+          description: Exact approved private YouTube upload accepted for asynchronous execution.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [intent_id, execution_id]
+                properties:
+                  intent_id: { type: string, format: uuid }
+                  execution_id: { type: string, format: uuid }
+        "400": { description: Confirmation or the Test private-visibility restriction is invalid. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "404":
+          { description: Content or connected target channel is absent from the active Workspace. }
+        "409":
+          {
+            description: The exact revision is no longer publishable or conflicts with the idempotency key.,
+          }
   /activity:
     get:
       operationId: listActivity

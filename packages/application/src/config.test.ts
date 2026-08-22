@@ -48,10 +48,10 @@ describe("environment isolation", () => {
       NODE_ENV: "production",
       APP_ENV: "production",
       APP_BASE_URL: "https://app.jingtangai.com",
-      IDENTITY_PROVIDER: "cognito",
+      IDENTITY_PROVIDER: "ciam",
       ALLOW_TEST_IDENTITY: "false",
-      COGNITO_USER_POOL_ID: "ap-southeast-1_example",
-      COGNITO_CLIENT_ID: "example-client",
+      CIAM_ISSUER: "https://example.auth.tencentciam.com",
+      CIAM_CLIENT_ID: "example-client",
     };
     expect(parseAppConfig(production).TERMS_URL).toBe("https://jingtangai.com/en/terms/");
     expect(() =>
@@ -59,6 +59,42 @@ describe("environment isolation", () => {
         ...production,
         TERMS_VERSION: "obsolete",
         TERMS_URL: "https://example.com",
+      }),
+    ).toThrow();
+  });
+
+  it("requires complete YouTube OAuth secrets when the integration is enabled", () => {
+    expect(() => parseAppConfig({ ...base, YOUTUBE_OAUTH_ENABLED: "true" })).toThrow();
+    expect(
+      parseAppConfig({
+        ...base,
+        YOUTUBE_OAUTH_ENABLED: "true",
+        YOUTUBE_OAUTH_CLIENT_ID: "test-client.apps.googleusercontent.com",
+        YOUTUBE_OAUTH_CLIENT_SECRET: "test-client-secret",
+        YOUTUBE_OAUTH_STATE_SECRET: "a-separate-state-secret-with-32-characters",
+        OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      }).YOUTUBE_OAUTH_ENABLED,
+    ).toBe(true);
+  });
+
+  it("rejects malformed local OAuth token encryption keys", () => {
+    expect(() =>
+      parseAppConfig({
+        ...base,
+        OAUTH_TOKEN_ENCRYPTION_KEY: "not-a-valid-256-bit-base64url-encryption-key",
+      }),
+    ).toThrow();
+  });
+
+  it("permits deterministic YouTube faults only in the explicit test environment", () => {
+    expect(parseAppConfig({ ...base, YOUTUBE_TEST_FAULT: "quota" }).YOUTUBE_TEST_FAULT).toBe(
+      "quota",
+    );
+    expect(() =>
+      parseAppConfig({
+        ...base,
+        APP_ENV: "local",
+        YOUTUBE_TEST_FAULT: "quota",
       }),
     ).toThrow();
   });

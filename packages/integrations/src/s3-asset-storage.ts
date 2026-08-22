@@ -1,6 +1,7 @@
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
@@ -71,5 +72,21 @@ export class S3AssetStorage implements AssetStorage {
 
   async delete(key: string): Promise<void> {
     await this.#client.send(new DeleteObjectCommand({ Bucket: this.#bucket, Key: key }));
+  }
+
+  async open(key: string): Promise<{
+    readonly body: ReadableStream<Uint8Array>;
+    readonly contentType?: string;
+    readonly contentLength?: number;
+  }> {
+    const result = await this.#client.send(
+      new GetObjectCommand({ Bucket: this.#bucket, Key: key }),
+    );
+    if (!result.Body) throw new Error("source_asset_body_missing");
+    return {
+      body: result.Body.transformToWebStream() as ReadableStream<Uint8Array>,
+      ...(result.ContentType ? { contentType: result.ContentType } : {}),
+      ...(result.ContentLength !== undefined ? { contentLength: result.ContentLength } : {}),
+    };
   }
 }

@@ -17,6 +17,7 @@ import {
   type PrismaClient,
 } from "./generated/client.js";
 import { appendAudit, withTenant } from "./repository.js";
+import { platformExecutionView, type PlatformExecutionView } from "./publishing-repository.js";
 
 const contentStatusToDomain: Readonly<Record<DbContentStatus, ContentStatus>> = {
   DRAFT: "draft",
@@ -112,6 +113,7 @@ export interface ContentDetailView extends ContentSummaryView {
   readonly publishing: {
     readonly intentCount: number;
     readonly executionCount: number;
+    readonly executions: readonly PlatformExecutionView[];
   };
   readonly activity: readonly {
     readonly id: string;
@@ -380,98 +382,126 @@ export async function getContentDetail(
   workspaceId: string,
   contentId: string,
 ): Promise<ContentDetailView | null> {
-  const entry = await withTenant(client, workspaceId, (transaction) =>
-    transaction.content.findUnique({
+  return withTenant(client, workspaceId, async (transaction) => {
+    // Keep relation reads serial inside the interactive transaction. Prisma's JS query
+    // interpreter otherwise fans nested includes out over the same pg transaction client,
+    // which pg@8.23 deprecates and pg@9 will reject.
+    const entry = await transaction.content.findUnique({
       where: { id: contentId, workspaceId },
-      include: {
-        createdBy: { select: { name: true } },
-        sourceAsset: true,
-        revisions: {
-          where: {},
-          include: {
-            platformVersions: { orderBy: { createdAt: "asc" } },
-            approvalDecision: { include: { actor: { select: { name: true } } } },
-          },
-          orderBy: { revisionNumber: "desc" },
-        },
-        _count: { select: { publishingIntents: true } },
-      },
-    }),
-  );
-  if (!entry || !entry.sourceAsset) return null;
-  const revision = entry.revisions.find(
-    (candidate) => candidate.revisionNumber === entry.currentRevisionNumber,
-  );
-  if (!revision) throw new Error("content_revision_not_found");
-  const targetIds = [
-    entry.id,
-    ...entry.revisions.map((candidate) => candidate.id),
-    ...entry.revisions.flatMap((candidate) =>
-      candidate.approvalDecision ? [candidate.approvalDecision.id] : [],
-    ),
-  ];
-  const operational = await withTenant(client, workspaceId, async (transaction) => {
-    const executionCount = await transaction.platformExecution.count({
-      where: { workspaceId, publishingIntent: { contentId } },
     });
+    if (!entry) return null;
+    const createdBy = await transaction.user.findUnique({
+      where: { id: entry.createdByUserId },
+      select: { name: true },
+    });
+    const sourceAsset = await transaction.sourceAsset.findUnique({
+      where: { contentId: entry.id },
+    });
+    const revisions = await transaction.contentRevision.findMany({
+      where: { workspaceId, contentId: entry.id },
+      orderBy: { revisionNumber: "desc" },
+    });
+    const revision = revisions.find(
+      (candidate) => candidate.revisionNumber === entry.currentRevisionNumber,
+    );
+    if (!sourceAsset) return null;
+    if (!createdBy) throw new Error("content_creator_not_found");
+    if (!revision) throw new Error("content_revision_not_found");
+    const platformVersions = await transaction.platformVersion.findMany({
+      where: { workspaceId, revisionId: revision.id },
+      orderBy: { createdAt: "asc" },
+    });
+    const approvals = await transaction.approvalDecision.findMany({
+      where: { workspaceId, revisionId: { in: revisions.map((candidate) => candidate.id) } },
+    });
+    const approval = approvals.find((candidate) => candidate.revisionId === revision.id) ?? null;
+    const intentCount = await transaction.publishingIntent.count({
+      where: { workspaceId, contentId: entry.id },
+    });
+    const executions = await transaction.platformExecution.findMany({
+      where: { workspaceId, publishingIntent: { contentId } },
+      select: {
+        id: true,
+        state: true,
+        failureCategory: true,
+        providerId: true,
+        providerUrl: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    const targetIds = [
+      entry.id,
+      ...revisions.map((candidate) => candidate.id),
+      ...approvals.map((candidate) => candidate.id),
+    ];
     const activity = await transaction.auditEvent.findMany({
       where: { workspaceId, targetId: { in: targetIds } },
-      include: { actor: { select: { name: true } } },
       orderBy: { occurredAt: "desc" },
       take: 50,
     });
-    return { executionCount, activity };
-  });
-  return {
-    id: entry.id,
-    internalTitle: entry.internalTitle,
-    status: contentStatusToDomain[entry.status],
-    currentRevisionNumber: entry.currentRevisionNumber,
-    createdByName: entry.createdBy.name,
-    createdByUserId: entry.createdByUserId,
-    platformCount: revision.platformVersions.length,
-    createdAt: entry.createdAt,
-    updatedAt: entry.updatedAt,
-    sourceAsset: sourceAssetView(entry.sourceAsset),
-    revision: {
-      id: revision.id,
-      number: revision.revisionNumber,
-      submittedAt: revision.submittedAt,
-      platformVersions: revision.platformVersions.map((version) => ({
-        id: version.id,
-        platform: platformToDomain[version.platform],
-        accountReference: version.accountReference,
-        accountDisplayName: version.accountDisplayName,
-        title: version.title,
-        description: version.description,
-        privacyStatus: privacyToDomain[version.privacyStatus],
-        madeForKids: version.madeForKids,
+    const actorIds = [
+      ...(approval ? [approval.actorUserId] : []),
+      ...activity.flatMap((event) => (event.actorUserId ? [event.actorUserId] : [])),
+    ];
+    const actors = actorIds.length
+      ? await transaction.user.findMany({
+          where: { id: { in: [...new Set(actorIds)] } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const actorNames = new Map(actors.map((actor) => [actor.id, actor.name]));
+    const approvalActorName = approval ? actorNames.get(approval.actorUserId) : undefined;
+    if (approval && !approvalActorName) throw new Error("approval_actor_not_found");
+    return {
+      id: entry.id,
+      internalTitle: entry.internalTitle,
+      status: contentStatusToDomain[entry.status],
+      currentRevisionNumber: entry.currentRevisionNumber,
+      createdByName: createdBy.name,
+      createdByUserId: entry.createdByUserId,
+      platformCount: platformVersions.length,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      sourceAsset: sourceAssetView(sourceAsset),
+      revision: {
+        id: revision.id,
+        number: revision.revisionNumber,
+        submittedAt: revision.submittedAt,
+        platformVersions: platformVersions.map((version) => ({
+          id: version.id,
+          platform: platformToDomain[version.platform],
+          accountReference: version.accountReference,
+          accountDisplayName: version.accountDisplayName,
+          title: version.title,
+          description: version.description,
+          privacyStatus: privacyToDomain[version.privacyStatus],
+          madeForKids: version.madeForKids,
+        })),
+      },
+      approval: approval
+        ? {
+            id: approval.id,
+            result: approval.result === DbApprovalResult.APPROVED ? "approved" : "rejected",
+            reason: approval.reason,
+            actorName: approvalActorName ?? "",
+            decidedAt: approval.decidedAt,
+          }
+        : null,
+      publishing: {
+        intentCount,
+        executionCount: executions.length,
+        executions: executions.map(platformExecutionView),
+      },
+      activity: activity.map((event) => ({
+        id: event.id,
+        action: event.action,
+        result: event.result,
+        actorName: event.actorUserId ? (actorNames.get(event.actorUserId) ?? null) : null,
+        occurredAt: event.occurredAt,
       })),
-    },
-    approval: revision.approvalDecision
-      ? {
-          id: revision.approvalDecision.id,
-          result:
-            revision.approvalDecision.result === DbApprovalResult.APPROVED
-              ? "approved"
-              : "rejected",
-          reason: revision.approvalDecision.reason,
-          actorName: revision.approvalDecision.actor.name,
-          decidedAt: revision.approvalDecision.decidedAt,
-        }
-      : null,
-    publishing: {
-      intentCount: entry._count.publishingIntents,
-      executionCount: operational.executionCount,
-    },
-    activity: operational.activity.map((event) => ({
-      id: event.id,
-      action: event.action,
-      result: event.result,
-      actorName: event.actor?.name ?? null,
-      occurredAt: event.occurredAt,
-    })),
-  };
+    };
+  });
 }
 
 export async function updateContentDraft(

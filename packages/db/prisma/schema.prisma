@@ -124,6 +124,15 @@ enum PlatformExecutionState {
   @@map("platform_execution_state")
 }
 
+enum OutboxState {
+  PENDING   @map("pending")
+  CLAIMED   @map("claimed")
+  COMPLETED @map("completed")
+  DEAD      @map("dead")
+
+  @@map("outbox_state")
+}
+
 model User {
   id                String             @id @default(uuid()) @db.Uuid
   cognitoSubject    String             @unique @map("cognito_subject") @db.VarChar(255)
@@ -166,6 +175,7 @@ model Workspace {
   approvalDecisions  ApprovalDecision[]
   publishingIntents  PublishingIntent[]
   platformExecutions PlatformExecution[]
+  outboxMessages     OutboxMessage[]
 
   @@index([createdByUserId])
   @@map("workspaces")
@@ -208,15 +218,16 @@ model Invitation {
 }
 
 model ConsentRecord {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String   @map("user_id") @db.Uuid
-  termsVersion       String   @map("terms_version") @db.VarChar(80)
-  privacyVersion     String   @map("privacy_version") @db.VarChar(80)
-  dataPurposeVersion String   @map("data_purpose_version") @db.VarChar(80)
-  displayedLocale    Locale   @map("displayed_locale")
-  acceptanceMethod   String   @map("acceptance_method") @db.VarChar(40)
-  acceptedAt         DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
-  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  termsVersion       String    @map("terms_version") @db.VarChar(80)
+  privacyVersion     String    @map("privacy_version") @db.VarChar(80)
+  dataPurposeVersion String    @map("data_purpose_version") @db.VarChar(80)
+  displayedLocale    Locale    @map("displayed_locale")
+  acceptanceMethod   String    @map("acceptance_method") @db.VarChar(40)
+  acceptedAt         DateTime  @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  channels           Channel[] @relation("ChannelConsent")
 
   @@index([userId, acceptedAt])
   @@map("consent_records")
@@ -237,19 +248,23 @@ model Session {
 }
 
 model Channel {
-  id                       String       @id @default(uuid()) @db.Uuid
-  workspaceId              String       @map("workspace_id") @db.Uuid
-  platform                 String       @db.VarChar(40)
-  externalAccountId        String?      @map("external_account_id") @db.VarChar(255)
-  displayName              String?      @map("display_name") @db.VarChar(255)
-  state                    ChannelState @default(NOT_CONNECTED)
-  grantedScopes            String[]     @default([]) @map("granted_scopes")
-  consentRecordId          String?      @map("consent_record_id") @db.Uuid
-  tokenCiphertextReference String?      @map("token_ciphertext_reference") @db.VarChar(500)
-  deniedAt                 DateTime?    @map("denied_at") @db.Timestamptz(3)
-  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
-  workspace                Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                       String         @id @default(uuid()) @db.Uuid
+  workspaceId              String         @map("workspace_id") @db.Uuid
+  platform                 String         @db.VarChar(40)
+  externalAccountId        String?        @map("external_account_id") @db.VarChar(255)
+  displayName              String?        @map("display_name") @db.VarChar(255)
+  state                    ChannelState   @default(NOT_CONNECTED)
+  grantedScopes            String[]       @default([]) @map("granted_scopes")
+  consentRecordId          String?        @map("consent_record_id") @db.Uuid
+  tokenCiphertextReference String?        @map("token_ciphertext_reference") @db.VarChar(500)
+  tokenEnvelopeCiphertext  String?        @map("token_envelope_ciphertext") @db.Text
+  authorizedAt             DateTime?      @map("authorized_at") @db.Timestamptz(3)
+  refreshedAt              DateTime?      @map("refreshed_at") @db.Timestamptz(3)
+  deniedAt                 DateTime?      @map("denied_at") @db.Timestamptz(3)
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace                Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  consent                  ConsentRecord? @relation("ChannelConsent", fields: [consentRecordId], references: [id], onDelete: Restrict)
 
   @@unique([workspaceId, platform, externalAccountId])
   @@index([workspaceId, state])
@@ -409,11 +424,33 @@ model PlatformExecution {
   workspace          Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   publishingIntent   PublishingIntent       @relation(fields: [publishingIntentId], references: [id], onDelete: Cascade)
   platformVersion    PlatformVersion        @relation(fields: [platformVersionId], references: [id], onDelete: Restrict)
+  outboxMessage      OutboxMessage?
 
   @@unique([publishingIntentId, platformVersionId])
   @@unique([workspaceId, idempotencyKey])
   @@index([workspaceId, state, updatedAt(sort: Desc)])
   @@map("platform_executions")
+}
+
+model OutboxMessage {
+  id                  String            @id @default(uuid()) @db.Uuid
+  workspaceId         String            @map("workspace_id") @db.Uuid
+  platformExecutionId String            @unique @map("platform_execution_id") @db.Uuid
+  topic               String            @db.VarChar(120)
+  state               OutboxState       @default(PENDING)
+  attempt             Int               @default(0)
+  availableAt         DateTime          @default(now()) @map("available_at") @db.Timestamptz(3)
+  claimedAt           DateTime?         @map("claimed_at") @db.Timestamptz(3)
+  completedAt         DateTime?         @map("completed_at") @db.Timestamptz(3)
+  failureCategory     String?           @map("failure_category") @db.VarChar(80)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace           Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  platformExecution   PlatformExecution @relation(fields: [platformExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([state, availableAt, createdAt])
+  @@index([workspaceId, state])
+  @@map("outbox_messages")
 }
 
 model AuditEvent {

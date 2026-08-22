@@ -15,7 +15,7 @@ const nav = [
   ["/app/content", "nav.content", true],
   ["/app/approvals", "nav.approvals", true],
   ["/app/calendar", "nav.calendar", true],
-  ["#channels", "nav.channels", false],
+  ["/app/channels", "nav.channels", true],
   ["/app/activity", "nav.activity", true],
   ["/app/settings/team", "nav.settings", true],
 ] as const;

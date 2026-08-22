@@ -3,6 +3,7 @@ import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { AuditAction, AuditResult, Locale, Role } from "@jingtang/domain";
 
 import {
+  ChannelState,
   InvitationStatus,
   Locale as DbLocale,
   MembershipStatus,
@@ -118,6 +119,7 @@ export async function recordConsent(
     readonly privacyVersion: string;
     readonly dataPurposeVersion: string;
     readonly displayedLocale: Locale;
+    readonly acceptanceMethod?: "registration_checkbox" | "youtube_connection_checkbox";
   },
 ): Promise<{ readonly id: string }> {
   return client.consentRecord.create({
@@ -127,9 +129,223 @@ export async function recordConsent(
       privacyVersion: input.privacyVersion,
       dataPurposeVersion: input.dataPurposeVersion,
       displayedLocale: localeToDb[input.displayedLocale],
-      acceptanceMethod: "registration_checkbox",
+      acceptanceMethod: input.acceptanceMethod ?? "registration_checkbox",
     },
     select: { id: true },
+  });
+}
+
+export interface ChannelView {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly platform: "youtube";
+  readonly externalAccountId: string | null;
+  readonly displayName: string | null;
+  readonly state:
+    | "not_connected"
+    | "connecting"
+    | "connected"
+    | "reauthorization_required"
+    | "disconnecting"
+    | "disconnected";
+  readonly grantedScopes: readonly string[];
+  readonly authorizedAt: Date | null;
+  readonly refreshedAt: Date | null;
+  readonly deniedAt: Date | null;
+}
+
+const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> = {
+  NOT_CONNECTED: "not_connected",
+  CONNECTING: "connecting",
+  CONNECTED: "connected",
+  REAUTHORIZATION_REQUIRED: "reauthorization_required",
+  DISCONNECTING: "disconnecting",
+  DISCONNECTED: "disconnected",
+};
+
+function channelView(channel: {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly externalAccountId: string | null;
+  readonly displayName: string | null;
+  readonly state: ChannelState;
+  readonly grantedScopes: readonly string[];
+  readonly authorizedAt: Date | null;
+  readonly refreshedAt: Date | null;
+  readonly deniedAt: Date | null;
+}): ChannelView {
+  return {
+    id: channel.id,
+    workspaceId: channel.workspaceId,
+    platform: "youtube",
+    externalAccountId: channel.externalAccountId,
+    displayName: channel.displayName,
+    state: channelStateFromDb[channel.state],
+    grantedScopes: channel.grantedScopes,
+    authorizedAt: channel.authorizedAt,
+    refreshedAt: channel.refreshedAt,
+    deniedAt: channel.deniedAt,
+  };
+}
+
+export async function listYouTubeChannels(
+  client: PrismaClient,
+  workspaceId: string,
+): Promise<readonly ChannelView[]> {
+  return withTenant(client, workspaceId, async (transaction) => {
+    const channels = await transaction.channel.findMany({
+      where: { workspaceId, platform: "youtube" },
+      orderBy: { updatedAt: "desc" },
+    });
+    return channels.map(channelView);
+  });
+}
+
+export async function beginYouTubeConnection(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly consentRecordId: string;
+    readonly actorUserId: string;
+    readonly correlationId: string;
+  },
+): Promise<{ readonly id: string }> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const current = await transaction.channel.findFirst({
+      where: { workspaceId: input.workspaceId, platform: "youtube" },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, state: true },
+    });
+    if (
+      current &&
+      current.state !== ChannelState.NOT_CONNECTED &&
+      current.state !== ChannelState.DISCONNECTED &&
+      current.state !== ChannelState.REAUTHORIZATION_REQUIRED
+    ) {
+      throw new Error(
+        current.state === ChannelState.CONNECTING
+          ? "channel_connection_in_progress"
+          : "channel_already_connected",
+      );
+    }
+    const channel = current
+      ? await transaction.channel.update({
+          where: { id: current.id },
+          data: {
+            state: ChannelState.CONNECTING,
+            consentRecordId: input.consentRecordId,
+            deniedAt: null,
+            tokenEnvelopeCiphertext: null,
+            grantedScopes: [],
+          },
+          select: { id: true },
+        })
+      : await transaction.channel.create({
+          data: {
+            workspaceId: input.workspaceId,
+            platform: "youtube",
+            state: ChannelState.CONNECTING,
+            consentRecordId: input.consentRecordId,
+          },
+          select: { id: true },
+        });
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      actorUserId: input.actorUserId,
+      action: "channel.connection_started",
+      targetType: "channel",
+      targetId: channel.id,
+      result: "success",
+      correlationId: input.correlationId,
+      metadata: { platform: "youtube" },
+    });
+    return channel;
+  });
+}
+
+export async function completeYouTubeConnection(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly actorUserId: string;
+    readonly externalAccountId: string;
+    readonly displayName: string;
+    readonly grantedScopes: readonly string[];
+    readonly tokenEnvelopeCiphertext: string;
+    readonly correlationId: string;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    const now = new Date();
+    const result = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: "youtube",
+        state: ChannelState.CONNECTING,
+      },
+      data: {
+        externalAccountId: input.externalAccountId,
+        displayName: input.displayName,
+        state: ChannelState.CONNECTED,
+        grantedScopes: [...input.grantedScopes],
+        tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: null,
+        authorizedAt: now,
+        refreshedAt: now,
+        deniedAt: null,
+      },
+    });
+    if (result.count !== 1) throw new Error("channel_not_found");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      actorUserId: input.actorUserId,
+      action: "channel.connected",
+      targetType: "channel",
+      targetId: input.channelId,
+      result: "success",
+      correlationId: input.correlationId,
+      metadata: {
+        platform: "youtube",
+        externalAccountId: input.externalAccountId,
+        grantedScopes: [...input.grantedScopes],
+      },
+    });
+  });
+}
+
+export async function denyYouTubeConnection(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly actorUserId: string;
+    readonly correlationId: string;
+    readonly reason: "provider_denied" | "invalid_callback" | "exchange_failed";
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    const result = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: "youtube",
+        state: ChannelState.CONNECTING,
+      },
+      data: { state: ChannelState.NOT_CONNECTED, deniedAt: new Date() },
+    });
+    if (result.count !== 1) return;
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      actorUserId: input.actorUserId,
+      action: "channel.connection_denied",
+      targetType: "channel",
+      targetId: input.channelId,
+      result: "denied",
+      correlationId: input.correlationId,
+      metadata: { platform: "youtube", reason: input.reason },
+    });
   });
 }
 

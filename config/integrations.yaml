@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 2
+revision: 5
 status: approved
-effective_date: "2026-08-20"
+effective_date: "2026-08-22"
 owner: JINGTANG Integration Owner
-last_policy_verification_date: "2026-08-21"
-revision_note: Baseline Revision 2 bilingual rendering constraint; capability truth and availability remain unchanged
+last_policy_verification_date: "2026-08-22"
+revision_note: Real Test OAuth, authorized channel identity, private upload, and result tracking were verified in the protected local D5 harness; production capability truth remains unchanged pending D6 trust controls and D7 deployed-production gates
 
 authority:
   owns:
@@ -27,16 +27,19 @@ authority:
 policy_sources:
   google_oauth_production:
     url: https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance
-    verified_on: "2026-08-21"
+    verified_on: "2026-08-22"
   youtube_developer_policies:
     url: https://developers.google.com/youtube/terms/developer-policies
-    verified_on: "2026-08-21"
+    verified_on: "2026-08-22"
   youtube_videos_insert:
     url: https://developers.google.com/youtube/v3/docs/videos/insert
-    verified_on: "2026-08-21"
+    verified_on: "2026-08-22"
   google_youtube_scope_catalog:
     url: https://developers.google.com/identity/protocols/oauth2/scopes#youtube
-    verified_on: "2026-08-21"
+    verified_on: "2026-08-22"
+  youtube_data_api_discovery:
+    url: https://www.googleapis.com/discovery/v1/apis/youtube/v3/rest
+    verified_on: "2026-08-22"
 
 integrations:
   youtube:
@@ -71,8 +74,8 @@ integrations:
       incremental_authorization: true
       requested_scopes:
         - scope: https://www.googleapis.com/auth/youtube.upload
-          request_state: planned_not_requested
-          purpose: upload the exact user-approved video and metadata and track the returned video execution
+          request_state: requested_in_test
+          purpose: upload the exact user-approved video and metadata after explicit Publish Confirmation
           baseline_trace:
             - AC-07
             - AC-09
@@ -89,16 +92,33 @@ integrations:
             - user explicitly connects a YouTube channel
             - authorized Publisher explicitly confirms the exact video, channel, fields, and privacy setting
           api_methods:
-            - channels.list mine=true for connected-channel identity, subject to D5 scope verification
             - videos.insert for user-confirmed upload
-            - videos.list by returned video ID for processing/result tracking
+        - scope: https://www.googleapis.com/auth/youtube.readonly
+          request_state: requested_in_test
+          purpose: identify the exact authorized YouTube channel before confirmation and read the owner-only processing/result state of the returned uploaded video
+          baseline_trace:
+            - AC-07
+            - AC-09
+            - AC-15
+          design_trace:
+            - D-02
+            - D-05
+            - D-12
+          ui_surface:
+            - Channels / connected YouTube channel identity
+            - Content Review / exact target channel
+            - Content Detail / processing and result tracking
+          user_action:
+            - user explicitly connects a YouTube channel
+            - system tracks only the video returned by the user's confirmed upload
+          api_methods:
+            - channels.list mine=true for connected-channel identity
+            - videos.list by returned video ID for owner-only processing/result tracking
       excluded_scopes:
         - scope: https://www.googleapis.com/auth/youtube
           reason: broader account management is not required for the V1 upload slice
         - scope: https://www.googleapis.com/auth/youtube.force-ssl
           reason: edit/delete breadth is not required for the V1 upload slice
-        - scope: https://www.googleapis.com/auth/youtube.readonly
-          reason: not requested unless D5 proves youtube.upload cannot support the minimum channel identity and returned-video tracking calls; adding it requires registry approval and reviewer trace
         - scope: https://www.googleapis.com/auth/youtubepartner
           reason: content-owner/CMS operations are outside V1
         - scope: https://www.googleapis.com/auth/youtubepartner-channel-audit
@@ -112,15 +132,20 @@ integrations:
       - ordinary Authorized API Data must be refreshed or deleted within 30 calendar days
       - in-product revocation must programmatically revoke immediately and applicable Authorized Data must be deleted as soon as possible and within 7 calendar days
       - Schedule is not available and no scheduler or status claim may be exposed
+      - Test OAuth, real authorized-channel identity, private upload, and result tracking passed in the protected local D5 harness; production availability remains false until D6 trust controls and D7 deployed-production gates pass
     d5_entry_gates:
       - current official policy re-verification recorded
       - official domain, domain email, English legal entity expression, homepage, Privacy, Terms, Data Deletion, Security, and YouTube Integration page are live and consistent
       - separate test and production Google Cloud projects and current IAM contacts are evidenced
       - HTTPS redirect URIs and domain ownership are evidenced
       - reviewer/test channel and support contact are available in protected inventory
-      - youtube.upload scope is tested against channel identity, upload, and returned-video tracking; any additional scope requires explicit registry revision
+      - the Human-approved youtube.upload and youtube.readonly scopes are configured exactly in the test and production projects; any additional scope requires explicit registry revision
       - project verification, audit, quota, and private-upload limitation are recorded as actual external state
-      - token encryption, consent record, revoke/delete jobs, and audit event contracts exist before real credentials are used
+      - token encryption, consent record, immutable publish intent, per-platform execution, and required D5 audit event contracts exist before Test credentials are used
+    pre_production_gates:
+      - D6 programmatic revoke, applicable Authorized Data deletion, retention jobs, and production audit controls are verified
+      - D7 deployed dispatcher to Tencent TDMQ to worker execution path, secrets, keys, monitoring, and recovery controls are verified
+      - production OAuth client, support contact, verification, audit, quota, reviewer access, and rollout authorization reflect actual external state
 
   facebook:
     display_name: Facebook

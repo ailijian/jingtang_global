@@ -6,6 +6,11 @@
     "outDir": "dist",
     "declaration": true
   },
-  "references": [{ "path": "../../packages/observability" }],
+  "references": [
+    { "path": "../../packages/application" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/integrations" },
+    { "path": "../../packages/observability" }
+  ],
   "include": ["src/**/*.ts"]
 }

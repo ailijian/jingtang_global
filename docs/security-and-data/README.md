@@ -1,8 +1,8 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 4
-- Effective Date: 2026-08-21
+- Security/Data Revision: 6
+- Effective Date: 2026-08-22
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
 - Architecture dependency: [`docs/architecture/README.md`](../architecture/README.md)
@@ -29,7 +29,7 @@ Production data is prohibited in local development, CI fixtures, screenshots, de
 
 | Processor/system | Purpose | Data/region decision |
 | --- | --- | --- |
-| AWS Singapore (`ap-southeast-1`) | SaaS compute, Cognito identity, RDS, S3, SQS, KMS, Secrets Manager, SES, CloudWatch, backups | Primary production application data remains in Singapore; Multi-AZ and backups remain in-region |
+| Tencent Cloud Singapore | SaaS compute, CIAM identity, TencentDB for PostgreSQL, COS, TDMQ, KMS, Secrets Manager, SES, CLS/Cloud Monitor, backups | Primary production application data remains in Singapore; integration and production use separate logical resource and credential boundaries |
 | Tencent Cloud Lighthouse (Seoul), GoDaddy DNS, and Let's Encrypt ACME | D3 public website static delivery, DNS, TLS certificate issuance/renewal, and bounded security/access logs | Public website assets plus limited request/security metadata only; no authenticated API data, user content, OAuth token, or application secret is processed on this host |
 | Google/YouTube | User-directed OAuth, channel identification, video upload, status tracking, revocation | Google processes data under its platform terms and global infrastructure after explicit user action |
 | GitHub | Source repository and Actions CI | Source code and synthetic fixtures only; no production data or long-lived cloud key |
@@ -41,15 +41,15 @@ Adding analytics, CRM, customer support, error-reporting, CDN, AI, or marketing 
 
 | ID | Flow | Data | Storage/processing | Recipient | Deletion/control |
 | --- | --- | --- | --- | --- | --- |
-| DF-01 | Register/login/reset and locale preference | Email, name, Cognito subject, session metadata, `en`/`zh-CN` preference, consent version/time and displayed locale | Cognito + tenant-bound RDS profile; server-only secure session | AWS; transactional email provider path through SES | Logout revokes session; account deletion disables access first, then deletes/pseudonymizes profile and locale preference per matrix |
-| DF-02 | Workspace/team | Workspace profile, invitations, membership, role | RDS under `workspace_id` with application checks + RLS | Invited recipient receives minimum invite context | Owner/Admin controls membership; expired invites purge automatically |
-| DF-03 | Source asset upload | User-owned media, MIME/size/hash, object key | Direct signed upload to private S3; malware/type validation worker; RDS metadata | AWS only until explicit platform publish | User/workspace deletion deny-marks immediately; objects and keys purge per matrix |
-| DF-04 | Content and approval | Internal content metadata, platform versions, review comment, revision/hash, actors | RDS; platform fields stay tenant-bound | Workspace-authorized members | Role checks; deletion and retention per matrix |
-| DF-05 | YouTube connect | OAuth state/PKCE, code, access/refresh token, scope, Google/YouTube channel ID and display metadata | Code exchanged at BFF; token envelope-encrypted; channel metadata in RDS | Google/YouTube | Cancel starts no OAuth; disconnect deny-marks, revokes, cryptographically erases token, then cleans Authorized Data |
-| DF-06 | Confirm/publish | Approved asset/version snapshot, title, description, privacy/audience settings, channel, actor, confirmation time | Immutable intent and per-channel execution in RDS; SQS reference; worker streams media from S3 | YouTube only after explicit Publisher confirmation | Worker rechecks authorization/deletion; no silent account/platform expansion; retained API Data refreshes or deletes within policy window |
-| DF-07 | Track result | YouTube video ID/URL, publish/processing status, failure category, timestamps | RDS execution record; provider payload minimized/redacted | Authorized Workspace users | API-derived values refresh/delete every 30 days; user/revocation deletion paths below |
-| DF-08 | Disconnect/delete | Requester, target, reason code, timestamps, revocation result, cleanup jobs | Deny marker + audit/deletion ledger in RDS; worker cleanup | Google revocation endpoint when applicable | New API calls stop before cleanup; token revocation is immediate attempt; retry is bounded and observable |
-| DF-09 | Audit/telemetry | Actor/workspace/action/target/result/time, correlation IDs, safe error codes, infrastructure signals | Append-only audit table and restricted CloudWatch logs/metrics | Authorized Workspace Activity view; restricted operators | No token/raw media/final content; retention and pseudonymization per matrix |
+| DF-01 | Register/login/reset and locale preference | Email, name, CIAM subject, session metadata, `en`/`zh-CN` preference, consent version/time and displayed locale | Tencent CIAM + tenant-bound TencentDB profile; server-only secure session | Tencent Cloud; transactional email path through Tencent Cloud SES | Logout revokes session; account deletion disables access first, then deletes/pseudonymizes profile and locale preference per matrix |
+| DF-02 | Workspace/team | Workspace profile, invitations, membership, role | TencentDB under `workspace_id` with application checks + RLS | Invited recipient receives minimum invite context | Owner/Admin controls membership; expired invites purge automatically |
+| DF-03 | Source asset upload | User-owned media, MIME/size/hash, object key | Direct signed upload to private COS; malware/type validation worker; TencentDB metadata | Tencent Cloud only until explicit platform publish | User/workspace deletion deny-marks immediately; objects and keys purge per matrix |
+| DF-04 | Content and approval | Internal content metadata, platform versions, review comment, revision/hash, actors | TencentDB; platform fields stay tenant-bound | Workspace-authorized members | Role checks; deletion and retention per matrix |
+| DF-05 | YouTube connect | OAuth state/PKCE, code, access/refresh token, scope, Google/YouTube channel ID and display metadata | Code exchanged at BFF; token envelope-encrypted with Tencent KMS in deployed environments; channel metadata in TencentDB | Google/YouTube | Cancel starts no OAuth; disconnect deny-marks, revokes, cryptographically erases token, then cleans Authorized Data |
+| DF-06 | Confirm/publish | Approved asset/version snapshot, title, description, privacy/audience settings, channel, actor, confirmation time | Immutable intent and per-channel execution in TencentDB; TDMQ reference; worker streams media from COS | YouTube only after explicit Publisher confirmation | Worker rechecks authorization/deletion; no silent account/platform expansion; retained API Data refreshes or deletes within policy window |
+| DF-07 | Track result | YouTube video ID/URL, publish/processing status, failure category, timestamps | TencentDB execution record; provider payload minimized/redacted | Authorized Workspace users | API-derived values refresh/delete every 30 days; user/revocation deletion paths below |
+| DF-08 | Disconnect/delete | Requester, target, reason code, timestamps, revocation result, cleanup jobs | Deny marker + audit/deletion ledger in TencentDB; worker cleanup | Google revocation endpoint when applicable | New API calls stop before cleanup; token revocation is immediate attempt; retry is bounded and observable |
+| DF-09 | Audit/telemetry | Actor/workspace/action/target/result/time, correlation IDs, safe error codes, infrastructure signals | Append-only audit table and restricted Tencent CLS/Cloud Monitor telemetry | Authorized Workspace Activity view; restricted operators | No token/raw media/final content; retention and pseudonymization per matrix |
 | DF-10 | Website demo/contact | Business contact details and free-text inquiry | Values remain in the visitor's browser until they explicitly open an email draft to `developer@jingtangai.com`; the resulting message is held in the domain mailbox | JINGTANG support | Notice at collection; no website database or analytics copy; purge inactive inquiry per matrix |
 
 ## Retention Matrix
@@ -58,7 +58,7 @@ Periods are maximum defaults from the event shown. “Delete” includes live da
 
 | Data class | Active retention | Triggered deletion / expiry | Backup treatment |
 | --- | --- | --- | --- |
-| Cognito identity and active session | While account active; session uses short bounded lifetime | Disable sessions immediately on account deletion; delete identity and live profile within 7 calendar days after authorized request | Cognito/RDS recovery copies inaccessible to app; expire ≤35 days |
+| CIAM identity and active session | While account active; session uses short bounded lifetime | Disable sessions immediately on account deletion; delete identity and live profile within 7 calendar days after authorized request | CIAM/TencentDB recovery copies inaccessible to app; expire ≤35 days |
 | Terms/Privacy consent evidence | Account lifetime + 365 days | Pseudonymize user linkage after the evidence period unless a documented dispute hold applies | Expire with ≤35-day backup cycle after live deletion |
 | Workspace, membership, and role | While Workspace/account active | Remove membership access immediately; delete/pseudonymize live record within 7 days of authorized account/Workspace deletion, subject only to minimal audit evidence | Expire ≤35 days; restore replays deletion ledger |
 | Invitation | Until accepted/revoked or 30 days, whichever comes first | Purge expired/revoked token and unnecessary recipient data within 7 days | Expire ≤35 days |
@@ -79,16 +79,16 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 ## Encryption and Key Management
 
 - TLS 1.2 or newer is required for browser, API, internal service, database, queue, email API, and provider traffic.
-- RDS, S3, SQS, CloudWatch, backups, and Secrets Manager use customer-managed or service KMS encryption appropriate to the service, with separate production/non-production keys.
+- TencentDB, COS, TDMQ, CLS, backups, and Secrets Manager use customer-managed or service KMS encryption appropriate to the service, with separate production/integration keys.
 - OAuth tokens use application-level envelope encryption in addition to database encryption. A unique data key is generated per connection; only the worker and OAuth server role may decrypt it.
-- Source assets use private S3 objects and short-lived signed requests. Object keys are opaque and contain no email, Workspace name, or original filename.
-- Secrets rotate through Secrets Manager; GitHub uses OIDC. A secret must never enter source control, CI artifact, browser configuration, log, trace, audit metadata, error message, screenshot, or demo video.
+- Source assets use private COS objects and short-lived signed requests. Object keys are opaque and contain no email, Workspace name, or original filename.
+- Secrets rotate through Tencent Cloud Secrets Manager; GitHub uses short-lived federation where supported. A secret must never enter source control, CI artifact, browser configuration, log, trace, audit metadata, error message, screenshot, or demo video.
 - Key administration, application decryption, and security audit permissions are separate IAM roles. Production humans have no standing token-decryption permission.
 
 ## Backup, Restore, and Deletion Safety
 
-- RDS uses Multi-AZ, point-in-time recovery, and encrypted automated backups retained for 35 days in Singapore.
-- S3 uses versioning and lifecycle expiry. Database and object-store recovery points are reconciled by object hash and deletion ledger.
+- TencentDB for PostgreSQL uses the selected high-availability mode, point-in-time recovery, and encrypted automated backups retained for 35 days in Singapore.
+- COS uses versioning and lifecycle expiry. Database and object-store recovery points are reconciled by object hash and deletion ledger.
 - A quarterly restore exercise begins in D6. Restores occur into an isolated environment, replay all deletion/deny records through the recovery point, validate tenant/RLS policy, and only then may replace service state.
 - Disconnect and deletion are sagas with durable steps: deny new work → cancel/reject queued work → revoke provider token → erase token key → delete applicable Authorized Data/assets → record minimized result.
 - A failed external revocation never restores local access. It raises an operator alert and bounded retry while the local connection stays denied.
@@ -103,7 +103,7 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 
 ## External Policy Trace
 
-Verified 2026-08-20 against current official sources:
+Verified 2026-08-21 against current official sources:
 
 - [Google OAuth production policy compliance](https://developers.google.com/identity/protocols/oauth2/production-readiness/policy-compliance): separate test/production projects, accurate identity, minimal scopes, owned/verified domains, public homepage, HTTPS origins/redirects, and verification where required.
 - [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies): user control, privacy notice/consent, programmatic revocation, Authorized/API Data refresh/deletion, user deletion, credential prohibition, and minimum-functionality obligations.
@@ -121,3 +121,5 @@ D6 must replace design-time assertions with observed evidence for processor inve
 - Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 locale preference 与 Consent displayed locale 数据字段；未增加处理方、区域、数据用途或更长保留期，Revision 1 的安全与删除边界保持不变。
 - Revision 3 — 2026-08-21：D3 选择域名邮箱作为官网 Contact/Demo 的明确联系路径。表单只在浏览器内准备邮件内容，访客明确打开邮件草稿后由其邮件提供商发送至 `developer@jingtangai.com`；不新增网站数据库、Analytics、CRM、处理方、数据用途或更长保留期。
 - Revision 4 — 2026-08-21：Human Owner 将 D3 公共官网生产目标明确为腾讯云首尔轻量应用服务器；增加腾讯云、GoDaddy DNS 与 Let's Encrypt ACME 的公开静态资源、TLS 和有限安全/访问日志处理边界。官网仍不处理账号数据、用户内容、OAuth Token 或应用 Secret；Human Owner 已明确批准更新后的中英双语 Legal/Data Disclosure，并授权 production-candidate commit 与公开 rollout。
+- Revision 5 — 2026-08-21：Human Owner 在 D5 前明确批准把尚未实施的 SaaS/worker AWS 架构修订为腾讯云，并选择不单独准备测试服务器。SaaS 生产处理方、主区域与服务边界相应改为腾讯云新加坡；Test/Integration 必须保持独立数据库、COS Bucket、TDMQ Queue、KMS Key、Secret、Log 与 Google Cloud Test Project，即使复用同一物理主机也不得复用生产数据或凭据。本修订不声称这些腾讯 SaaS 资源已经创建，也不改变已验收的腾讯云首尔静态官网边界。
+- Revision 6 — 2026-08-22：Human Owner 授权按 D5 re-review 的最小修正实施治理。受保护本地 D5 harness 可使用 Google Cloud Test Project、allow-listed Human account 与用户自有测试素材证明真实 OAuth/私密上传；其数据库、对象存储、本地 envelope key 和 PostgreSQL outbox 仅是 test evidence，不得复用 production credential、不得标记 Available，也不替代 D7 的腾讯云新加坡 CIAM、TencentDB、COS、TDMQ、Secrets Manager/KMS、CLS/Cloud Monitor 和生产访问控制证据。

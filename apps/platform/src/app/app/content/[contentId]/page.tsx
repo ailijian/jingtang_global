@@ -1,10 +1,11 @@
-import { getContentDetail } from "@jingtang/db";
+import { getContentDetail, listYouTubeChannels } from "@jingtang/db";
 import { hasPermission } from "@jingtang/domain";
 import { formatDateTime, formatNumber, translate } from "@jingtang/i18n";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ContentActions } from "../../../../components/content-actions";
+import { PublishActions } from "../../../../components/publish-actions";
 import { contentStatusMessage } from "../../../../server/content-labels";
 import { workspacePageContext } from "../../../../server/page-context";
 import { getRuntime } from "../../../../server/runtime";
@@ -20,7 +21,23 @@ export default async function ContentDetailPage({
   if (!content) notFound();
   const version = content.revision.platformVersions[0];
   if (!version) notFound();
+  const connectedChannel = (await listYouTubeChannels(getRuntime().db, workspaceId)).some(
+    (channel) =>
+      channel.state === "connected" && channel.externalAccountId === version.accountReference,
+  );
   const statusLabel = translate(locale, contentStatusMessage[content.status]);
+  const activeExecution = content.publishing.executions.some((entry) =>
+    ["not_started", "publishing", "processing"].includes(entry.state),
+  );
+  const executionLabel = {
+    not_started: "detail.execution.notStarted",
+    publishing: "detail.execution.publishing",
+    processing: "detail.execution.processing",
+    published: "detail.execution.published",
+    failed: "detail.execution.failed",
+    needs_attention: "detail.execution.needsAttention",
+    cancelled: "detail.execution.cancelled",
+  } as const;
   return (
     <>
       <header className="page-heading detail-heading">
@@ -129,8 +146,57 @@ export default async function ContentDetailPage({
               ? translate(locale, "detail.noPublishing")
               : `${content.publishing.intentCount} / ${content.publishing.executionCount}`}
           </p>
+          {content.publishing.executions.map((execution) => (
+            <article className="publishing-execution" key={execution.id}>
+              <strong>{translate(locale, executionLabel[execution.state])}</strong>
+              {execution.providerUrl ? (
+                <a href={execution.providerUrl} target="_blank" rel="noreferrer">
+                  {translate(locale, "detail.publish.openVideo")}
+                </a>
+              ) : null}
+              {execution.state === "needs_attention" ? (
+                <Link href="/app/channels">
+                  {translate(locale, "detail.publish.reviewChannel")}
+                </Link>
+              ) : null}
+              {execution.state === "failed" || execution.state === "needs_attention" ? (
+                <Link href="/app/content">
+                  {translate(locale, "detail.publish.returnToContent")}
+                </Link>
+              ) : null}
+              {execution.failureCategory ? (
+                <small>
+                  {execution.failureCategory === "controlled_test_fault"
+                    ? translate(locale, "detail.publish.controlledFailure")
+                    : execution.failureCategory}
+                </small>
+              ) : null}
+              <time dateTime={execution.updatedAt.toISOString()}>
+                {formatDateTime(locale, execution.updatedAt, "Asia/Shanghai")}
+              </time>
+            </article>
+          ))}
           {content.status === "approved" ? (
             <p>{translate(locale, "detail.approvalNoPublish")}</p>
+          ) : null}
+          {content.status === "approved" ? (
+            <PublishActions
+              locale={locale}
+              contentId={content.id}
+              revisionId={content.revision.id}
+              canPublish={
+                connectedChannel &&
+                version.privacyStatus === "private" &&
+                hasPermission(role, "content.publish")
+              }
+              hasExecution={content.publishing.executionCount > 0}
+              polling={activeExecution}
+              sourceFilename={content.sourceAsset.filename}
+              title={version.title}
+              description={version.description}
+              channel={`${version.accountDisplayName} · ${version.accountReference}`}
+              madeForKids={version.madeForKids}
+            />
           ) : null}
           <span className="unavailable-pill">{translate(locale, "composer.schedule")}</span>
         </section>

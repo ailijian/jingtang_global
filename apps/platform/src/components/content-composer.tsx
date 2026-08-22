@@ -22,10 +22,10 @@ interface DraftState {
   readonly madeForKids: boolean;
 }
 
-const initial: DraftState = {
+const emptyDraft: DraftState = {
   step: 1,
   asset: null,
-  accountReference: "youtube-review-target",
+  accountReference: "",
   accountDisplayName: "",
   internalTitle: "",
   platformTitle: "",
@@ -34,17 +34,33 @@ const initial: DraftState = {
   madeForKids: false,
 };
 
+function draftForChannels(
+  channels: readonly { readonly externalAccountId: string; readonly displayName: string }[],
+): DraftState {
+  return {
+    ...emptyDraft,
+    accountReference: channels[0]?.externalAccountId ?? "",
+    accountDisplayName: channels[0]?.displayName ?? "",
+  };
+}
+
 export function ContentComposer({
   locale,
   workspaceId,
+  channels,
 }: {
   readonly locale: Locale;
   readonly workspaceId: string;
+  readonly channels: readonly {
+    readonly id: string;
+    readonly externalAccountId: string;
+    readonly displayName: string;
+  }[];
 }) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const storageKey = `jingtang:d4-content-composer:${workspaceId}`;
   const router = useRouter();
-  const [draft, setDraft] = useState<DraftState>(initial);
+  const [draft, setDraft] = useState<DraftState>(() => draftForChannels(channels));
   const [file, setFile] = useState<File | null>(null);
   const [ownership, setOwnership] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -54,9 +70,19 @@ export function ContentComposer({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const saved = sessionStorage.getItem(storageKey);
+      const initial = draftForChannels(channels);
       if (saved) {
         try {
-          setDraft({ ...initial, ...(JSON.parse(saved) as Partial<DraftState>) });
+          const restored = { ...initial, ...(JSON.parse(saved) as Partial<DraftState>) };
+          const connected = channels.find(
+            (channel) => channel.externalAccountId === restored.accountReference,
+          );
+          setDraft({
+            ...restored,
+            accountReference: connected?.externalAccountId ?? initial.accountReference,
+            accountDisplayName: connected?.displayName ?? initial.accountDisplayName,
+            privacyStatus: "private",
+          });
         } catch {
           sessionStorage.removeItem(storageKey);
         }
@@ -64,7 +90,7 @@ export function ContentComposer({
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [storageKey]);
+  }, [channels, storageKey]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -185,7 +211,7 @@ export function ContentComposer({
                 <input
                   name="sourceAsset"
                   type="file"
-                  accept="video/mp4,video/quicktime,image/jpeg,image/png,image/webp"
+                  accept="video/mp4,video/quicktime"
                   onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 />
               </label>
@@ -211,26 +237,30 @@ export function ContentComposer({
                 <strong>{t("composer.platform.youtube")}</strong>
                 <p>{t("composer.platform.youtube.help")}</p>
               </article>
-              <div className="field-grid">
-                <label className="content-field">
-                  <span>{t("composer.platform.accountReference")}</span>
-                  <input
-                    name="accountReference"
-                    value={draft.accountReference}
-                    maxLength={255}
-                    onChange={(event) => update("accountReference", event.target.value)}
-                  />
-                </label>
-                <label className="content-field">
-                  <span>{t("composer.platform.accountName")}</span>
-                  <input
-                    name="accountDisplayName"
-                    value={draft.accountDisplayName}
-                    maxLength={255}
-                    onChange={(event) => update("accountDisplayName", event.target.value)}
-                  />
-                </label>
-              </div>
+              <label className="content-field">
+                <span>{t("composer.platform.connectedChannel")}</span>
+                <select
+                  name="connectedChannel"
+                  value={draft.accountReference}
+                  disabled={channels.length === 0}
+                  onChange={(event) => {
+                    const channel = channels.find(
+                      (candidate) => candidate.externalAccountId === event.target.value,
+                    );
+                    update("accountReference", channel?.externalAccountId ?? "");
+                    update("accountDisplayName", channel?.displayName ?? "");
+                  }}
+                >
+                  {channels.length === 0 ? (
+                    <option value="">{t("composer.platform.noConnectedChannel")}</option>
+                  ) : null}
+                  {channels.map((channel) => (
+                    <option key={channel.id} value={channel.externalAccountId}>
+                      {channel.displayName} · {channel.externalAccountId}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="platform-coming-soon">
                 <span>Facebook · {t("composer.platform.comingSoon")}</span>
                 <span>Instagram · {t("composer.platform.comingSoon")}</span>
@@ -250,6 +280,7 @@ export function ContentComposer({
                   maxLength={160}
                   onChange={(event) => update("internalTitle", event.target.value)}
                 />
+                <small>{t("composer.internalTitle.help")}</small>
               </label>
               <label className="content-field">
                 <span>{t("composer.youtubeTitle")}</span>
@@ -259,6 +290,7 @@ export function ContentComposer({
                   maxLength={100}
                   onChange={(event) => update("platformTitle", event.target.value)}
                 />
+                <small>{t("composer.youtubeTitle.help")}</small>
               </label>
               <label className="content-field">
                 <span>{t("composer.descriptionField")}</span>
@@ -273,17 +305,10 @@ export function ContentComposer({
               <div className="field-grid">
                 <label className="content-field">
                   <span>{t("composer.privacy")}</span>
-                  <select
-                    name="privacyStatus"
-                    value={draft.privacyStatus}
-                    onChange={(event) =>
-                      update("privacyStatus", event.target.value as DraftState["privacyStatus"])
-                    }
-                  >
+                  <select name="privacyStatus" value={draft.privacyStatus} disabled>
                     <option value="private">{t("composer.privacy.private")}</option>
-                    <option value="unlisted">{t("composer.privacy.unlisted")}</option>
-                    <option value="public">{t("composer.privacy.public")}</option>
                   </select>
+                  <small>{t("composer.privacy.testOnly")}</small>
                 </label>
                 <label className="content-field">
                   <span>{t("composer.audience")}</span>
@@ -311,7 +336,9 @@ export function ContentComposer({
                 </div>
                 <div>
                   <dt>{t("composer.platform.accountName")}</dt>
-                  <dd>{draft.accountDisplayName}</dd>
+                  <dd>
+                    {draft.accountDisplayName} · {draft.accountReference}
+                  </dd>
                 </div>
                 <div>
                   <dt>{t("detail.revision")}</dt>
