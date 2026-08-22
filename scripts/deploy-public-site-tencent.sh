@@ -24,9 +24,9 @@ if [[ -n "$site_identity" ]]; then
 fi
 
 cd "$repository_root"
-pnpm site:release-check
 pnpm build:packages
 pnpm --filter @jingtang/site build
+pnpm site:release-check
 
 ssh "${ssh_options[@]}" "$site_target" \
   "install -d -m 0755 '$site_root/releases/$release_id' '$site_root/logs'"
