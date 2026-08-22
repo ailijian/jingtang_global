@@ -4,6 +4,7 @@ export const zhCN: Record<keyof typeof en, string> = {
   "app.brand": "JINGTANG",
   "app.skipToContent": "跳到主要内容",
   "action.signOut": "退出登录",
+  "action.cancel": "取消",
   "locale.en": "English",
   "locale.zhCN": "简体中文",
   "auth.email": "企业邮箱",
@@ -73,6 +74,8 @@ export const zhCN: Record<keyof typeof en, string> = {
   "channel.title": "渠道",
   "channel.description": "在当前工作空间内，以明确的最小权限连接官方平台账号。",
   "channel.status.connected": "已连接",
+  "channel.status.disconnecting": "正在断开",
+  "channel.status.disconnected": "已断开",
   "channel.status.reauthorization": "需要重新授权",
   "channel.status.test": "仅测试",
   "channel.oauth.help":
@@ -87,9 +90,51 @@ export const zhCN: Record<keyof typeof en, string> = {
   "channel.reauthorize": "重新授权 YouTube",
   "channel.notEnabled": "此环境尚未配置 Test OAuth 客户端。",
   "channel.connected.help": "授权仅在服务端为当前工作空间保存；实际发布仍需单独明确确认。",
+  "channel.disconnect.action": "断开 YouTube",
+  "channel.disconnect.retry": "重试断开",
+  "channel.disconnect.title": "断开这个 YouTube 渠道？",
+  "channel.disconnect.body":
+    "JINGTANG 将立即停止新的 YouTube API 活动，撤销 Google 授权，并删除保存的 OAuth 令牌和授权数据。",
+  "channel.disconnect.effectAccess": "新的上传与 YouTube API 读取将立即停止。",
+  "channel.disconnect.effectData": "JINGTANG 将删除此连接保存的 OAuth 令牌和授权数据。",
+  "channel.disconnect.effectThirdParty":
+    "YouTube 已持有的视频不会被删除；请在 YouTube Studio 中单独管理。",
+  "channel.disconnect.pending": "正在断开…",
   "channel.result.connected": "YouTube 渠道连接成功。",
+  "channel.result.disconnected": "YouTube 授权已撤销，JINGTANG 保存的连接数据已删除。",
+  "channel.result.disconnecting":
+    "已开始断开。正在执行的请求会先结束，再撤销授权；不会再启动新的平台操作。",
+  "channel.result.disconnectFailed":
+    "JINGTANG 已阻止访问，但 Google 撤销尚未完成。请重试断开操作。",
   "channel.result.denied": "Google 授权已取消，没有连接任何渠道。",
   "channel.result.failed": "连接未能安全完成，没有保留可用授权。",
+  "settings.title": "设置",
+  "settings.description": "管理工作空间边界、成员和保留的数据。",
+  "settings.team.title": "成员与角色",
+  "settings.team.description": "邀请成员并控制其工作空间权限。",
+  "settings.data.title": "数据与账号",
+  "settings.data.description": "查看数据边界，或申请删除此工作空间的 JINGTANG 数据。",
+  "dataSettings.title": "数据与账号",
+  "dataSettings.description": "断开平台与删除工作空间数据是两个影响不同的独立操作。",
+  "dataSettings.workspace.title": "删除此工作空间的 JINGTANG 数据",
+  "dataSettings.workspace.body":
+    "这将永久删除由 JINGTANG 控制的工作空间数据，但不会删除第三方平台已持有的内容。",
+  "dataSettings.workspace.effectAccess":
+    "所有成员将立即失去访问权，待处理的 JINGTANG 发布任务会被取消。",
+  "dataSettings.workspace.effectRevoke":
+    "已连接的平台授权会被撤销，保存的 OAuth 令牌和授权数据会被删除。",
+  "dataSettings.workspace.effectThirdParty":
+    "YouTube 视频及第三方持有的其他内容不会被删除；请在相应服务中管理。",
+  "dataSettings.workspace.effectBackup": "残留的加密备份副本会按已记录的备份保留周期到期。",
+  "dataSettings.workspace.action": "删除工作空间数据",
+  "dataSettings.workspace.confirmTitle": "永久删除此工作空间的数据？",
+  "dataSettings.workspace.confirmBody":
+    "此操作无法撤销。请输入工作空间的准确名称 {workspace} 以继续。",
+  "dataSettings.workspace.typeName": "输入 {workspace} 以确认",
+  "dataSettings.workspace.deleting": "正在删除…",
+  "dataSettings.result.completed": "工作空间数据删除已完成。请保存申请编号：{reference}。",
+  "dataSettings.result.failed":
+    "删除尚未完成。平台访问仍被阻止，可重试此申请。申请编号：{reference}。",
   "home.title": "工作空间首页",
   "home.empty.title": "你的可控发布工作空间已准备就绪。",
   "home.empty.description":
@@ -217,6 +262,48 @@ export const zhCN: Record<keyof typeof en, string> = {
   "activity.empty.title": "当前没有活动记录。",
   "activity.empty.description": "工作空间内的受审计操作会显示在这里。",
   "activity.actor.system": "系统",
+  "activity.result.success": "成功",
+  "activity.result.denied": "已拒绝",
+  "activity.result.failed": "失败",
+  "activity.action.identity.registered": "账号已注册",
+  "activity.action.identity.login": "已登录",
+  "activity.action.identity.logout": "已退出登录",
+  "activity.action.identity.password_reset_requested": "已申请重置密码",
+  "activity.action.consent.accepted": "已同意当前政策",
+  "activity.action.workspace.created": "已创建工作空间",
+  "activity.action.workspace.selected": "已切换工作空间",
+  "activity.action.member.invited": "已邀请成员",
+  "activity.action.member.joined": "成员已加入",
+  "activity.action.member.removed": "已移除成员",
+  "activity.action.member.role_changed": "已更改成员角色",
+  "activity.action.channel.connection_started": "已开始连接渠道",
+  "activity.action.channel.connected": "渠道已连接",
+  "activity.action.channel.connection_denied": "渠道连接已拒绝",
+  "activity.action.channel.reauthorization_required": "渠道需要重新授权",
+  "activity.action.channel.disconnect_started": "已开始断开渠道",
+  "activity.action.channel.disconnect_failed": "渠道断开失败",
+  "activity.action.channel.disconnected": "渠道已断开",
+  "activity.action.locale.changed": "已更改界面语言",
+  "activity.action.source_asset.uploaded": "源素材已上传",
+  "activity.action.source_asset.upload_failed": "源素材上传失败",
+  "activity.action.content.created": "内容已创建",
+  "activity.action.content.edited": "内容已编辑",
+  "activity.action.content.submitted": "内容已提交",
+  "activity.action.content.approved": "内容已批准",
+  "activity.action.content.rejected": "内容已驳回",
+  "activity.action.publishing.confirmed": "发布已确认",
+  "activity.action.platform.publish_started": "平台发布已开始",
+  "activity.action.platform.uploaded": "平台已接受上传",
+  "activity.action.platform.published": "平台发布已完成",
+  "activity.action.platform.publish_failed": "平台发布失败",
+  "activity.action.platform.publish_cancelled": "平台发布已取消",
+  "activity.action.data.deletion_requested": "已申请删除数据",
+  "activity.action.data.deletion_started": "数据删除已开始",
+  "activity.action.data.deletion_completed": "数据删除已完成",
+  "activity.action.data.deletion_failed": "数据删除失败",
+  "activity.action.data.retention_refreshed": "授权数据已刷新",
+  "activity.action.data.retention_deleted": "授权数据已删除",
+  "activity.action.authorization.denied": "授权已拒绝",
   "state.loading": "加载中",
   "state.error": "有事项需要处理",
   "state.empty": "暂无内容",
@@ -376,19 +463,19 @@ export const zhCN: Record<keyof typeof en, string> = {
   "site.youtube.eyebrow": "平台集成 / YouTube",
   "site.youtube.title": "面向可控视频发布设计，当前尚不可用。",
   "site.youtube.lead":
-    "YouTube 是首个计划中的生产渠道。D3 先提供公共身份与披露页面，之后才会在 D5 进入受保护的 OAuth 与真实发布实施。",
+    "YouTube 是首个计划中的生产渠道。受保护测试实现已验证官方 OAuth、私密上传、结果跟踪、断开、撤销和 Authorized Data 清理；生产访问在完成部署环境 Gate 前仍为即将推出。",
   "site.youtube.limit.title": "当前限制",
   "site.youtube.limit.body":
     "连接、立即发布、结果跟踪、重新授权和断开均为即将推出；暂不支持定时发布。本页面不会启动生产授权请求。",
   "site.youtube.auth.title": "官方授权与最小访问",
   "site.youtube.auth.body":
-    "计划中的连接使用 Google 官方 OAuth 2.0 Web 流程，并只申请已批准上传闭环所需的最小 Scope。JINGTANG 不会索取或保存 YouTube 密码或浏览器 Cookie。",
+    "受保护实现使用 Google 官方 OAuth 2.0 Web 流程，并只申请已批准上传与仅限所有者结果跟踪所需的 youtube.upload 和 youtube.readonly。JINGTANG 不会索取或保存 YouTube 密码或浏览器 Cookie。",
   "site.youtube.control.title": "由用户控制的外部操作",
   "site.youtube.control.body":
-    "计划中的发布流程会在上传前明确展示 Channel、视频、可编辑标题与描述、隐私、受众设置、预览和独立最终确认。",
+    "受保护实现会在上传前明确展示 Channel、视频、可编辑标题与描述、隐私、受众设置、预览和独立最终确认。该证据不代表生产能力已经可用。",
   "site.youtube.data.title": "授权数据与撤销",
   "site.youtube.data.body":
-    "实现后，普通 Authorized Data 将在 30 天内刷新或删除。应用内撤销会立即阻止新任务、尝试程序化吊销 Token，并尽快且最迟在 7 天内删除适用 Authorized Data。",
+    "D6 已实现普通 Authorized Data 在 30 天内刷新或删除的控制。应用内断开会立即阻止新任务、尝试程序化吊销 Token、清除已保存 Token，并尽快且最迟在 7 天内删除适用 Authorized Data；生产运行仍待部署环境验证。",
   "site.youtube.audit.title": "Verification 与 Audit 的真实状态",
   "site.youtube.audit.body":
     "符合条件的未验证 API Project 上传内容会被限制为私密可见，直到通过要求的 Audit。获得真实生产证据前，JINGTANG 不会把公开发布描述为可用。",
@@ -420,10 +507,10 @@ export const zhCN: Record<keyof typeof en, string> = {
     "本页面区分已实现的产品保护、生产控制义务和仍待完成的证据。JINGTANG 不会宣称尚未取得的认证或平台批准。",
   "site.security.current.title": "当前实现边界",
   "site.security.current.body":
-    "可运行基础已执行租户边界、默认拒绝的角色权限、服务端会话、审计事件、Secret 扫描、Migration 检查与自动验证。这些控制本身不能证明生产部署状态。",
+    "可运行基础已执行租户边界、默认拒绝的角色权限、服务端会话、审计事件、Secret 扫描、Migration 检查与自动验证。D6 还在本地验证了 deny-first 断开、程序化撤销、删除账本、7/30 天保留控制、审计最小化和一次性恢复演练。这些控制本身不能证明生产部署状态。",
   "site.security.production.title": "SaaS 上线前必须验证的生产控制",
   "site.security.production.body":
-    "TLS、AWS 新加坡加密存储、托管 Secret、OAuth Token 信封加密、环境隔离、备份、访问记录、事件响应和漏洞管理，仍需在后续 Gate 提供真实生产证据。",
+    "已批准的 SaaS 目标为腾讯云新加坡。TLS、TencentDB 与 COS 加密存储、Secrets Manager/KMS、OAuth Token 信封加密、环境隔离、备份、访问记录与监控、事件响应和漏洞管理，仍需在 D7 提供真实生产证据。",
   "site.security.website.title": "公共网站边界",
   "site.security.website.body":
     "D3 官网按静态公共页面设计，不包含广告追踪、Analytics 处理方、账号数据、OAuth Token 或用户内容。只有访客明确打开邮件草稿后，联系信息才会离开浏览器。",
@@ -495,7 +582,7 @@ export const zhCN: Record<keyof typeof en, string> = {
   "site.privacy.eyebrow": "法律 / 隐私",
   "site.privacy.title": "隐私政策",
   "site.privacy.lead":
-    "本政策说明 JINGTANG 如何处理公共网站、可控发布工作空间、支持联系以及计划中的官方平台集成数据。",
+    "本政策说明 JINGTANG 如何处理公共网站、可控发布工作空间、支持联系，以及在受保护测试访问中使用或明确标为可用的官方平台集成数据。",
   "site.privacy.scope.title": "1. 我们是谁与适用范围",
   "site.privacy.scope.body":
     "JINGTANG 的运营主体为 {legalEntity}。本政策适用于 jingtangai.com、JINGTANG 工作空间、官方支持联系以及我们明确标为可用的 Integration。",
@@ -507,10 +594,10 @@ export const zhCN: Record<keyof typeof en, string> = {
     "我们使用数据提供用户请求的身份、工作空间、审批、发布、跟踪、支持、安全、审计、撤销与删除功能，保留用户选择，并履行适用的平台和法律义务。我们不会把授权平台数据静默用于无关广告或 AI 训练。",
   "site.privacy.processors.title": "4. 处理方、区域与跨境",
   "site.privacy.processors.body":
-    "已批准的生产架构仍计划将主要应用数据与计算置于 AWS 新加坡（ap-southeast-1）。D3 公共网站的静态资源和有限安全/访问日志由 JINGTANG 控制的腾讯云首尔轻量应用服务器处理。GitHub 只处理源码和合成 CI 数据。Google/YouTube 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。在应用路径获得真实证据前，SaaS 生产使用保持阻断。",
+    "已批准的生产架构计划将 SaaS 主要应用数据与计算置于腾讯云新加坡，并使用相互隔离的 TencentDB、COS、TDMQ、Secrets Manager/KMS 和日志资源；在 D7 提供真实部署证据前，这些 SaaS 路径继续阻断生产使用。公共网站的静态资源和有限安全/访问日志由 JINGTANG 控制的腾讯云首尔轻量应用服务器处理。GitHub 只处理源码和合成 CI 数据。Google/YouTube 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。",
   "site.privacy.youtube.title": "5. Google 与 YouTube 数据",
   "site.privacy.youtube.body":
-    "若 YouTube 被标为可用，JINGTANG 将通过官方 OAuth 使用 YouTube API Services，并仅执行界面向用户明确说明的功能。相关使用同时受 YouTube 服务条款和 Google 隐私政策约束。除计划中的 JINGTANG Disconnect 外，用户也可以在 Google 安全设置中撤销访问。",
+    "受保护的 YouTube 实现通过官方 OAuth 使用 YouTube API Services，并只执行界面向用户明确说明的功能；公开生产访问目前仍不可用。相关使用同时受 YouTube 服务条款和 Google 隐私政策约束。Integration 启用时，用户可以在 JINGTANG 内断开，也可以在 Google 安全设置中撤销访问。",
   "site.privacy.retention.title": "6. 保留与删除",
   "site.privacy.retention.body":
     "工作空间有效期间保留提供服务所需的数据。获授权删除会立即禁止访问，并在 7 天内删除适用在线数据；加密备份在 35 天内到期，恢复时会重放删除账本。无持续业务关系的网站咨询在 180 天后删除。普通 YouTube Authorized Data 在 30 天内刷新或删除；撤销或请求删除的适用数据会尽快且最迟在 7 天内删除。",
@@ -564,17 +651,17 @@ export const zhCN: Record<keyof typeof en, string> = {
   "site.terms.contact.body": "如对本条款有疑问，可发送邮件至本网站显示的已确认域名邮箱。",
   "site.deletion.metaTitle": "数据删除",
   "site.deletion.metaDescription":
-    "如何请求删除 JINGTANG 保存的数据、断开计划中的平台授权，以及单独删除第三方平台内容。",
+    "如何请求删除 JINGTANG 保存的数据、断开平台授权，以及单独删除第三方平台内容。",
   "site.deletion.eyebrow": "信任 / 数据删除",
   "site.deletion.title": "通过正确系统删除正确的数据。",
   "site.deletion.lead":
     "删除 JINGTANG 保存的数据、断开授权平台账号，以及删除第三方平台保存的内容，是三个不同操作。",
   "site.deletion.jingtang.title": "删除 JINGTANG 保存的数据",
   "site.deletion.jingtang.body":
-    "在产品内请求流程完成生产验证前，请使用账号邮箱向下方支持地址发送请求。请说明工作空间和请求范围，不要发送密码、OAuth Token 或无关内容。JINGTANG 会验证权限、立即禁止受影响访问，并在 7 天内删除适用在线数据。",
+    "D6 已实现并在本地验证产品内工作空间删除申请、精确名称确认和可追踪编号。在该流程完成生产验证前，请使用账号邮箱向下方支持地址发送请求。请说明工作空间和请求范围，不要发送密码、OAuth Token 或无关内容。JINGTANG 会验证权限、立即禁止受影响访问，并在 7 天内删除适用在线数据。",
   "site.deletion.disconnect.title": "断开并撤销平台访问",
   "site.deletion.disconnect.body":
-    "YouTube 连接可用后，产品内 Disconnect 会停止新的 API 操作、尝试立即程序化吊销 Token、清除已保存 Token，并清理适用 Authorized Data。用户也可以通过 Google 安全设置撤销访问。",
+    "D6 已实现并在本地验证产品内 Disconnect：停止新的 API 操作、尝试立即程序化吊销 Token、清除已保存 Token，并清理适用 Authorized Data。公开生产连接在 D7 验证前仍不可用。用户也可以通过 Google 安全设置撤销访问。",
   "site.deletion.thirdParty.title": "删除 YouTube 或其他平台保存的内容",
   "site.deletion.thirdParty.body":
     "删除 JINGTANG 数据或断开授权不会删除 YouTube 或其他平台保存的内容。请使用对应平台自身应用或明确支持第三方内容删除的授权客户端。JINGTANG V1 不宣称具备该能力。",

@@ -26,7 +26,13 @@ const sourceFiles = await glob(["apps/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
 const sources = (
   await Promise.all(sourceFiles.map((file) => readFile(path.resolve(file), "utf8")))
 ).join("\n");
-const unused = englishKeys.filter((key) => !sources.includes(`"${key}"`));
+const dynamicPrefixes = ["activity.action.", "activity.result."].filter((prefix) =>
+  sources.includes(`\`${prefix}\${`),
+);
+const unused = englishKeys.filter(
+  (key) =>
+    !sources.includes(`"${key}"`) && !dynamicPrefixes.some((prefix) => key.startsWith(prefix)),
+);
 if (unused.length) throw new Error(`Unused i18n keys: ${unused.join(", ")}`);
 
 for (const [locale, catalog] of Object.entries(catalogs)) {

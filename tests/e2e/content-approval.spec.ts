@@ -79,9 +79,9 @@ test("bilingual Source Asset, connected platform version, approval, and separate
   await expect(page.getByText("No Publishing Intent or Platform Execution exists.")).toBeVisible();
 
   await page.locator(".app-rail").getByRole("link", { name: "Activity" }).click();
-  await expect(page.getByText("content.created")).toBeVisible();
-  await expect(page.getByText("content.submitted")).toBeVisible();
-  await expect(page.getByText("content.approved")).toBeVisible();
+  await expect(page.getByText("Content created", { exact: true })).toBeVisible();
+  await expect(page.getByText("Content submitted", { exact: true })).toBeVisible();
+  await expect(page.getByText("Content approved", { exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 320, height: 780 });
   await expect(page.locator(".app-rail").getByRole("link", { name: "Content" })).toBeVisible();

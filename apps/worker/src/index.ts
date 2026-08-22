@@ -1,20 +1,30 @@
+import { randomUUID } from "node:crypto";
+
 import {
   isApplicationError,
   parseAppConfig,
+  parseStoredYouTubeAuthorization,
   youtubeExecutionFailureDisposition,
-  youtubeOAuthScopes,
-  type StoredYouTubeAuthorization,
 } from "@jingtang/application";
 import {
+  acquireYouTubeChannelOperationLease,
   claimNextOutboxMessage,
   createDatabaseClient,
+  completeYouTubeDisconnect,
+  failYouTubeDisconnect,
   finishOutboxMessage,
+  listExpiredYouTubeAuthorizations,
+  listPendingYouTubeDisconnects,
+  recordExpiredAuthorizedDataDeletion,
+  refreshYouTubeAuthorizedData,
   readYouTubeExecutionWorkItem,
+  releaseYouTubeChannelOperationLease,
   requireYouTubeReauthorization,
   recordYouTubeExecutionFailure,
   recordYouTubeExecutionPublished,
   recordYouTubeUploadAccepted,
   renewOutboxMessageClaim,
+  renewYouTubeChannelOperationLease,
   resetYouTubeExecutionForRetry,
   updateChannelTokenEnvelope,
 } from "@jingtang/db";
@@ -25,26 +35,6 @@ import {
   S3AssetStorage,
 } from "@jingtang/integrations";
 import { safeLog } from "@jingtang/observability";
-
-function storedAuthorization(value: unknown): StoredYouTubeAuthorization {
-  if (typeof value !== "object" || value === null) throw new Error("token_envelope_invalid");
-  const entry = value as Partial<StoredYouTubeAuthorization>;
-  if (
-    typeof entry.accessToken !== "string" ||
-    typeof entry.refreshToken !== "string" ||
-    typeof entry.expiresAt !== "string" ||
-    !Array.isArray(entry.grantedScopes) ||
-    !youtubeOAuthScopes.every((scope) => entry.grantedScopes?.includes(scope))
-  ) {
-    throw new Error("token_envelope_invalid");
-  }
-  return {
-    accessToken: entry.accessToken,
-    refreshToken: entry.refreshToken,
-    expiresAt: entry.expiresAt,
-    grantedScopes: entry.grantedScopes,
-  };
-}
 
 const config = parseAppConfig(process.env);
 if (!config.DATABASE_ADMIN_URL) throw new Error("worker_database_admin_url_required");
@@ -81,9 +71,12 @@ const assets = new S3AssetStorage({
 });
 
 let stopping = false;
+let lastRetentionRun = 0;
 
 async function accessToken(work: Awaited<ReturnType<typeof readYouTubeExecutionWorkItem>>) {
-  const stored = storedAuthorization(await vault.open<unknown>(work.tokenEnvelopeCiphertext));
+  const stored = parseStoredYouTubeAuthorization(
+    await vault.open<unknown>(work.tokenEnvelopeCiphertext),
+  );
   if (new Date(stored.expiresAt).getTime() > Date.now() + 60_000) return stored.accessToken;
   const refreshed = await provider.refreshAuthorization(stored.refreshToken);
   const tokenEnvelopeCiphertext = await vault.seal({
@@ -104,7 +97,13 @@ async function processNext(): Promise<boolean> {
   const message = await claimNextOutboxMessage(adminDb);
   if (!message) return false;
   const heartbeat = setInterval(() => {
-    void renewOutboxMessageClaim(adminDb, message.id).catch(() => {
+    const renewals = [renewOutboxMessageClaim(adminDb, message.id)];
+    if (work) {
+      renewals.push(
+        renewYouTubeChannelOperationLease(db, work.workspaceId, work.channelId, work.executionId),
+      );
+    }
+    void Promise.all(renewals).catch(() => {
       safeLog("warn", "youtube_publish_lease_renewal_failed", {
         executionId: message.platformExecutionId,
       });
@@ -208,13 +207,147 @@ async function processNext(): Promise<boolean> {
     });
   } finally {
     clearInterval(heartbeat);
+    if (work) {
+      await releaseYouTubeChannelOperationLease(
+        db,
+        work.workspaceId,
+        work.channelId,
+        work.executionId,
+      ).catch(() => {
+        safeLog("warn", "youtube_channel_operation_lease_release_failed", {
+          workspaceId: work?.workspaceId,
+          executionId: work?.executionId,
+        });
+      });
+    }
   }
   return true;
 }
 
+async function processAuthorizedDataRetention(now = new Date()): Promise<number> {
+  const expired = await listExpiredYouTubeAuthorizations(adminDb, now);
+  for (const channel of expired) {
+    const correlationId = randomUUID();
+    const leaseAcquired = await acquireYouTubeChannelOperationLease(
+      db,
+      channel.workspaceId,
+      channel.channelId,
+      correlationId,
+      now,
+    );
+    if (!leaseAcquired) continue;
+    try {
+      const stored = parseStoredYouTubeAuthorization(
+        await vault.open<unknown>(channel.tokenEnvelopeCiphertext),
+      );
+      const refreshed = await provider.refreshAuthorization(stored.refreshToken);
+      const authorizedChannel = await provider.readAuthorizedChannel(refreshed.accessToken);
+      const tokenEnvelopeCiphertext = await vault.seal({
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken ?? stored.refreshToken,
+        expiresAt: refreshed.expiresAt.toISOString(),
+        grantedScopes: [...refreshed.grantedScopes],
+      });
+      await refreshYouTubeAuthorizedData(db, {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        tokenEnvelopeCiphertext,
+        externalAccountId: authorizedChannel.id,
+        displayName: authorizedChannel.displayName,
+        now,
+        correlationId,
+      });
+    } catch (error) {
+      await recordExpiredAuthorizedDataDeletion(db, {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        correlationId,
+        now,
+      });
+      safeLog("warn", "youtube_authorized_data_expired", {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        failureCategory: isApplicationError(error) ? error.code : "refresh_failed",
+      });
+    } finally {
+      await releaseYouTubeChannelOperationLease(
+        db,
+        channel.workspaceId,
+        channel.channelId,
+        correlationId,
+      ).catch(() => {
+        safeLog("warn", "youtube_retention_lease_release_failed", {
+          workspaceId: channel.workspaceId,
+          channelId: channel.channelId,
+        });
+      });
+    }
+  }
+  return expired.length;
+}
+
+async function processPendingYouTubeDisconnects(now = new Date()): Promise<number> {
+  const retryBefore = new Date(now.getTime() - 60_000);
+  const pending = await listPendingYouTubeDisconnects(adminDb, retryBefore, 25, now);
+  for (const channel of pending) {
+    const correlationId = randomUUID();
+    try {
+      const stored = parseStoredYouTubeAuthorization(
+        await vault.open<unknown>(channel.tokenEnvelopeCiphertext),
+      );
+      await provider.revokeAuthorization(stored.refreshToken);
+      await completeYouTubeDisconnect(db, {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        correlationId,
+        now,
+      });
+      safeLog("info", "youtube_disconnect_retry_completed", {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        attempt: channel.revokeAttemptCount + 1,
+      });
+    } catch (error) {
+      const failureCategory = isApplicationError(error)
+        ? error.code
+        : error instanceof Error && /^[a-z_]+$/u.test(error.message)
+          ? error.message
+          : "revoke_failed";
+      await failYouTubeDisconnect(db, {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        correlationId,
+        failureCategory,
+      });
+      safeLog("warn", "youtube_disconnect_retry_failed", {
+        workspaceId: channel.workspaceId,
+        channelId: channel.channelId,
+        attempt: channel.revokeAttemptCount + 1,
+        failureCategory,
+      });
+    }
+  }
+  return pending.length;
+}
+
 async function run(): Promise<void> {
-  safeLog("info", "worker.youtube_publish_ready", { stage: "D5" });
+  safeLog("info", "worker.youtube_publish_ready", { stage: "D6" });
   while (!stopping) {
+    if (Date.now() - lastRetentionRun >= 60_000) {
+      lastRetentionRun = Date.now();
+      try {
+        const now = new Date();
+        await processPendingYouTubeDisconnects(now);
+        await processAuthorizedDataRetention(now);
+      } catch (error) {
+        safeLog("error", "youtube_lifecycle_batch_failed", {
+          failureCategory:
+            error instanceof Error && /^[a-z_]+$/u.test(error.message)
+              ? error.message
+              : "internal_error",
+        });
+      }
+    }
     const worked = await processNext();
     if (!worked) await new Promise((resolve) => setTimeout(resolve, 1_000));
   }

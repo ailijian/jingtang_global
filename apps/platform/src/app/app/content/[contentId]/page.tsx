@@ -208,9 +208,9 @@ export default async function ContentDetailPage({
               {content.activity.map((entry) => (
                 <article key={entry.id}>
                   <span className={`audit-result audit-result--${entry.result}`}>
-                    {entry.result}
+                    {translate(locale, `activity.result.${entry.result}`)}
                   </span>
-                  <strong>{entry.action}</strong>
+                  <strong>{translate(locale, `activity.action.${entry.action}`)}</strong>
                   <span>{entry.actorName ?? translate(locale, "activity.actor.system")}</span>
                   <time dateTime={entry.occurredAt.toISOString()}>
                     {formatDateTime(locale, entry.occurredAt, "Asia/Shanghai")}

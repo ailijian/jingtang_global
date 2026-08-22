@@ -243,6 +243,53 @@ describe("Google YouTube OAuth provider", () => {
     });
   });
 
+  it("programmatically revokes the stored refresh token without exposing it", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(new Response(null));
+    const provider = new GoogleYouTubeOAuthProvider({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      fetchImplementation,
+    });
+    await provider.revokeAuthorization("refresh-token-secret");
+    const [url, init] = fetchImplementation.mock.calls[0] ?? [];
+    expect(url instanceof URL ? url.href : url instanceof Request ? url.url : url).toBe(
+      "https://oauth2.googleapis.com/revoke",
+    );
+    expect(init).toMatchObject({
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    });
+    expect(init?.body).toBeInstanceOf(URLSearchParams);
+    expect((init?.body as URLSearchParams).toString()).toBe("token=refresh-token-secret");
+  });
+
+  it("keeps local access denied when Google revocation is unavailable", async () => {
+    const provider = new GoogleYouTubeOAuthProvider({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      fetchImplementation: vi.fn<typeof fetch>().mockRejectedValue(new Error("timeout")),
+    });
+    await expect(provider.revokeAuthorization("refresh-token-secret")).rejects.toMatchObject({
+      code: "service_unavailable",
+    });
+  });
+
+  it("treats an already expired or revoked token as an idempotent revoke success", async () => {
+    const provider = new GoogleYouTubeOAuthProvider({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      fetchImplementation: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json(
+            { error: "invalid_token", error_description: "Token expired or revoked" },
+            { status: 400 },
+          ),
+        ),
+    });
+    await expect(provider.revokeAuthorization("expired-token")).resolves.toBeUndefined();
+  });
+
   it("does not automatically retry an upload with an ambiguous transfer result", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

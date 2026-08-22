@@ -8,6 +8,7 @@ import {
 
 const authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
 const tokenEndpoint = "https://oauth2.googleapis.com/token";
+const revocationEndpoint = "https://oauth2.googleapis.com/revoke";
 const channelEndpoint = "https://www.googleapis.com/youtube/v3/channels";
 const videosEndpoint = "https://www.googleapis.com/youtube/v3/videos";
 const videoUploadEndpoint = "https://www.googleapis.com/upload/youtube/v3/videos";
@@ -231,6 +232,28 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
       expiresAt: new Date(Date.now() + expiresIn * 1000),
       grantedScopes: youtubeOAuthScopes,
     };
+  }
+
+  public async revokeAuthorization(token: string): Promise<void> {
+    let response: Response;
+    try {
+      response = await this.#fetch(revocationEndpoint, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token }),
+      });
+    } catch {
+      throw new ApplicationError(
+        "service_unavailable",
+        "Google authorization revocation is unavailable",
+        503,
+      );
+    }
+    if (!response.ok) {
+      const body = (await response.json().catch(() => undefined)) as unknown;
+      if (isRecord(body) && body.error === "invalid_token") return;
+      throw serviceError(response, "Google authorization could not be revoked");
+    }
   }
 
   public async uploadPrivateVideo(input: {

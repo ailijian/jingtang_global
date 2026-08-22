@@ -9,6 +9,7 @@ import {
   MembershipStatus,
   type PrismaClient,
   Role as DbRole,
+  WorkspaceLifecycleState,
 } from "./generated/client.js";
 import type { Prisma } from "./generated/client.js";
 
@@ -152,6 +153,9 @@ export interface ChannelView {
   readonly authorizedAt: Date | null;
   readonly refreshedAt: Date | null;
   readonly deniedAt: Date | null;
+  readonly disconnectRequestedAt: Date | null;
+  readonly disconnectedAt: Date | null;
+  readonly revokeFailureCategory: string | null;
 }
 
 const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> = {
@@ -173,6 +177,9 @@ function channelView(channel: {
   readonly authorizedAt: Date | null;
   readonly refreshedAt: Date | null;
   readonly deniedAt: Date | null;
+  readonly disconnectRequestedAt: Date | null;
+  readonly disconnectedAt: Date | null;
+  readonly revokeFailureCategory: string | null;
 }): ChannelView {
   return {
     id: channel.id,
@@ -185,6 +192,9 @@ function channelView(channel: {
     authorizedAt: channel.authorizedAt,
     refreshedAt: channel.refreshedAt,
     deniedAt: channel.deniedAt,
+    disconnectRequestedAt: channel.disconnectRequestedAt,
+    disconnectedAt: channel.disconnectedAt,
+    revokeFailureCategory: channel.revokeFailureCategory,
   };
 }
 
@@ -294,7 +304,11 @@ export async function completeYouTubeConnection(
         tokenCiphertextReference: null,
         authorizedAt: now,
         refreshedAt: now,
+        authorizedDataExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
         deniedAt: null,
+        disconnectRequestedAt: null,
+        disconnectedAt: null,
+        revokeFailureCategory: null,
       },
     });
     if (result.count !== 1) throw new Error("channel_not_found");
@@ -308,7 +322,6 @@ export async function completeYouTubeConnection(
       correlationId: input.correlationId,
       metadata: {
         platform: "youtube",
-        externalAccountId: input.externalAccountId,
         grantedScopes: [...input.grantedScopes],
       },
     });
@@ -494,10 +507,12 @@ export async function listUserWorkspaces(
     const workspace = await withTenant(client, membership.workspaceId, (transaction) =>
       transaction.workspace.findUnique({
         where: { id: membership.workspaceId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, lifecycleState: true },
       }),
     );
-    if (workspace) results.push({ ...workspace, role: dbToRole[membership.role] });
+    if (workspace?.lifecycleState === WorkspaceLifecycleState.ACTIVE) {
+      results.push({ id: workspace.id, name: workspace.name, role: dbToRole[membership.role] });
+    }
   }
   return results;
 }
@@ -507,12 +522,17 @@ export async function getMembershipRole(
   workspaceId: string,
   userId: string,
 ): Promise<Role | undefined> {
-  const membership = await withTenant(client, workspaceId, (transaction) =>
-    transaction.membership.findUnique({
+  const membership = await withTenant(client, workspaceId, async (transaction) => {
+    const workspace = await transaction.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { lifecycleState: true },
+    });
+    if (workspace?.lifecycleState !== WorkspaceLifecycleState.ACTIVE) return null;
+    return transaction.membership.findUnique({
       where: { workspaceId_userId: { workspaceId, userId } },
       select: { role: true, status: true },
-    }),
-  );
+    });
+  });
   return membership?.status === MembershipStatus.ACTIVE ? dbToRole[membership.role] : undefined;
 }
 

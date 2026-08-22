@@ -2,6 +2,7 @@ export const en = {
   "app.brand": "JINGTANG",
   "app.skipToContent": "Skip to content",
   "action.signOut": "Sign out",
+  "action.cancel": "Cancel",
   "locale.en": "English",
   "locale.zhCN": "简体中文",
   "auth.email": "Business email",
@@ -74,6 +75,8 @@ export const en = {
   "channel.description":
     "Connect an official platform account inside the active Workspace with explicit, minimum access.",
   "channel.status.connected": "Connected",
+  "channel.status.disconnecting": "Disconnecting",
+  "channel.status.disconnected": "Disconnected",
   "channel.status.reauthorization": "Reauthorization required",
   "channel.status.test": "Test only",
   "channel.oauth.help":
@@ -93,10 +96,58 @@ export const en = {
   "channel.notEnabled": "The Test OAuth client is not configured in this environment yet.",
   "channel.connected.help":
     "Authorization is stored server-side for this Workspace. Publishing still requires a separate confirmation.",
+  "channel.disconnect.action": "Disconnect YouTube",
+  "channel.disconnect.retry": "Retry disconnect",
+  "channel.disconnect.title": "Disconnect this YouTube channel?",
+  "channel.disconnect.body":
+    "JINGTANG will immediately stop new YouTube API activity, revoke the Google authorization, and delete its stored OAuth tokens and Authorized Data.",
+  "channel.disconnect.effectAccess": "New uploads and YouTube API reads stop immediately.",
+  "channel.disconnect.effectData":
+    "JINGTANG deletes the stored OAuth tokens and Authorized Data for this connection.",
+  "channel.disconnect.effectThirdParty":
+    "Videos already held by YouTube are not deleted. Manage those separately in YouTube Studio.",
+  "channel.disconnect.pending": "Disconnecting…",
   "channel.result.connected": "The YouTube channel was connected successfully.",
+  "channel.result.disconnected":
+    "The YouTube authorization was revoked and JINGTANG's stored connection data was deleted.",
+  "channel.result.disconnecting":
+    "Disconnect started. An already-running request is finishing before authorization is revoked; no new platform work can start.",
+  "channel.result.disconnectFailed":
+    "Access is blocked in JINGTANG, but Google revocation did not finish. Retry the disconnect.",
   "channel.result.denied": "Google authorization was cancelled. No channel was connected.",
   "channel.result.failed":
     "The connection could not be completed safely. No usable authorization was retained.",
+  "settings.title": "Settings",
+  "settings.description": "Manage your Workspace boundaries, members, and retained data.",
+  "settings.team.title": "Members & roles",
+  "settings.team.description": "Invite members and control their Workspace permissions.",
+  "settings.data.title": "Data & account",
+  "settings.data.description":
+    "Review data boundaries or request deletion of this Workspace's JINGTANG data.",
+  "dataSettings.title": "Data & account",
+  "dataSettings.description":
+    "Disconnecting a platform and deleting Workspace data are separate actions with different effects.",
+  "dataSettings.workspace.title": "Delete this Workspace's JINGTANG data",
+  "dataSettings.workspace.body":
+    "This permanently removes the Workspace data controlled by JINGTANG. It does not delete content already held by third-party platforms.",
+  "dataSettings.workspace.effectAccess":
+    "All members immediately lose access and pending JINGTANG publishing work is cancelled.",
+  "dataSettings.workspace.effectRevoke":
+    "Connected platform authorizations are revoked and stored OAuth tokens and Authorized Data are deleted.",
+  "dataSettings.workspace.effectThirdParty":
+    "YouTube videos and other content held by third parties are not deleted; manage them on those services.",
+  "dataSettings.workspace.effectBackup":
+    "Residual encrypted backup copies expire through the documented backup-retention cycle.",
+  "dataSettings.workspace.action": "Delete Workspace data",
+  "dataSettings.workspace.confirmTitle": "Permanently delete this Workspace's data?",
+  "dataSettings.workspace.confirmBody":
+    "This cannot be undone. Type the exact Workspace name, {workspace}, to continue.",
+  "dataSettings.workspace.typeName": "Type {workspace} to confirm",
+  "dataSettings.workspace.deleting": "Deleting…",
+  "dataSettings.result.completed":
+    "Workspace data deletion completed. Keep this request reference: {reference}.",
+  "dataSettings.result.failed":
+    "The deletion did not finish. Platform access remains blocked and the request can be retried. Reference: {reference}.",
   "home.title": "Workspace home",
   "home.empty.title": "Your controlled publishing Workspace is ready.",
   "home.empty.description":
@@ -236,6 +287,48 @@ export const en = {
   "activity.empty.title": "No activity is available.",
   "activity.empty.description": "Audited Workspace actions will appear here.",
   "activity.actor.system": "System",
+  "activity.result.success": "Success",
+  "activity.result.denied": "Denied",
+  "activity.result.failed": "Failed",
+  "activity.action.identity.registered": "Account registered",
+  "activity.action.identity.login": "Signed in",
+  "activity.action.identity.logout": "Signed out",
+  "activity.action.identity.password_reset_requested": "Password reset requested",
+  "activity.action.consent.accepted": "Consent accepted",
+  "activity.action.workspace.created": "Workspace created",
+  "activity.action.workspace.selected": "Workspace selected",
+  "activity.action.member.invited": "Member invited",
+  "activity.action.member.joined": "Member joined",
+  "activity.action.member.removed": "Member removed",
+  "activity.action.member.role_changed": "Member role changed",
+  "activity.action.channel.connection_started": "Channel connection started",
+  "activity.action.channel.connected": "Channel connected",
+  "activity.action.channel.connection_denied": "Channel connection denied",
+  "activity.action.channel.reauthorization_required": "Channel reauthorization required",
+  "activity.action.channel.disconnect_started": "Channel disconnect started",
+  "activity.action.channel.disconnect_failed": "Channel disconnect failed",
+  "activity.action.channel.disconnected": "Channel disconnected",
+  "activity.action.locale.changed": "Interface language changed",
+  "activity.action.source_asset.uploaded": "Source asset uploaded",
+  "activity.action.source_asset.upload_failed": "Source asset upload failed",
+  "activity.action.content.created": "Content created",
+  "activity.action.content.edited": "Content edited",
+  "activity.action.content.submitted": "Content submitted",
+  "activity.action.content.approved": "Content approved",
+  "activity.action.content.rejected": "Content rejected",
+  "activity.action.publishing.confirmed": "Publishing confirmed",
+  "activity.action.platform.publish_started": "Platform publishing started",
+  "activity.action.platform.uploaded": "Platform upload accepted",
+  "activity.action.platform.published": "Platform publishing completed",
+  "activity.action.platform.publish_failed": "Platform publishing failed",
+  "activity.action.platform.publish_cancelled": "Platform publishing cancelled",
+  "activity.action.data.deletion_requested": "Data deletion requested",
+  "activity.action.data.deletion_started": "Data deletion started",
+  "activity.action.data.deletion_completed": "Data deletion completed",
+  "activity.action.data.deletion_failed": "Data deletion failed",
+  "activity.action.data.retention_refreshed": "Authorized Data refreshed",
+  "activity.action.data.retention_deleted": "Authorized Data deleted",
+  "activity.action.authorization.denied": "Authorization denied",
   "state.loading": "Loading",
   "state.error": "Something needs attention",
   "state.empty": "No items yet",
@@ -405,19 +498,19 @@ export const en = {
   "site.youtube.eyebrow": "Integrations / YouTube",
   "site.youtube.title": "Designed for controlled video publishing. Not yet available.",
   "site.youtube.lead":
-    "YouTube is the first planned production channel. D3 provides the public identity and disclosure surfaces required before protected OAuth and real publishing work begins in D5.",
+    "YouTube is the first planned production channel. Protected test implementation has verified official OAuth, private upload, result tracking, disconnect, revocation, and Authorized Data cleanup. Production access remains Coming Soon pending deployed-environment Gates.",
   "site.youtube.limit.title": "Current limitation",
   "site.youtube.limit.body":
     "Connect, Publish Now, tracking, reauthorization, and disconnect are Coming Soon. Schedule is not available. No production authorization request is started from this page.",
   "site.youtube.auth.title": "Official authorization and minimum access",
   "site.youtube.auth.body":
-    "The planned connection uses Google's official OAuth 2.0 web flow and the minimum scope needed for the approved upload slice. JINGTANG never asks for or stores a YouTube password or browser cookie.",
+    "The protected implementation uses Google's official OAuth 2.0 web flow and only youtube.upload plus youtube.readonly for the approved upload and owner-only result-tracking slice. JINGTANG never asks for or stores a YouTube password or browser cookie.",
   "site.youtube.control.title": "User-controlled external action",
   "site.youtube.control.body":
-    "The planned publish flow keeps Channel, video, editable title and description, privacy, audience settings, preview, and a distinct final confirmation visible before upload.",
+    "The protected implementation keeps Channel, video, editable title and description, privacy, audience settings, preview, and a distinct final confirmation visible before upload. This evidence does not make the production capability Available.",
   "site.youtube.data.title": "Authorized data and revocation",
   "site.youtube.data.body":
-    "When implemented, ordinary Authorized Data is refreshed or deleted within 30 days. In-product revocation immediately denies new work, attempts programmatic token revocation, and removes applicable Authorized Data as soon as possible and within 7 days.",
+    "D6 implements controls to refresh or delete ordinary Authorized Data within 30 days. In-product disconnect immediately denies new work, attempts programmatic token revocation, removes stored tokens, and deletes applicable Authorized Data as soon as possible and within 7 days. Production operation remains pending deployed-environment verification.",
   "site.youtube.audit.title": "Verification and audit truth",
   "site.youtube.audit.body":
     "Uploads from qualifying unverified API projects are restricted to private viewing until the required audit is passed. JINGTANG will not describe public publishing as Available before real production evidence permits it.",
@@ -449,10 +542,10 @@ export const en = {
     "This page distinguishes implemented product safeguards, production control obligations, and evidence that remains pending. JINGTANG does not claim certifications or platform approval it has not obtained.",
   "site.security.current.title": "Current implementation boundary",
   "site.security.current.body":
-    "The runnable foundation enforces tenant-bound access, deny-by-default roles, server-managed sessions, audit events, secret scanning, migration checks, and automated verification. These controls do not by themselves prove a production deployment.",
+    "The runnable foundation enforces tenant-bound access, deny-by-default roles, server-managed sessions, audit events, secret scanning, migration checks, and automated verification. D6 also locally verifies deny-first disconnect, programmatic revocation, deletion ledgers, 7/30-day retention controls, audit minimization, and a disposable restore drill. These controls do not by themselves prove a production deployment.",
   "site.security.production.title": "Production controls required before SaaS launch",
   "site.security.production.body":
-    "TLS, encrypted AWS storage in Singapore, managed secrets, OAuth token envelope encryption, environment isolation, backups, access logging, incident response, and vulnerability management remain subject to observed production evidence in later Gates.",
+    "The approved SaaS target is Tencent Cloud Singapore. TLS, encrypted TencentDB and COS storage, managed secrets and KMS, OAuth token envelope encryption, environment isolation, backups, access logging and monitoring, incident response, and vulnerability management remain subject to observed production evidence in D7.",
   "site.security.website.title": "Public website boundary",
   "site.security.website.body":
     "The D3 website is designed as a static public surface with no advertising tracker, analytics processor, account data, OAuth token, or user content. Contact details leave the browser only when a visitor explicitly opens an email draft.",
@@ -525,7 +618,7 @@ export const en = {
   "site.privacy.eyebrow": "Legal / Privacy",
   "site.privacy.title": "Privacy Policy",
   "site.privacy.lead":
-    "This policy explains how JINGTANG handles data for the public website, controlled-publishing Workspace, support contact, and planned official platform integrations.",
+    "This policy explains how JINGTANG handles data for the public website, controlled-publishing Workspace, support contact, and official platform integrations used under protected test access or explicitly made available.",
   "site.privacy.scope.title": "1. Who we are and scope",
   "site.privacy.scope.body":
     "JINGTANG is operated by {legalEntity}. This policy applies to jingtangai.com, the JINGTANG Workspace, official support contact, and integrations we explicitly make available.",
@@ -537,10 +630,10 @@ export const en = {
     "We use data to provide requested identity, Workspace, approval, publishing, tracking, support, security, audit, revocation, and deletion functions; to preserve user choices; and to meet applicable platform and legal obligations. We do not silently repurpose authorized platform data for unrelated advertising or AI training.",
   "site.privacy.processors.title": "4. Processors, region, and transfers",
   "site.privacy.processors.body":
-    "The approved production architecture keeps primary application data and compute planned for AWS Singapore (ap-southeast-1). The D3 public website's static assets and limited security/access logs are processed on a JINGTANG-controlled Tencent Cloud Lighthouse instance in Seoul, South Korea. GitHub handles source and synthetic CI data. Google/YouTube handles data only after an explicit authorized platform action. Email providers handle messages sent by users. SaaS production use remains blocked until those application paths have observed evidence.",
+    "The approved production architecture plans primary SaaS application data and compute for Tencent Cloud Singapore, using isolated TencentDB, COS, TDMQ, Secrets Manager/KMS, and logging resources. Those SaaS paths remain blocked from production use until D7 provides observed deployment evidence. The public website's static assets and limited security/access logs are processed on a JINGTANG-controlled Tencent Cloud Lighthouse instance in Seoul, South Korea. GitHub handles source and synthetic CI data. Google/YouTube handles data only after an explicit authorized platform action. Email providers handle messages sent by users.",
   "site.privacy.youtube.title": "5. Google and YouTube data",
   "site.privacy.youtube.body":
-    "If YouTube is made available, JINGTANG will use YouTube API Services through official OAuth for the exact functions shown to the user. Use is also governed by the YouTube Terms of Service and Google's Privacy Policy. Users can revoke Google access from Google Security Settings in addition to using JINGTANG's planned disconnect flow.",
+    "The protected YouTube implementation uses YouTube API Services through official OAuth only for functions explicitly shown to the user; public production access remains unavailable. Use is also governed by the YouTube Terms of Service and Google's Privacy Policy. Where the integration is enabled, users can disconnect in JINGTANG or revoke Google access from Google Security Settings.",
   "site.privacy.retention.title": "6. Retention and deletion",
   "site.privacy.retention.body":
     "Active Workspace data is kept while needed for the service. Authorized deletion deny-marks access immediately and targets live data deletion within 7 days; encrypted backups expire within 35 days and replay the deletion ledger on restore. Website inquiries are removed after 180 days without an active relationship. Ordinary YouTube Authorized Data is refreshed or deleted within 30 days; applicable revocation or requested deletion data is removed as soon as possible and within 7 days.",
@@ -595,17 +688,17 @@ export const en = {
     "Questions about these Terms may be sent to the verified domain email on this site.",
   "site.deletion.metaTitle": "Data Deletion",
   "site.deletion.metaDescription":
-    "How to request deletion of JINGTANG-held data, disconnect planned platform access, and separately delete third-party platform content.",
+    "How to request deletion of JINGTANG-held data, disconnect platform access, and separately delete third-party platform content.",
   "site.deletion.eyebrow": "Trust / Data Deletion",
   "site.deletion.title": "Delete the right data, through the right system.",
   "site.deletion.lead":
     "Deleting data held by JINGTANG, disconnecting an authorized platform account, and deleting content held by a third-party platform are distinct actions.",
   "site.deletion.jingtang.title": "Delete JINGTANG-held data",
   "site.deletion.jingtang.body":
-    "Until the in-product request flow is production-verified, send a request from your account email to the support address below. Identify the Workspace and requested scope without sending passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
+    "D6 implements and locally verifies an in-product Workspace deletion request with exact-name confirmation and a durable reference. Until that flow is production-verified, send a request from your account email to the support address below. Identify the Workspace and requested scope without sending passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
   "site.deletion.disconnect.title": "Disconnect and revoke platform access",
   "site.deletion.disconnect.body":
-    "When YouTube connectivity becomes available, the in-product disconnect flow will stop new API operations, attempt immediate programmatic token revocation, erase the stored token, and clean applicable Authorized Data. Users may also revoke access through Google Security Settings.",
+    "D6 implements and locally verifies an in-product disconnect that stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Public production connectivity remains unavailable pending D7 verification. Users may also revoke access through Google Security Settings.",
   "site.deletion.thirdParty.title": "Delete content held by YouTube or another platform",
   "site.deletion.thirdParty.body":
     "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube or another platform. Use that platform's own application or an authorized client that explicitly supports third-party content deletion. JINGTANG V1 does not claim this capability.",

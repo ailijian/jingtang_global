@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 5
+revision: 6
 status: approved
 effective_date: "2026-08-22"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-22"
-revision_note: Real Test OAuth, authorized channel identity, private upload, and result tracking were verified in the protected local D5 harness; production capability truth remains unchanged pending D6 trust controls and D7 deployed-production gates
+revision_note: D6 repository controls for revocation, deletion, retention, audit, and recovery are implemented and locally verified; the Human Owner approved the corresponding public disclosures on 2026-08-22, while production capability truth remains unchanged pending D7 deployed-production gates
 
 authority:
   owns:
@@ -48,7 +48,7 @@ integrations:
     delivery_role: first_production_channel
     public_status: coming_soon
     production_available: false
-    implementation_stage: D5
+    implementation_stage: D6
     capabilities:
       connect:
         state: not_available
@@ -132,7 +132,7 @@ integrations:
       - ordinary Authorized API Data must be refreshed or deleted within 30 calendar days
       - in-product revocation must programmatically revoke immediately and applicable Authorized Data must be deleted as soon as possible and within 7 calendar days
       - Schedule is not available and no scheduler or status claim may be exposed
-      - Test OAuth, real authorized-channel identity, private upload, and result tracking passed in the protected local D5 harness; production availability remains false until D6 trust controls and D7 deployed-production gates pass
+      - Test OAuth, real authorized-channel identity, private upload, and result tracking passed in the protected local D5 harness; D6 trust controls and their public disclosures are repository-verified, while production availability remains false until D7 deployed-production gates pass
     d5_entry_gates:
       - current official policy re-verification recorded
       - official domain, domain email, English legal entity expression, homepage, Privacy, Terms, Data Deletion, Security, and YouTube Integration page are live and consistent
@@ -143,7 +143,7 @@ integrations:
       - project verification, audit, quota, and private-upload limitation are recorded as actual external state
       - token encryption, consent record, immutable publish intent, per-platform execution, and required D5 audit event contracts exist before Test credentials are used
     pre_production_gates:
-      - D6 programmatic revoke, applicable Authorized Data deletion, retention jobs, and production audit controls are verified
+      - D6 repository controls for programmatic revoke, applicable Authorized Data deletion, retention jobs, audit, and recovery are verified; D7 must verify their deployed production configuration and evidence
       - D7 deployed dispatcher to Tencent TDMQ to worker execution path, secrets, keys, monitoring, and recovery controls are verified
       - production OAuth client, support contact, verification, audit, quota, reviewer access, and rollout authorization reflect actual external state
 

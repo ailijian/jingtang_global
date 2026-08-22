@@ -447,6 +447,10 @@
 .channel-identity p {
   margin-bottom: 0;
 }
+.channel-identity .jt-button {
+  width: fit-content;
+  margin-top: 10px;
+}
 .channel-notice {
   margin: 0;
   padding: 14px 16px;
@@ -457,6 +461,104 @@
 .channel-notice--error {
   color: var(--jt-danger);
   border-color: var(--jt-danger);
+}
+.jt-button--danger-outline {
+  color: var(--jt-danger);
+  background: transparent;
+  border-color: var(--jt-danger);
+}
+.jt-button--danger-outline:hover {
+  background: color-mix(in srgb, var(--jt-danger) 7%, white);
+}
+.destructive-dialog {
+  width: min(92vw, 620px);
+  border: 1px solid var(--jt-line);
+  border-radius: 12px;
+  padding: 0;
+  color: var(--jt-ink);
+  background: var(--jt-surface-strong);
+  box-shadow: 0 28px 80px rgba(12, 51, 44, 0.22);
+}
+.destructive-dialog::backdrop {
+  background: rgba(7, 31, 27, 0.62);
+}
+.destructive-dialog form {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+}
+.destructive-dialog h2,
+.destructive-dialog p,
+.destructive-dialog ul {
+  margin: 0;
+}
+.destructive-dialog h2 {
+  color: var(--jt-danger);
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 1.8rem;
+  font-weight: 400;
+}
+.destructive-dialog p,
+.destructive-dialog li {
+  color: var(--jt-ink-soft);
+  line-height: 1.6;
+}
+.destructive-confirmation {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.destructive-confirmation input {
+  min-height: 44px;
+  border: 1px solid var(--jt-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+.destructive-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.settings-grid {
+  display: grid;
+  max-width: 980px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding-top: 34px;
+}
+.settings-card,
+.data-boundary-card {
+  border: 1px solid var(--jt-line);
+  border-radius: 10px;
+  padding: 28px;
+  color: var(--jt-ink);
+  background: var(--jt-surface);
+}
+.settings-card {
+  text-decoration: none;
+}
+.settings-card:hover {
+  border-color: var(--jt-gold);
+}
+.settings-card h2,
+.data-boundary-card h2 {
+  margin-top: 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-weight: 400;
+}
+.settings-card p,
+.data-boundary-card p,
+.data-boundary-card li {
+  color: var(--jt-ink-soft);
+  line-height: 1.65;
+}
+.data-boundary-card {
+  max-width: 980px;
+  margin-top: 34px;
+}
+.data-boundary-card .jt-button {
+  margin-top: 12px;
 }
 .invite-form {
   display: grid;
@@ -1100,6 +1202,16 @@
   .invite-form {
     grid-template-columns: 1fr;
   }
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-card,
+  .data-boundary-card {
+    padding: 22px;
+  }
+  .destructive-dialog form {
+    padding: 22px;
+  }
   .member-row {
     align-items: flex-start;
     flex-direction: column;
@@ -1178,5 +1290,12 @@
   }
   .locale-picker select {
     max-width: 124px;
+  }
+  .destructive-dialog__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .destructive-dialog__actions .jt-button {
+    width: 100%;
   }
 }

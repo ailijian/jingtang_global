@@ -10,6 +10,7 @@ function delegate() {
     authorizationUrl: vi.fn(() => new URL("https://accounts.example.test")),
     exchangeAuthorizationCode: vi.fn(),
     refreshAuthorization: vi.fn(),
+    revokeAuthorization: vi.fn(),
     readAuthorizedChannel: vi.fn(),
     uploadPrivateVideo,
     readVideoStatus,

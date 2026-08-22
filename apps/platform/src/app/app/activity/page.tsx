@@ -19,9 +19,11 @@ export default async function ActivityPage() {
         <div className="activity-list">
           {activity.map((entry) => (
             <article key={entry.id}>
-              <span className={`audit-result audit-result--${entry.result}`}>{entry.result}</span>
+              <span className={`audit-result audit-result--${entry.result}`}>
+                {translate(locale, `activity.result.${entry.result}`)}
+              </span>
               <div>
-                <strong>{entry.action}</strong>
+                <strong>{translate(locale, `activity.action.${entry.action}`)}</strong>
                 <p>
                   {entry.targetType} · {entry.targetId}
                 </p>

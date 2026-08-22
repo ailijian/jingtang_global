@@ -41,6 +41,8 @@ export const auditActions = [
   "channel.connected",
   "channel.connection_denied",
   "channel.reauthorization_required",
+  "channel.disconnect_started",
+  "channel.disconnect_failed",
   "channel.disconnected",
   "locale.changed",
   "source_asset.uploaded",
@@ -55,6 +57,13 @@ export const auditActions = [
   "platform.uploaded",
   "platform.published",
   "platform.publish_failed",
+  "platform.publish_cancelled",
+  "data.deletion_requested",
+  "data.deletion_started",
+  "data.deletion_completed",
+  "data.deletion_failed",
+  "data.retention_refreshed",
+  "data.retention_deleted",
   "authorization.denied",
 ] as const;
 

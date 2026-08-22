@@ -18,6 +18,7 @@ import {
   readYouTubeExecutionWorkItem,
   recordYouTubeExecutionPublished,
   recordYouTubeUploadAccepted,
+  releaseYouTubeChannelOperationLease,
   resetYouTubeExecutionForRetry,
   decideContent,
   finishOutboxMessage,
@@ -323,9 +324,27 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
     ).resolves.toMatchObject({ state: "processing", providerId: "youtube-video-id" });
     await recordYouTubeExecutionPublished(db, owner.workspace.id, first.executionId);
+    await releaseYouTubeChannelOperationLease(
+      db,
+      owner.workspace.id,
+      firstWork.channelId,
+      first.executionId,
+    );
     await finishOutboxMessage(adminDb, {
       id: secondClaim?.id ?? randomUUID(),
       outcome: "completed",
     });
+    await finishOutboxMessage(adminDb, {
+      id: secondClaim?.id ?? randomUUID(),
+      outcome: "retry",
+      failureCategory: "must_not_resurrect",
+      retryAfterSeconds: 0,
+    });
+    await expect(
+      adminDb.outboxMessage.findUniqueOrThrow({
+        where: { id: secondClaim?.id ?? randomUUID() },
+        select: { state: true, failureCategory: true },
+      }),
+    ).resolves.toEqual({ state: "COMPLETED", failureCategory: null });
   });
 });

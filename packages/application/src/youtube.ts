@@ -24,6 +24,26 @@ export interface StoredYouTubeAuthorization {
   readonly grantedScopes: readonly string[];
 }
 
+export function parseStoredYouTubeAuthorization(value: unknown): StoredYouTubeAuthorization {
+  if (typeof value !== "object" || value === null) throw new Error("token_envelope_invalid");
+  const entry = value as Partial<StoredYouTubeAuthorization>;
+  if (
+    typeof entry.accessToken !== "string" ||
+    typeof entry.refreshToken !== "string" ||
+    typeof entry.expiresAt !== "string" ||
+    !Array.isArray(entry.grantedScopes) ||
+    !youtubeOAuthScopes.every((scope) => entry.grantedScopes?.includes(scope))
+  ) {
+    throw new Error("token_envelope_invalid");
+  }
+  return {
+    accessToken: entry.accessToken,
+    refreshToken: entry.refreshToken,
+    expiresAt: entry.expiresAt,
+    grantedScopes: entry.grantedScopes,
+  };
+}
+
 export interface YouTubeUploadResult {
   readonly videoId: string;
   readonly videoUrl: string;
@@ -46,6 +66,7 @@ export interface YouTubeOAuthProvider {
     readonly redirectUri: string;
   }): Promise<YouTubeAuthorizationTokens>;
   refreshAuthorization(refreshToken: string): Promise<YouTubeAuthorizationTokens>;
+  revokeAuthorization(token: string): Promise<void>;
   readAuthorizedChannel(accessToken: string): Promise<YouTubeChannelIdentity>;
   uploadPrivateVideo(input: {
     readonly accessToken: string;

@@ -28,10 +28,10 @@ try {
     "-d",
     "jingtang",
     "-c",
-    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','workspaces','memberships','invitations','consent_records','sessions','channels','audit_events','source_assets','contents','content_revisions','platform_versions','approval_decisions','publishing_intents','platform_executions');",
+    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','workspaces','memberships','invitations','consent_records','sessions','channels','audit_events','source_assets','contents','content_revisions','platform_versions','approval_decisions','publishing_intents','platform_executions','data_deletion_requests');",
   ]);
-  if (tableCount.trim() !== "15")
-    throw new Error(`Expected 15 D2-D4 tables, found ${tableCount.trim()}`);
+  if (tableCount.trim() !== "16")
+    throw new Error(`Expected 16 D2-D6 tables, found ${tableCount.trim()}`);
   const { stdout: policyCount } = await execFileAsync("docker", [
     "exec",
     database.name,

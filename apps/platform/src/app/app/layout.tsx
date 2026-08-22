@@ -17,7 +17,7 @@ const nav = [
   ["/app/calendar", "nav.calendar", true],
   ["/app/channels", "nav.channels", true],
   ["/app/activity", "nav.activity", true],
-  ["/app/settings/team", "nav.settings", true],
+  ["/app/settings", "nav.settings", true],
 ] as const;
 
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {

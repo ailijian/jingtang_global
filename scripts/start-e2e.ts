@@ -28,9 +28,9 @@ const environment: NodeJS.ProcessEnv = {
   IDENTITY_PROVIDER: "mock",
   ALLOW_TEST_IDENTITY: "true",
   SESSION_COOKIE_SECRET: "e2e-session-cookie-secret-at-least-32-bytes",
-  TERMS_VERSION: "2026-08-21",
-  PRIVACY_VERSION: "2026-08-21",
-  DATA_PURPOSE_VERSION: "2026-08-21",
+  TERMS_VERSION: "2026-08-22",
+  PRIVACY_VERSION: "2026-08-22",
+  DATA_PURPOSE_VERSION: "2026-08-22",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
 };

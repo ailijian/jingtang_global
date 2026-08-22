@@ -290,8 +290,8 @@ export async function finishOutboxMessage(
       : input.outcome === "dead"
         ? OutboxState.DEAD
         : OutboxState.PENDING;
-  await adminClient.outboxMessage.update({
-    where: { id: input.id },
+  await adminClient.outboxMessage.updateMany({
+    where: { id: input.id, state: OutboxState.CLAIMED },
     data: {
       state,
       completedAt: input.outcome === "completed" ? new Date() : null,
@@ -315,6 +315,64 @@ export async function renewOutboxMessageClaim(
     where: { id, state: OutboxState.CLAIMED },
     data: { claimedAt: new Date() },
   });
+}
+
+const channelOperationLeaseMs = 2 * 60 * 1000;
+
+export async function acquireYouTubeChannelOperationLease(
+  client: PrismaClient,
+  workspaceId: string,
+  channelId: string,
+  leaseId: string,
+  now = new Date(),
+): Promise<boolean> {
+  const result = await withTenant(client, workspaceId, (transaction) =>
+    transaction.channel.updateMany({
+      where: {
+        id: channelId,
+        workspaceId,
+        state: ChannelState.CONNECTED,
+        OR: [
+          { operationLeaseUntil: null },
+          { operationLeaseUntil: { lte: now } },
+          { operationLeaseId: leaseId },
+        ],
+      },
+      data: {
+        operationLeaseId: leaseId,
+        operationLeaseUntil: new Date(now.getTime() + channelOperationLeaseMs),
+      },
+    }),
+  );
+  return result.count === 1;
+}
+
+export async function renewYouTubeChannelOperationLease(
+  client: PrismaClient,
+  workspaceId: string,
+  channelId: string,
+  executionId: string,
+): Promise<void> {
+  await withTenant(client, workspaceId, (transaction) =>
+    transaction.channel.updateMany({
+      where: { id: channelId, workspaceId, operationLeaseId: executionId },
+      data: { operationLeaseUntil: new Date(Date.now() + channelOperationLeaseMs) },
+    }),
+  );
+}
+
+export async function releaseYouTubeChannelOperationLease(
+  client: PrismaClient,
+  workspaceId: string,
+  channelId: string,
+  executionId: string,
+): Promise<void> {
+  await withTenant(client, workspaceId, (transaction) =>
+    transaction.channel.updateMany({
+      where: { id: channelId, workspaceId, operationLeaseId: executionId },
+      data: { operationLeaseId: null, operationLeaseUntil: null },
+    }),
+  );
 }
 
 export interface YouTubeExecutionWorkItem {
@@ -382,6 +440,24 @@ export async function readYouTubeExecutionWorkItem(
       },
     });
     if (!channel?.tokenEnvelopeCiphertext) throw new Error("channel_reauthorization_required");
+    const leaseNow = new Date();
+    const lease = await transaction.channel.updateMany({
+      where: {
+        id: channel.id,
+        workspaceId,
+        state: ChannelState.CONNECTED,
+        OR: [
+          { operationLeaseUntil: null },
+          { operationLeaseUntil: { lte: leaseNow } },
+          { operationLeaseId: execution.id },
+        ],
+      },
+      data: {
+        operationLeaseId: execution.id,
+        operationLeaseUntil: new Date(leaseNow.getTime() + channelOperationLeaseMs),
+      },
+    });
+    if (lease.count !== 1) throw new Error("channel_operation_busy");
     if (execution.state === PlatformExecutionState.NOT_STARTED) {
       await transaction.platformExecution.update({
         where: { id: execution.id },
@@ -445,8 +521,12 @@ export async function recordYouTubeUploadAccepted(
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
-    await transaction.platformExecution.update({
-      where: { id: input.executionId },
+    const updated = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: PlatformExecutionState.PUBLISHING,
+      },
       data: {
         state: PlatformExecutionState.PROCESSING,
         providerId: input.providerId,
@@ -454,6 +534,7 @@ export async function recordYouTubeUploadAccepted(
         failureCategory: null,
       },
     });
+    if (updated.count !== 1) throw new Error("execution_not_publishing");
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       action: "platform.uploaded",
@@ -461,7 +542,7 @@ export async function recordYouTubeUploadAccepted(
       targetId: input.executionId,
       result: "success",
       correlationId: input.executionId,
-      metadata: { platform: "youtube", provider_id: input.providerId },
+      metadata: { platform: "youtube", provider_reference_recorded: true },
     });
   });
 }
@@ -472,10 +553,15 @@ export async function recordYouTubeExecutionPublished(
   executionId: string,
 ): Promise<void> {
   await withTenant(client, workspaceId, async (transaction) => {
-    await transaction.platformExecution.update({
-      where: { id: executionId },
+    const updated = await transaction.platformExecution.updateMany({
+      where: {
+        id: executionId,
+        workspaceId,
+        state: PlatformExecutionState.PROCESSING,
+      },
       data: { state: PlatformExecutionState.PUBLISHED, failureCategory: null },
     });
+    if (updated.count !== 1) throw new Error("execution_not_processing");
     await appendAudit(transaction, {
       workspaceId,
       action: "platform.published",
@@ -498,8 +584,14 @@ export async function recordYouTubeExecutionFailure(
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
-    await transaction.platformExecution.updateMany({
-      where: { id: input.executionId, workspaceId: input.workspaceId },
+    const updated = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: {
+          notIn: [PlatformExecutionState.CANCELLED, PlatformExecutionState.PUBLISHED],
+        },
+      },
       data: {
         state: input.needsAttention
           ? PlatformExecutionState.NEEDS_ATTENTION
@@ -507,6 +599,7 @@ export async function recordYouTubeExecutionFailure(
         failureCategory: input.failureCategory,
       },
     });
+    if (updated.count !== 1) return;
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       action: "platform.publish_failed",

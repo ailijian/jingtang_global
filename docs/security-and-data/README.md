@@ -1,7 +1,7 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 6
+- Security/Data Revision: 7
 - Effective Date: 2026-08-22
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
@@ -10,7 +10,7 @@
 
 ## Authority Boundary
 
-This document owns the current data classification, data-flow map, regional and processor boundary, retention/deletion defaults, encryption and backup requirements, and security control obligations. D6 must replace initial evidence states with verified production evidence and may shorten retention after legal review. Any longer retention, new processor, new region, new data purpose, or weaker deletion path requires Security/Data Owner approval and a public disclosure review.
+This document owns the current data classification, data-flow map, regional and processor boundary, retention/deletion defaults, encryption and backup requirements, and security control obligations. D6 repository evidence verifies the implemented lifecycle controls; D7 owns deployed Tencent Cloud production proof. Any longer retention, new processor, new region, new data purpose, or weaker deletion path requires Security/Data Owner approval and a public disclosure review.
 
 It does not own Delivery requirements, UX semantics, legal text, public security claims, infrastructure implementation, or platform capability status. Product copy is never evidence that a control exists.
 
@@ -74,7 +74,7 @@ Periods are maximum defaults from the event shown. “Delete” includes live da
 | Deletion ledger/result | 365 days | Pseudonymized expiry after evidence period | Expire ≤35 days after live expiry |
 | Website inquiry | 180 days without an active business relationship | Delete on request or inactivity expiry; do not repurpose without notice/consent | Expire ≤35 days |
 
-The YouTube-specific controls implement the current policy boundary: ordinary Authorized Data is deleted or refreshed within 30 days; an in-product revocation or user deletion cleans applicable Authorized Data within 7 days; external revocation detected through token validity must be cleaned within the applicable 30-day maximum. D6 must verify the actual jobs and evidence, not only these written limits.
+The YouTube-specific controls implement the current policy boundary: ordinary Authorized Data is deleted or refreshed within 30 days; an in-product revocation or user deletion cleans applicable Authorized Data within 7 days; external revocation detected through token validity must be cleaned within the applicable 30-day maximum. D6 repository checks verify the jobs and bounded retry; D7 must still verify their deployed schedule and alert routing.
 
 ## Encryption and Key Management
 
@@ -91,14 +91,14 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 - COS uses versioning and lifecycle expiry. Database and object-store recovery points are reconciled by object hash and deletion ledger.
 - A quarterly restore exercise begins in D6. Restores occur into an isolated environment, replay all deletion/deny records through the recovery point, validate tenant/RLS policy, and only then may replace service state.
 - Disconnect and deletion are sagas with durable steps: deny new work → cancel/reject queued work → revoke provider token → erase token key → delete applicable Authorized Data/assets → record minimized result.
-- A failed external revocation never restores local access. It raises an operator alert and bounded retry while the local connection stays denied.
+- A failed external revocation never restores local access. It emits a structured warning and receives at most five worker retries while the local connection stays denied; D7 owns production alert routing.
 
 ## Access, Audit, and Observability Controls
 
 - Application roles are deny-by-default and tenant-scoped. Production infrastructure roles use least privilege, MFA, short sessions, and recorded reason/ticket context.
 - Audit events include user, Workspace, action, target, timestamp, result, correlation ID, and only necessary safe technical metadata.
 - Security alerts cover authentication abuse, RLS/authorization denials, secret-access anomalies, queue dead letters, repeated provider failures, deletion SLA risk, and backup/restore failure.
-- Redaction tests and canary secret tests become blocking D2 security checks. D6 verifies production alert routing and incident response.
+- Redaction tests and canary secret tests are blocking repository checks. D7 verifies production alert routing and incident response evidence.
 - Public Security, Privacy, Terms, Data Deletion, and Integration pages may claim only controls evidenced in the production environment.
 
 ## External Policy Trace
@@ -112,9 +112,9 @@ Verified 2026-08-21 against current official sources:
 
 Official policies are external state. The YouTube Integration Owner must re-verify them immediately before D5 implementation, Developer Review submission, and production release.
 
-## D6 Completion Obligations
+## Evidence Boundary
 
-D6 must replace design-time assertions with observed evidence for processor inventory, actual data paths, field-level data inventory, IAM, encryption, token/key deletion, backup/restore, production access, alerting, incident response, vulnerability management, user revocation/deletion, and all retention jobs. It must also complete legal review of final Terms/Privacy/Data Deletion text and freeze any narrower jurisdictional requirement. No `TBD` may remain in the production Data Flow Map or Retention Matrix at that Gate.
+D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant controls, secret/log checks, and the disposable restore procedure in repository-controlled environments. [`docs/OPERATIONS.md`](../OPERATIONS.md) owns the procedures and evidence routing. Tencent IAM, KMS, Secrets Manager, TencentDB/COS backups, CLS/Cloud Monitor alert routing, production access records, and an isolated production restore exercise remain D7 deployed-environment evidence; public claims must continue to describe them as launch requirements until verified.
 
 ## Revision Record
 
@@ -123,3 +123,4 @@ D6 must replace design-time assertions with observed evidence for processor inve
 - Revision 4 — 2026-08-21：Human Owner 将 D3 公共官网生产目标明确为腾讯云首尔轻量应用服务器；增加腾讯云、GoDaddy DNS 与 Let's Encrypt ACME 的公开静态资源、TLS 和有限安全/访问日志处理边界。官网仍不处理账号数据、用户内容、OAuth Token 或应用 Secret；Human Owner 已明确批准更新后的中英双语 Legal/Data Disclosure，并授权 production-candidate commit 与公开 rollout。
 - Revision 5 — 2026-08-21：Human Owner 在 D5 前明确批准把尚未实施的 SaaS/worker AWS 架构修订为腾讯云，并选择不单独准备测试服务器。SaaS 生产处理方、主区域与服务边界相应改为腾讯云新加坡；Test/Integration 必须保持独立数据库、COS Bucket、TDMQ Queue、KMS Key、Secret、Log 与 Google Cloud Test Project，即使复用同一物理主机也不得复用生产数据或凭据。本修订不声称这些腾讯 SaaS 资源已经创建，也不改变已验收的腾讯云首尔静态官网边界。
 - Revision 6 — 2026-08-22：Human Owner 授权按 D5 re-review 的最小修正实施治理。受保护本地 D5 harness 可使用 Google Cloud Test Project、allow-listed Human account 与用户自有测试素材证明真实 OAuth/私密上传；其数据库、对象存储、本地 envelope key 和 PostgreSQL outbox 仅是 test evidence，不得复用 production credential、不得标记 Available，也不替代 D7 的腾讯云新加坡 CIAM、TencentDB、COS、TDMQ、Secrets Manager/KMS、CLS/Cloud Monitor 和生产访问控制证据。
+- Revision 7 — 2026-08-22：D6 实现并以受控测试验证 Disconnect deny-first、Google programmatic revoke、Token/Authorized Data 清理、Workspace 删除申请台账、7/30 天 retention clock、审计载荷匿名化与 restore drill；生产腾讯云控制证据仍明确归 D7，未新增处理方、区域、用途或更长保留期。

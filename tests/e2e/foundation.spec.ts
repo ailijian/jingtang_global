@@ -51,6 +51,9 @@ async function runHumanPath(browser: Browser, locale: "en" | "zh-CN") {
     .click();
   await expect(owner).toHaveURL(/\/app$/);
   await owner.getByRole("link", { name: locale === "zh-CN" ? "设置" : "Settings" }).click();
+  await owner
+    .getByRole("link", { name: locale === "zh-CN" ? "成员与角色" : "Members & roles" })
+    .click();
   await owner.getByLabel(locale === "zh-CN" ? "成员邮箱" : "Member email").fill(memberEmail);
   await owner.getByLabel(locale === "zh-CN" ? "初始角色" : "Initial role").selectOption("viewer");
   await owner

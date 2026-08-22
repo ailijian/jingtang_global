@@ -2,6 +2,7 @@ import { listYouTubeChannels } from "@jingtang/db";
 import { hasPermission } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 
+import { DestructiveActionDialog } from "../../../components/destructive-action-dialog";
 import { workspacePageContext } from "../../../server/page-context";
 import { getRuntime } from "../../../server/runtime";
 
@@ -18,12 +19,15 @@ export default async function ChannelsPage({
   const channels = await listYouTubeChannels(runtime.db, workspaceId);
   const connected = channels.find((channel) => channel.state === "connected");
   const reauthorization = channels.find((channel) => channel.state === "reauthorization_required");
-  const activeChannel = connected ?? reauthorization;
+  const disconnecting = channels.find((channel) => channel.state === "disconnecting");
+  const disconnected = channels.find((channel) => channel.state === "disconnected");
+  const activeChannel = connected ?? disconnecting ?? reauthorization;
   const result = typeof query.youtube === "string" ? query.youtube : undefined;
   const canConnect =
     hasPermission(role, "channel.connect") &&
     runtime.config.YOUTUBE_OAUTH_ENABLED &&
     (runtime.config.APP_ENV === "local" || runtime.config.APP_ENV === "test");
+  const canDisconnect = hasPermission(role, "channel.disconnect");
   const legalLocale = locale === "zh-CN" ? "zh-cn" : "en";
   const connectionForm = (
     <>
@@ -85,6 +89,21 @@ export default async function ChannelsPage({
             {translate(locale, "channel.result.connected")}
           </p>
         ) : null}
+        {result === "disconnected" ? (
+          <p className="channel-notice channel-notice--success" role="status">
+            {translate(locale, "channel.result.disconnected")}
+          </p>
+        ) : null}
+        {result === "disconnecting" ? (
+          <p className="channel-notice" role="status">
+            {translate(locale, "channel.result.disconnecting")}
+          </p>
+        ) : null}
+        {result === "disconnect_failed" ? (
+          <p className="channel-notice channel-notice--error" role="alert">
+            {translate(locale, "channel.result.disconnectFailed")}
+          </p>
+        ) : null}
         {result === "denied" ? (
           <p className="channel-notice">{translate(locale, "channel.result.denied")}</p>
         ) : null}
@@ -106,18 +125,44 @@ export default async function ChannelsPage({
                 locale,
                 connected
                   ? "channel.status.connected"
-                  : reauthorization
-                    ? "channel.status.reauthorization"
-                    : "channel.status.test",
+                  : disconnecting
+                    ? "channel.status.disconnecting"
+                    : reauthorization
+                      ? "channel.status.reauthorization"
+                      : disconnected
+                        ? "channel.status.disconnected"
+                        : "channel.status.test",
               )}
             </span>
           </div>
           {activeChannel ? (
             <>
               <div className="channel-identity">
-                <strong>{activeChannel.displayName}</strong>
-                <span>{activeChannel.externalAccountId}</span>
+                <strong>{activeChannel.displayName ?? "YouTube"}</strong>
+                {activeChannel.externalAccountId ? (
+                  <span>{activeChannel.externalAccountId}</span>
+                ) : null}
                 <p>{translate(locale, "channel.connected.help")}</p>
+                {(connected || disconnecting) && canDisconnect ? (
+                  <DestructiveActionDialog
+                    action="/api/v1/channels/youtube/disconnect"
+                    triggerLabel={translate(
+                      locale,
+                      disconnecting ? "channel.disconnect.retry" : "channel.disconnect.action",
+                    )}
+                    title={translate(locale, "channel.disconnect.title")}
+                    description={translate(locale, "channel.disconnect.body")}
+                    consequences={[
+                      translate(locale, "channel.disconnect.effectAccess"),
+                      translate(locale, "channel.disconnect.effectData"),
+                      translate(locale, "channel.disconnect.effectThirdParty"),
+                    ]}
+                    submitLabel={translate(locale, "channel.disconnect.action")}
+                    pendingLabel={translate(locale, "channel.disconnect.pending")}
+                    cancelLabel={translate(locale, "action.cancel")}
+                    hiddenFields={{ channel_id: activeChannel.id, confirmation: "disconnect" }}
+                  />
+                ) : null}
               </div>
               {reauthorization ? connectionForm : null}
             </>

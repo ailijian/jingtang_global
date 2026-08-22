@@ -10,11 +10,19 @@ import { getRuntime } from "../../server/runtime";
 export default async function OnboardingPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ readonly invite?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly invite?: string | readonly string[];
+    readonly deletion?: string | readonly string[];
+    readonly reference?: string | readonly string[];
+  }>;
 }) {
   const [session, locale, query] = await Promise.all([pageSession(), pageLocale(), searchParams]);
   if (!session) redirect("/login");
-  if (session.currentWorkspaceId && typeof query.invite !== "string") redirect("/app");
+  const deletionCompleted = query.deletion === "completed";
+  const deletionReference = typeof query.reference === "string" ? query.reference : undefined;
+  if (session.currentWorkspaceId && typeof query.invite !== "string" && !deletionCompleted) {
+    redirect("/app");
+  }
   const workspaces = await listUserWorkspaces(getRuntime().db, session.user.id);
   return (
     <main id="main-content" className="onboarding-shell">
@@ -26,6 +34,14 @@ export default async function OnboardingPage({
           workspaces.length ? "workspace.onboarding.existing" : "workspace.onboarding.description",
         )}
       </p>
+      {deletionCompleted ? (
+        <p className="channel-notice channel-notice--success" role="status">
+          {translate(locale, "dataSettings.result.completed").replace(
+            "{reference}",
+            deletionReference ?? "",
+          )}
+        </p>
+      ) : null}
       <OnboardingForm locale={locale} />
     </main>
   );

@@ -45,6 +45,10 @@ export class DeterministicYouTubeTestAdapter implements YouTubeOAuthProvider {
     return this.delegate.refreshAuthorization(refreshToken);
   }
 
+  public revokeAuthorization(token: string): Promise<void> {
+    return this.delegate.revokeAuthorization(token);
+  }
+
   public uploadPrivateVideo(input: {
     readonly accessToken: string;
     readonly title: string;

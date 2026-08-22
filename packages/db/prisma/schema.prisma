@@ -133,6 +133,23 @@ enum OutboxState {
   @@map("outbox_state")
 }
 
+enum WorkspaceLifecycleState {
+  ACTIVE           @map("active")
+  DELETION_PENDING @map("deletion_pending")
+  DELETED          @map("deleted")
+
+  @@map("workspace_lifecycle_state")
+}
+
+enum DataDeletionState {
+  PENDING    @map("pending")
+  PROCESSING @map("processing")
+  COMPLETED  @map("completed")
+  FAILED     @map("failed")
+
+  @@map("data_deletion_state")
+}
+
 model User {
   id                String             @id @default(uuid()) @db.Uuid
   cognitoSubject    String             @unique @map("cognito_subject") @db.VarChar(255)
@@ -158,24 +175,28 @@ model User {
 }
 
 model Workspace {
-  id                 String              @id @default(uuid()) @db.Uuid
-  name               String              @db.VarChar(160)
-  createdByUserId    String              @map("created_by_user_id") @db.Uuid
-  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdBy          User                @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  memberships        Membership[]
-  invitations        Invitation[]
-  auditEvents        AuditEvent[]
-  channels           Channel[]
-  sourceAssets       SourceAsset[]
-  contents           Content[]
-  contentRevisions   ContentRevision[]
-  platformVersions   PlatformVersion[]
-  approvalDecisions  ApprovalDecision[]
-  publishingIntents  PublishingIntent[]
-  platformExecutions PlatformExecution[]
-  outboxMessages     OutboxMessage[]
+  id                   String                  @id @default(uuid()) @db.Uuid
+  name                 String                  @db.VarChar(160)
+  createdByUserId      String                  @map("created_by_user_id") @db.Uuid
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lifecycleState       WorkspaceLifecycleState @default(ACTIVE) @map("lifecycle_state")
+  deletionRequestedAt  DateTime?               @map("deletion_requested_at") @db.Timestamptz(3)
+  deletedAt            DateTime?               @map("deleted_at") @db.Timestamptz(3)
+  createdBy            User                    @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships          Membership[]
+  invitations          Invitation[]
+  auditEvents          AuditEvent[]
+  channels             Channel[]
+  sourceAssets         SourceAsset[]
+  contents             Content[]
+  contentRevisions     ContentRevision[]
+  platformVersions     PlatformVersion[]
+  approvalDecisions    ApprovalDecision[]
+  publishingIntents    PublishingIntent[]
+  platformExecutions   PlatformExecution[]
+  outboxMessages       OutboxMessage[]
+  dataDeletionRequests DataDeletionRequest[]
 
   @@index([createdByUserId])
   @@map("workspaces")
@@ -261,6 +282,13 @@ model Channel {
   authorizedAt             DateTime?      @map("authorized_at") @db.Timestamptz(3)
   refreshedAt              DateTime?      @map("refreshed_at") @db.Timestamptz(3)
   deniedAt                 DateTime?      @map("denied_at") @db.Timestamptz(3)
+  authorizedDataExpiresAt  DateTime?      @map("authorized_data_expires_at") @db.Timestamptz(3)
+  disconnectRequestedAt    DateTime?      @map("disconnect_requested_at") @db.Timestamptz(3)
+  disconnectedAt           DateTime?      @map("disconnected_at") @db.Timestamptz(3)
+  revokeFailureCategory    String?        @map("revoke_failure_category") @db.VarChar(80)
+  revokeAttemptCount       Int            @default(0) @map("revoke_attempt_count")
+  operationLeaseId         String?        @map("operation_lease_id") @db.Uuid
+  operationLeaseUntil      DateTime?      @map("operation_lease_until") @db.Timestamptz(3)
   createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
   workspace                Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -473,4 +501,24 @@ model AuditEvent {
   @@index([workspaceId, occurredAt(sort: Desc)])
   @@index([workspaceId, action, occurredAt(sort: Desc)])
   @@map("audit_events")
+}
+
+model DataDeletionRequest {
+  id                String            @id @default(uuid()) @db.Uuid
+  workspaceId       String            @map("workspace_id") @db.Uuid
+  requestedByUserId String?           @map("requested_by_user_id") @db.Uuid
+  scope             String            @default("workspace_data") @db.VarChar(40)
+  state             DataDeletionState @default(PENDING)
+  requestReference  String            @unique @map("request_reference") @db.VarChar(32)
+  dataClasses       String[]          @default([]) @map("data_classes")
+  failureCategory   String?           @map("failure_category") @db.VarChar(80)
+  requestedAt       DateTime          @default(now()) @map("requested_at") @db.Timestamptz(3)
+  startedAt         DateTime?         @map("started_at") @db.Timestamptz(3)
+  completedAt       DateTime?         @map("completed_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, state, requestedAt(sort: Desc)])
+  @@index([state, requestedAt])
+  @@map("data_deletion_requests")
 }

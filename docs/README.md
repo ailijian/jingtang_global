@@ -11,6 +11,7 @@ This map is routing only. It does not duplicate or override the facts held by th
 ```text
 docs/
 ├── README.md
+├── OPERATIONS.md
 ├── architecture/
 │   └── README.md
 ├── security-and-data/
@@ -26,7 +27,7 @@ docs/
 - Keep repository-wide, cross-Delivery authorities in their named domain directory.
 - Keep Delivery targets, execution plans, Delivery-scoped design authority, and their provenance under the applicable Delivery directory.
 - Keep generated artifacts, implementation specifications, contracts, configuration, and runtime code in their repository-owned machine or package locations rather than copying them into `docs/`.
-- Keep only this navigation entry at the `docs/` root. Add a new top-level category only when a durable cross-Delivery owner exists.
+- Keep only this navigation entry and explicitly mapped cross-Delivery owners at the `docs/` root. Add another root owner or top-level category only when durable cross-Delivery knowledge has no suitable existing owner.
 
 ## Knowledge Owners
 
@@ -40,6 +41,7 @@ docs/
 | Approved V1 UI build specification and bilingual presentation package | [D1 UI package](../design/jingtang-v1/README.md) and the files it routes | `derived_specification` | D1-UI-R2; derived from the Delivery and Design authorities, not production-state evidence. |
 | System, module, deployment, identity, tenancy, persistence, asynchronous-work, secrets, and observability boundaries | [Architecture](architecture/README.md) | `current_state` governing constraints | Repository-wide architecture authority; it does not prove that planned implementation exists. |
 | Data classification, flows, residency, processors, retention, encryption, and control obligations | [Security and Data](security-and-data/README.md) | `current_state` policy | Repository-wide security and data authority; production controls require separately verified evidence. |
+| SaaS/worker change control, monitoring, backup/restore, incident response, vulnerability management, and production-access procedures | [Operations](OPERATIONS.md) | `current_state` operating procedure | Repository-wide; repository checks do not substitute for D7 Tencent Cloud production evidence. |
 | Contract vocabulary, permissions, envelopes, versioning, and compatibility rules | [Contract governance](../contracts/README.md) | `current_state` | Human-readable contract governance; it does not own product UX or persistence schema. |
 | Contract artifact catalog and lifecycle status | [Contract manifest](../contracts/manifest.yaml) | `current_state` machine catalog | Entries marked `planned` are not implemented contracts. Canonical schemas become machine truth only at their cataloged paths. |
 | Integration capabilities, public availability, OAuth intent, and review or audit constraints | [Integration registry](../config/integrations.yaml) | `current_state` machine truth | Public Integration status must derive from this registry and actual production capability. Localized labels derive from reviewed locale catalogs, not the registry's English reference labels. |

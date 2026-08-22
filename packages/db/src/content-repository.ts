@@ -1,5 +1,7 @@
 import type {
   ApprovalResult,
+  AuditAction,
+  AuditResult,
   ContentStatus,
   Platform,
   PrivacyStatus,
@@ -117,8 +119,8 @@ export interface ContentDetailView extends ContentSummaryView {
   };
   readonly activity: readonly {
     readonly id: string;
-    readonly action: string;
-    readonly result: string;
+    readonly action: AuditAction;
+    readonly result: AuditResult;
     readonly actorName: string | null;
     readonly occurredAt: Date;
   }[];
@@ -495,8 +497,8 @@ export async function getContentDetail(
       },
       activity: activity.map((event) => ({
         id: event.id,
-        action: event.action,
-        result: event.result,
+        action: event.action as AuditAction,
+        result: event.result as AuditResult,
         actorName: event.actorUserId ? (actorNames.get(event.actorUserId) ?? null) : null,
         occurredAt: event.occurredAt,
       })),
@@ -696,10 +698,10 @@ export async function listActivity(
 ): Promise<
   readonly {
     readonly id: string;
-    readonly action: string;
+    readonly action: AuditAction;
     readonly targetType: string;
     readonly targetId: string;
-    readonly result: string;
+    readonly result: AuditResult;
     readonly actorName: string | null;
     readonly occurredAt: Date;
   }[]
@@ -713,10 +715,10 @@ export async function listActivity(
     });
     return events.map((event) => ({
       id: event.id,
-      action: event.action,
+      action: event.action as AuditAction,
       targetType: event.targetType,
       targetId: event.targetId,
-      result: event.result,
+      result: event.result as AuditResult,
       actorName: event.actor?.name ?? null,
       occurredAt: event.occurredAt,
     }));
