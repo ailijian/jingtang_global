@@ -1,5 +1,6 @@
 import { listUserWorkspaces, readWorkspaceDataDeletionStatus } from "@jingtang/db";
 import { translate } from "@jingtang/i18n";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { OnboardingForm } from "../../components/onboarding-form";
@@ -51,12 +52,19 @@ export default async function OnboardingPage({
         )}
       </p>
       {deletionCompleted ? (
-        <p className="channel-notice channel-notice--success" role="status">
-          {translate(locale, "dataSettings.result.completed").replace(
-            "{reference}",
-            deletionReference ?? "",
-          )}
-        </p>
+        <div className="onboarding-result">
+          <p className="channel-notice channel-notice--success" role="status">
+            {translate(locale, "dataSettings.result.completed").replace(
+              "{reference}",
+              deletionReference ?? "",
+            )}
+          </p>
+          {session.currentWorkspaceId ? (
+            <Link className="jt-button jt-button--primary link-button" href="/app">
+              {translate(locale, "workspace.existing.action")}
+            </Link>
+          ) : null}
+        </div>
       ) : null}
       {deletionPending ? (
         <p className="channel-notice" role="status">
@@ -74,7 +82,7 @@ export default async function OnboardingPage({
           )}
         </p>
       ) : null}
-      <OnboardingForm locale={locale} />
+      <OnboardingForm locale={locale} workspaces={workspaces} />
     </main>
   );
 }

@@ -37,6 +37,9 @@ export const zhCN: Record<keyof typeof en, string> = {
   "workspace.onboarding.title": "设定你的工作边界",
   "workspace.onboarding.description": "从一个安全、清晰的工作空间开始。",
   "workspace.onboarding.existing": "选择现有工作空间，或创建新的边界。",
+  "workspace.existing.title": "继续进入现有工作空间",
+  "workspace.existing.description": "你在以下工作空间中的访问权限仍然有效。",
+  "workspace.existing.action": "进入工作空间",
   "workspace.create.title": "创建你的工作空间",
   "workspace.create.description": "为团队、角色、内容和已连接渠道建立清晰边界。",
   "workspace.name": "工作空间名称",
@@ -137,6 +140,8 @@ export const zhCN: Record<keyof typeof en, string> = {
   "dataSettings.result.completed": "工作空间数据删除已完成。请保存申请编号：{reference}。",
   "dataSettings.result.failed":
     "删除尚未完成。平台访问仍被阻止，持久化申请将自动重试。申请编号：{reference}。",
+  "dataSettings.result.requestFailed":
+    "删除申请未能启动，当前没有待处理的删除任务。请检查确认信息后重试。支持编号：{reference}。",
   "dataSettings.account.title": "删除你的 JINGTANG 账号",
   "dataSettings.account.body": "这将删除你的身份和个人账号数据；删除工作空间是另一项独立操作。",
   "dataSettings.account.effectAccess": "你会立即退出登录，并且不能再使用此 JINGTANG 身份。",

@@ -18,7 +18,7 @@ PLAN:
 - Resolution source: Repository convention in `AGENTS.md`
 - Mode: Revise
 
-Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance；D4 已通过 Self Verification、Code Review 与 Acceptance Review，并依据 Human Owner 的明确授权将本 Stage Human E2E 延后至 D7 最终统一验收后获准推进。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E；D4 checkpoint `079932a` 建立真实对象存储、Content/Platform Version、Approval 与 Activity 的 pre-publish 核心。D5 candidate `0e6a33c` 及 CI corrections `afe93b4`、`2f9986c` 已完成最终 Publish Confirmation、deterministic fault coverage、真实 Google/YouTube OAuth 与私密上传、D5 local harness/D7 TDMQ 边界及 Registry truth；attributable blocking CI、new Code Review 与 independent Acceptance Review 均已通过，D5 依据 Human Owner 的既有 progression 授权获准进入 checkpoint。
+Current State: D0～D3 均已完成并获 Human Owner Stage Acceptance；D4 已通过 Self Verification、Code Review 与 Acceptance Review，并依据 Human Owner 的明确授权将本 Stage Human E2E 延后至 D7 最终统一验收后获准推进。D2 checkpoint `27c4729` 建立可运行的身份、Workspace、RBAC 与 canonical verification foundation；D3 production release `347f6b7` 已在 `https://jingtangai.com` 完成腾讯云首尔部署、DNS、HTTPS、双语 production smoke、Legal/Data Approval 与 Production Human E2E；D4 checkpoint `079932a` 建立真实对象存储、Content/Platform Version、Approval 与 Activity 的 pre-publish 核心。D5 candidate `0e6a33c` 及 CI corrections `afe93b4`、`2f9986c` 已完成最终 Publish Confirmation、deterministic fault coverage、真实 Google/YouTube OAuth 与私密上传、D5 local harness/D7 TDMQ 边界及 Registry truth；attributable blocking CI、new Code Review 与 independent Acceptance Review 均已通过。D6 已完成 Disconnect/Revoke/Delete、7/30 天 retention、Audit、Security/Data、Operations 与双语 trust-boundary UI，经过多轮正式 Code Review、Acceptance Review 收口和 Human Owner 整体 Human E2E 后获准创建 checkpoint；D7 继续拥有腾讯云 SaaS production/reviewer launch、D4 延期 Human E2E、最终全量 production regression 与 Delivery closure。
 
 Authority readiness: 初始 Delivery Target 由 Approved Baseline 拥有；当前 Approved Design Target 可直接用于 planning。
 
@@ -820,6 +820,17 @@ Required Gates:
 Stop Condition:
 
 - 真实 revoke/delete 路径、时间策略、Audit 全事件覆盖、安全检查和 restore drill 均有阻塞证据；Data Flow/Retention 无 TBD；所有公开数据/安全声明与实际控制一致。
+
+### D6 Acceptance Record
+
+- Status: Accepted for progression — Human Owner 于 2026-08-24 确认 Human E2E 整体验收通过，并明确同意更新记录及创建 checkpoint。
+- Implementation Evidence: D6 已实现 Channel Disconnect → 阻止新操作 → Google programmatic revoke → Token/适用授权数据清理、幂等重试和审计；实现 Account/Workspace durable deletion、平台访问即时阻断、删除状态/申请编号、失败重试和完成状态；实现可控时钟驱动的 7/30 天 retention、不可变 Audit、tenant/RBAC 查询隔离、备份恢复与安全/运营检查。删除当前 Workspace 时，后端会将受影响 Session 与 `lastWorkspaceId` 原子回退到另一有效 Workspace；历史空 Session 可在 Onboarding 选择仍有效的 Workspace，只有不存在有效成员关系时才进入创建/邀请路径。
+- Self Verification: PASS（2026-08-24）。最终工作树通过 canonical `pnpm verify`；验收修正另行通过完整 integration runner 的 5 组共 37 项测试、D6 trust-lifecycle 12/12 regression、i18n 5/5 与 602 个 English/简体中文键检查，以及 DB/i18n/Platform typecheck、lint 和 `git diff --check`。删除回退 regression 明确验证删除当前 Workspace 后 Session、Workspace list 与 User `lastWorkspaceId` 均指向另一 ACTIVE Workspace。
+- Code Review: PASS。D6 经多轮正式审查与系统性收口，覆盖 revoke/发布竞态、claim/lease、删除范围与幂等、retention dependency scheduling、Token retirement、pseudonymization、Audit attribution/RBAC、tenant context、migration history、公开披露和断开后发布历史语义；最终审查无 blocking finding。Acceptance 阶段发现的删除申请失败文案与 Workspace 回退缺口已按根因修复并具备 regression coverage。
+- Production Change Authorization: Human Owner 于 D6 明确批准更新；repository-owned Privacy、Terms、Data Deletion、Security 与 Integration facts 已与 D6 已验证控制对齐。腾讯云 SaaS production/reviewer 部署、production OAuth client、公开 capability rollout 与上线后事实复核仍由 D7 的独立 Gate 和明确授权拥有。
+- Human E2E: PASS（2026-08-24）。Human Owner 完成并确认实际 Channel track/result 与 Audit、Disconnect/Revoke、断开后不再执行新 API operation、重新连接、已发布历史保留和发布时 Channel snapshot、Workspace durable deletion 的 pending/reference/completed 状态、第三方 YouTube 内容不被自动删除、English/简体中文成功/失败/恢复语义，以及删除一个 Workspace 后仍可恢复进入现有 `test` Workspace。验收中暴露的 Google revoke 重试、删除申请失败误导、删除完成后现有 Workspace 无入口均已修复并复验，最终结论为“Human E2E 整体验收通过”。
+- Acceptance Review: PASS（2026-08-24）。D6 Stop Condition 与其首次承担的 AC-10、AC-11、AC-12，以及 AC-09、AC-15、AC-16 的 D6 revalidation 均有可追溯实现、自动化和 Human evidence；AC-13 的 production actual-control 证明、D4 延期 Human E2E、腾讯云 SaaS deployment/reviewer readiness 和最终完整企业 journey 保持为 D7 blocking scope，不被本记录提前声明完成。
+- Stage Acceptance: Accepted by the Human Owner instruction to record the passing overall Human E2E and create the D6 checkpoint；本记录不授权 push、production deployment、external review submission 或 public rollout。
 
 ## D7 — SaaS Production/Reviewer Launch, Developer Review Readiness, and Delivery Closure
 

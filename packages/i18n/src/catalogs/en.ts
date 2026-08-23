@@ -35,6 +35,9 @@ export const en = {
   "workspace.onboarding.title": "Set your working boundary",
   "workspace.onboarding.description": "Begin with one secure, clearly defined Workspace.",
   "workspace.onboarding.existing": "Select an existing Workspace or create a new boundary.",
+  "workspace.existing.title": "Continue with an existing Workspace",
+  "workspace.existing.description": "Your access is still active in these Workspaces.",
+  "workspace.existing.action": "Enter Workspace",
   "workspace.create.title": "Create your Workspace",
   "workspace.create.description":
     "Set the boundary for your team, roles, content, and connected channels.",
@@ -150,6 +153,8 @@ export const en = {
     "Workspace data deletion completed. Keep this request reference: {reference}.",
   "dataSettings.result.failed":
     "The deletion did not finish. Platform access remains blocked and the durable request will retry automatically. Reference: {reference}.",
+  "dataSettings.result.requestFailed":
+    "The deletion request could not be started. No deletion is pending; check the confirmation and retry. Support reference: {reference}.",
   "dataSettings.account.title": "Delete your JINGTANG account",
   "dataSettings.account.body":
     "This deletes your identity and personal account data. Workspace deletion is a separate action.",

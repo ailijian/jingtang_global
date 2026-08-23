@@ -6,6 +6,7 @@ import {
   LifecycleOperationKind,
   LifecycleOperationState,
   LifecycleStepState,
+  MembershipStatus,
   OutboxState,
   PlatformExecutionState,
   WorkspaceLifecycleState,
@@ -1437,6 +1438,66 @@ export async function failWorkspaceDataDeletion(
   });
 }
 
+async function setLifecycleTenantContext(
+  transaction: Prisma.TransactionClient,
+  workspaceId: string,
+): Promise<void> {
+  await transaction.$executeRaw`SELECT set_config('app.workspace_id', ${workspaceId}, true)`;
+}
+
+async function resolveWorkspaceDeletionFallback(
+  transaction: Prisma.TransactionClient,
+  input: {
+    readonly userId: string;
+    readonly deletedWorkspaceId: string;
+  },
+): Promise<{ readonly workspaceId: string | null; readonly lastWorkspaceId: string | null }> {
+  await transaction.$executeRaw`SELECT set_config('app.user_id', ${input.userId}, true)`;
+  const [user, memberships] = await Promise.all([
+    transaction.user.findUnique({
+      where: { id: input.userId },
+      select: { lastWorkspaceId: true },
+    }),
+    transaction.membership.findMany({
+      where: {
+        userId: input.userId,
+        workspaceId: { not: input.deletedWorkspaceId },
+        status: MembershipStatus.ACTIVE,
+      },
+      orderBy: { joinedAt: "desc" },
+      select: { workspaceId: true },
+    }),
+  ]);
+  const preferredWorkspaceId = user?.lastWorkspaceId;
+  const candidates = preferredWorkspaceId
+    ? [
+        ...memberships.filter(({ workspaceId }) => workspaceId === preferredWorkspaceId),
+        ...memberships.filter(({ workspaceId }) => workspaceId !== preferredWorkspaceId),
+      ]
+    : memberships;
+
+  for (const candidate of candidates) {
+    await setLifecycleTenantContext(transaction, candidate.workspaceId);
+    const workspace = await transaction.workspace.findFirst({
+      where: {
+        id: candidate.workspaceId,
+        lifecycleState: WorkspaceLifecycleState.ACTIVE,
+      },
+      select: { id: true },
+    });
+    if (workspace) {
+      await setLifecycleTenantContext(transaction, input.deletedWorkspaceId);
+      return {
+        workspaceId: candidate.workspaceId,
+        lastWorkspaceId: user?.lastWorkspaceId ?? null,
+      };
+    }
+  }
+
+  await setLifecycleTenantContext(transaction, input.deletedWorkspaceId);
+  return { workspaceId: null, lastWorkspaceId: user?.lastWorkspaceId ?? null };
+}
+
 export async function completeWorkspaceDataDeletion(
   client: PrismaClient,
   input: {
@@ -1516,11 +1577,37 @@ export async function completeWorkspaceDataDeletion(
       await transaction.content.deleteMany({ where: { workspaceId: input.workspaceId } });
       await transaction.channel.deleteMany({ where: { workspaceId: input.workspaceId } });
       await transaction.invitation.deleteMany({ where: { workspaceId: input.workspaceId } });
+      const [workspaceMembers, workspaceSessions] = await Promise.all([
+        transaction.membership.findMany({
+          where: { workspaceId: input.workspaceId },
+          select: { userId: true },
+        }),
+        transaction.session.findMany({
+          where: { currentWorkspaceId: input.workspaceId },
+          select: { userId: true },
+        }),
+      ]);
+      const affectedUserIds = new Set([
+        ...workspaceMembers.map(({ userId }) => userId),
+        ...workspaceSessions.map(({ userId }) => userId),
+      ]);
+      for (const userId of affectedUserIds) {
+        const fallback = await resolveWorkspaceDeletionFallback(transaction, {
+          userId,
+          deletedWorkspaceId: input.workspaceId,
+        });
+        const movedSessions = await transaction.session.updateMany({
+          where: { userId, currentWorkspaceId: input.workspaceId },
+          data: { currentWorkspaceId: fallback.workspaceId },
+        });
+        if (movedSessions.count > 0 || fallback.lastWorkspaceId === input.workspaceId) {
+          await transaction.user.update({
+            where: { id: userId },
+            data: { lastWorkspaceId: fallback.workspaceId },
+          });
+        }
+      }
       await transaction.membership.deleteMany({ where: { workspaceId: input.workspaceId } });
-      await transaction.session.updateMany({
-        where: { currentWorkspaceId: input.workspaceId },
-        data: { currentWorkspaceId: null },
-      });
       // Preserve the pseudonymized Workspace id as the last real audit scope for
       // users who no longer have an active Workspace. Login/logout events remain
       // attributable without restoring access to deleted tenant data.

@@ -29,6 +29,7 @@ import {
   prepareYouTubeDisconnect,
   prepareAccountIdentityDeletion,
   purgeExpiredLifecycleRecords,
+  readSession,
   readExpiredYouTubeAuthorization,
   readWorkspaceDataDeletionMaterial,
   readWorkspaceDataDeletionStatus,
@@ -40,6 +41,7 @@ import {
   renewLifecycleOperationClaim,
   removeMember,
   requestAccountDeletion,
+  selectWorkspace,
   upsertIdentityUser,
   withTenant,
   type LifecycleClaimGuard,
@@ -888,6 +890,68 @@ describe("D6 unified trust lifecycle", () => {
         lifecycleClaim: guard,
       }),
     ).rejects.toThrow("lifecycle_claim_lost");
+  });
+
+  it("moves an affected session to another active Workspace after deletion", async () => {
+    const owner = await fixture("workspace-delete-fallback");
+    const deletedWorkspace = owner.workspace;
+    const fallbackWorkspace = await createWorkspace(db, {
+      name: "Fallback Workspace",
+      userId: owner.user.id,
+      sessionId: owner.session.id,
+      correlationId: randomUUID(),
+    });
+    await selectWorkspace(db, {
+      workspaceId: deletedWorkspace.id,
+      userId: owner.user.id,
+      sessionId: owner.session.id,
+      correlationId: randomUUID(),
+    });
+
+    const correlationId = randomUUID();
+    const deletion = await beginWorkspaceDataDeletion(db, {
+      workspaceId: deletedWorkspace.id,
+      actorUserId: owner.user.id,
+      confirmedWorkspaceName: deletedWorkspace.name,
+      correlationId,
+    });
+    const request = await adminDb.dataDeletionRequest.findUniqueOrThrow({
+      where: { id: deletion.requestId },
+      select: { lifecycleOperationId: true },
+    });
+    if (!request.lifecycleOperationId) throw new Error("deletion operation was not linked");
+    const guard = await forceClaim(
+      request.lifecycleOperationId,
+      `workspace-delete-fallback-${randomUUID()}`,
+    );
+
+    await expect(
+      completeWorkspaceDataDeletion(workerDb, {
+        workspaceId: deletedWorkspace.id,
+        requestId: deletion.requestId,
+        actorUserId: owner.user.id,
+        correlationId,
+        pendingObjectKeys: [],
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+
+    await expect(
+      readSession(db, owner.session.token, "integration-secret-at-least-32-bytes"),
+    ).resolves.toMatchObject({ currentWorkspaceId: fallbackWorkspace.id });
+    await expect(listUserWorkspaces(db, owner.user.id)).resolves.toEqual([
+      expect.objectContaining({ id: fallbackWorkspace.id, name: "Fallback Workspace" }),
+    ]);
+    await expect(
+      adminDb.user.findUniqueOrThrow({
+        where: { id: owner.user.id },
+        select: { lastWorkspaceId: true },
+      }),
+    ).resolves.toEqual({ lastWorkspaceId: fallbackWorkspace.id });
   });
 
   it("serializes account deletion against the successor Owner leaving", async () => {

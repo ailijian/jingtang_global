@@ -7,10 +7,11 @@ import { authorize, requestSession } from "../../../../server/auth";
 import { correlationId, requireSameOrigin } from "../../../../server/http";
 import { getRuntime } from "../../../../server/runtime";
 
-function resultRedirect(result: "pending" | "failed", reference?: string): URL {
-  const url = new URL("/onboarding", getRuntime().config.APP_BASE_URL);
+function resultRedirect(result: "pending" | "request_failed", reference: string): URL {
+  const path = result === "pending" ? "/onboarding" : "/app/settings/data";
+  const url = new URL(path, getRuntime().config.APP_BASE_URL);
   url.searchParams.set("deletion", result);
-  if (reference) url.searchParams.set("reference", reference);
+  url.searchParams.set("reference", reference);
   return url;
 }
 
@@ -48,6 +49,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ? error.message
         : "internal_error";
     safeLog("warn", "workspace_data_deletion_failed", { requestId, failureCategory });
-    return NextResponse.redirect(resultRedirect("failed"), 303);
+    return NextResponse.redirect(resultRedirect("request_failed", requestId), 303);
   }
 }

@@ -46,6 +46,14 @@ export default async function DataSettingsPage({
           {translate(locale, "dataSettings.result.failed").replace("{reference}", reference ?? "")}
         </p>
       ) : null}
+      {result === "request_failed" ? (
+        <p className="channel-notice channel-notice--error" role="alert">
+          {translate(locale, "dataSettings.result.requestFailed").replace(
+            "{reference}",
+            reference ?? "",
+          )}
+        </p>
+      ) : null}
       {accountResult === "owner-transfer-required" ? (
         <p className="channel-notice channel-notice--error" role="alert">
           {translate(locale, "dataSettings.account.ownerTransferRequired")}
