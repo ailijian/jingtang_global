@@ -4,7 +4,6 @@ import {
   ApprovalResult,
   ChannelState,
   ContentStatus,
-  OutboxState,
   Platform,
   PlatformExecutionState,
   PrivacyStatus,
@@ -15,6 +14,10 @@ import {
   type Prisma,
   type PrismaClient,
 } from "./generated/client.js";
+import {
+  enqueueTokenKeyRetirement,
+  pseudonymizeYouTubeAuthorizedData,
+} from "./lifecycle-repository.js";
 import { appendAudit, withTenant } from "./repository.js";
 
 export interface PlatformExecutionView {
@@ -231,23 +234,31 @@ export interface ClaimedOutboxMessage {
   readonly workspaceId: string;
   readonly platformExecutionId: string;
   readonly attempt: number;
+  readonly claimOwner: string;
+  readonly claimGeneration: bigint;
 }
 
 export async function claimNextOutboxMessage(
-  adminClient: PrismaClient,
+  workerClient: PrismaClient,
+  workerId: string,
 ): Promise<ClaimedOutboxMessage | null> {
-  const rows = await adminClient.$queryRaw<
+  const rows = await workerClient.$queryRaw<
     {
       id: string;
       workspace_id: string;
       platform_execution_id: string;
       attempt: number;
+      claim_owner: string;
+      claim_generation: bigint;
     }[]
   >`
     UPDATE "outbox_messages"
     SET
       "state" = 'claimed'::"outbox_state",
       "claimed_at" = CURRENT_TIMESTAMP,
+      "claim_owner" = ${workerId},
+      "claim_until" = CURRENT_TIMESTAMP + INTERVAL '2 minutes',
+      "claim_generation" = "claim_generation" + 1,
       "updated_at" = CURRENT_TIMESTAMP
     WHERE "id" = (
       SELECT "id"
@@ -255,14 +266,14 @@ export async function claimNextOutboxMessage(
       WHERE
         (
           "state" = 'pending'::"outbox_state"
-          OR ("state" = 'claimed'::"outbox_state" AND "claimed_at" < CURRENT_TIMESTAMP - INTERVAL '2 minutes')
+          OR ("state" = 'claimed'::"outbox_state" AND "claim_until" <= CURRENT_TIMESTAMP)
         )
         AND "available_at" <= CURRENT_TIMESTAMP
       ORDER BY "available_at", "created_at"
       FOR UPDATE SKIP LOCKED
       LIMIT 1
     )
-    RETURNING "id", "workspace_id", "platform_execution_id", "attempt"
+    RETURNING "id", "workspace_id", "platform_execution_id", "attempt", "claim_owner", "claim_generation"
   `;
   const row = rows[0];
   return row
@@ -271,50 +282,86 @@ export async function claimNextOutboxMessage(
         workspaceId: row.workspace_id,
         platformExecutionId: row.platform_execution_id,
         attempt: row.attempt,
+        claimOwner: row.claim_owner,
+        claimGeneration: row.claim_generation,
       }
     : null;
 }
 
 export async function finishOutboxMessage(
-  adminClient: PrismaClient,
+  workerClient: PrismaClient,
   input: {
     readonly id: string;
     readonly outcome: "completed" | "retry" | "dead";
     readonly failureCategory?: string;
     readonly retryAfterSeconds?: number;
+    readonly claimOwner: string;
+    readonly claimGeneration: bigint;
   },
 ): Promise<void> {
-  const state =
-    input.outcome === "completed"
-      ? OutboxState.COMPLETED
-      : input.outcome === "dead"
-        ? OutboxState.DEAD
-        : OutboxState.PENDING;
-  await adminClient.outboxMessage.updateMany({
-    where: { id: input.id, state: OutboxState.CLAIMED },
-    data: {
-      state,
-      completedAt: input.outcome === "completed" ? new Date() : null,
-      claimedAt: null,
-      failureCategory: input.failureCategory ?? null,
-      ...(input.outcome === "retry"
-        ? {
-            availableAt: new Date(Date.now() + (input.retryAfterSeconds ?? 5) * 1000),
-            ...(input.failureCategory ? { attempt: { increment: 1 } } : {}),
-          }
-        : {}),
-    },
-  });
+  if (input.outcome === "retry") {
+    const retryAfterSeconds = input.retryAfterSeconds ?? 5;
+    const attemptIncrement = input.failureCategory ? 1 : 0;
+    const changed = await workerClient.$executeRaw`
+      UPDATE "outbox_messages"
+      SET
+        "state" = 'pending'::"outbox_state",
+        "completed_at" = NULL,
+        "claimed_at" = NULL,
+        "claim_owner" = NULL,
+        "claim_until" = NULL,
+        "failure_category" = ${input.failureCategory ?? null},
+        "available_at" = CURRENT_TIMESTAMP + (${retryAfterSeconds} * INTERVAL '1 second'),
+        "attempt" = "attempt" + ${attemptIncrement},
+        "updated_at" = CURRENT_TIMESTAMP
+      WHERE
+        "id" = ${input.id}::uuid
+        AND "state" = 'claimed'::"outbox_state"
+        AND "claim_owner" = ${input.claimOwner}
+        AND "claim_generation" = ${input.claimGeneration}
+        AND "claim_until" > CURRENT_TIMESTAMP
+    `;
+    if (changed !== 1) throw new Error("outbox_claim_lost");
+    return;
+  }
+
+  const state = input.outcome === "completed" ? "completed" : "dead";
+  const changed = await workerClient.$executeRaw`
+    UPDATE "outbox_messages"
+    SET
+      "state" = ${state}::"outbox_state",
+      "completed_at" = CURRENT_TIMESTAMP,
+      "claimed_at" = NULL,
+      "claim_owner" = NULL,
+      "claim_until" = NULL,
+      "failure_category" = ${input.failureCategory ?? null},
+      "updated_at" = CURRENT_TIMESTAMP
+    WHERE
+      "id" = ${input.id}::uuid
+      AND "state" = 'claimed'::"outbox_state"
+      AND "claim_owner" = ${input.claimOwner}
+      AND "claim_generation" = ${input.claimGeneration}
+      AND "claim_until" > CURRENT_TIMESTAMP
+  `;
+  if (changed !== 1) throw new Error("outbox_claim_lost");
 }
 
 export async function renewOutboxMessageClaim(
-  adminClient: PrismaClient,
-  id: string,
-): Promise<void> {
-  await adminClient.outboxMessage.updateMany({
-    where: { id, state: OutboxState.CLAIMED },
-    data: { claimedAt: new Date() },
-  });
+  workerClient: PrismaClient,
+  input: { readonly id: string; readonly claimOwner: string; readonly claimGeneration: bigint },
+): Promise<boolean> {
+  const changed = await workerClient.$executeRaw`
+    UPDATE "outbox_messages"
+    SET "claimed_at" = CURRENT_TIMESTAMP,
+        "claim_until" = CURRENT_TIMESTAMP + INTERVAL '2 minutes',
+        "updated_at" = CURRENT_TIMESTAMP
+    WHERE "id" = ${input.id}::uuid
+      AND "state" = 'claimed'::outbox_state
+      AND "claim_owner" = ${input.claimOwner}
+      AND "claim_generation" = ${input.claimGeneration}
+      AND "claim_until" > CURRENT_TIMESTAMP
+  `;
+  return changed === 1;
 }
 
 const channelOperationLeaseMs = 2 * 60 * 1000;
@@ -324,27 +371,26 @@ export async function acquireYouTubeChannelOperationLease(
   workspaceId: string,
   channelId: string,
   leaseId: string,
-  now = new Date(),
-): Promise<boolean> {
-  const result = await withTenant(client, workspaceId, (transaction) =>
-    transaction.channel.updateMany({
-      where: {
-        id: channelId,
-        workspaceId,
-        state: ChannelState.CONNECTED,
-        OR: [
-          { operationLeaseUntil: null },
-          { operationLeaseUntil: { lte: now } },
-          { operationLeaseId: leaseId },
-        ],
-      },
-      data: {
-        operationLeaseId: leaseId,
-        operationLeaseUntil: new Date(now.getTime() + channelOperationLeaseMs),
-      },
-    }),
-  );
-  return result.count === 1;
+): Promise<bigint | null> {
+  return withTenant(client, workspaceId, async (transaction) => {
+    const rows = await transaction.$queryRaw<{ operation_generation: bigint }[]>`
+      UPDATE channels
+      SET operation_lease_id = ${leaseId}::uuid,
+          operation_lease_until = CURRENT_TIMESTAMP + (${channelOperationLeaseMs} * INTERVAL '1 millisecond'),
+          operation_lease_generation = operation_generation,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${channelId}::uuid
+        AND workspace_id = ${workspaceId}::uuid
+        AND state = 'connected'::channel_state
+        AND (
+          operation_lease_until IS NULL
+          OR operation_lease_until <= CURRENT_TIMESTAMP
+          OR operation_lease_id = ${leaseId}::uuid
+        )
+      RETURNING operation_generation
+    `;
+    return rows[0]?.operation_generation ?? null;
+  });
 }
 
 export async function renewYouTubeChannelOperationLease(
@@ -352,13 +398,23 @@ export async function renewYouTubeChannelOperationLease(
   workspaceId: string,
   channelId: string,
   executionId: string,
-): Promise<void> {
-  await withTenant(client, workspaceId, (transaction) =>
-    transaction.channel.updateMany({
-      where: { id: channelId, workspaceId, operationLeaseId: executionId },
-      data: { operationLeaseUntil: new Date(Date.now() + channelOperationLeaseMs) },
-    }),
-  );
+  leaseGeneration: bigint,
+): Promise<boolean> {
+  return withTenant(client, workspaceId, async (transaction) => {
+    const changed = await transaction.$executeRaw`
+      UPDATE channels
+      SET operation_lease_until = CURRENT_TIMESTAMP + (${channelOperationLeaseMs} * INTERVAL '1 millisecond'),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${channelId}::uuid
+        AND workspace_id = ${workspaceId}::uuid
+        AND state = 'connected'::channel_state
+        AND operation_lease_id = ${executionId}::uuid
+        AND operation_generation = ${leaseGeneration}
+        AND operation_lease_generation = ${leaseGeneration}
+        AND operation_lease_until > CURRENT_TIMESTAMP
+    `;
+    return changed === 1;
+  });
 }
 
 export async function releaseYouTubeChannelOperationLease(
@@ -366,11 +422,21 @@ export async function releaseYouTubeChannelOperationLease(
   workspaceId: string,
   channelId: string,
   executionId: string,
+  leaseGeneration: bigint,
 ): Promise<void> {
   await withTenant(client, workspaceId, (transaction) =>
     transaction.channel.updateMany({
-      where: { id: channelId, workspaceId, operationLeaseId: executionId },
-      data: { operationLeaseId: null, operationLeaseUntil: null },
+      where: {
+        id: channelId,
+        workspaceId,
+        operationLeaseId: executionId,
+        operationLeaseGeneration: leaseGeneration,
+      },
+      data: {
+        operationLeaseId: null,
+        operationLeaseUntil: null,
+        operationLeaseGeneration: null,
+      },
     }),
   );
 }
@@ -382,6 +448,8 @@ export interface YouTubeExecutionWorkItem {
   readonly providerId: string | null;
   readonly channelId: string;
   readonly tokenEnvelopeCiphertext: string;
+  readonly tokenCiphertextReference: string | null;
+  readonly leaseGeneration: bigint;
   readonly objectKey: string;
   readonly mediaType: string;
   readonly byteSize: number;
@@ -410,6 +478,14 @@ export async function readYouTubeExecutionWorkItem(
       },
     });
     if (!execution) throw new Error("platform_execution_not_found");
+    if (
+      execution.state === PlatformExecutionState.PUBLISHED ||
+      execution.state === PlatformExecutionState.CANCELLED ||
+      execution.state === PlatformExecutionState.FAILED ||
+      execution.state === PlatformExecutionState.NEEDS_ATTENTION
+    ) {
+      throw new Error("execution_terminal");
+    }
     if (execution.state === PlatformExecutionState.PUBLISHING && !execution.providerId) {
       throw new Error("execution_recovery_required");
     }
@@ -439,25 +515,27 @@ export async function readYouTubeExecutionWorkItem(
         state: ChannelState.CONNECTED,
       },
     });
-    if (!channel?.tokenEnvelopeCiphertext) throw new Error("channel_reauthorization_required");
-    const leaseNow = new Date();
-    const lease = await transaction.channel.updateMany({
-      where: {
-        id: channel.id,
-        workspaceId,
-        state: ChannelState.CONNECTED,
-        OR: [
-          { operationLeaseUntil: null },
-          { operationLeaseUntil: { lte: leaseNow } },
-          { operationLeaseId: execution.id },
-        ],
-      },
-      data: {
-        operationLeaseId: execution.id,
-        operationLeaseUntil: new Date(leaseNow.getTime() + channelOperationLeaseMs),
-      },
-    });
-    if (lease.count !== 1) throw new Error("channel_operation_busy");
+    if (!channel?.tokenEnvelopeCiphertext) {
+      throw new Error("channel_reauthorization_required");
+    }
+    const leaseRows = await transaction.$queryRaw<{ operation_generation: bigint }[]>`
+      UPDATE channels
+      SET operation_lease_id = ${execution.id}::uuid,
+          operation_lease_until = CURRENT_TIMESTAMP + (${channelOperationLeaseMs} * INTERVAL '1 millisecond'),
+          operation_lease_generation = operation_generation,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${channel.id}::uuid
+        AND workspace_id = ${workspaceId}::uuid
+        AND state = 'connected'::channel_state
+        AND (
+          operation_lease_until IS NULL
+          OR operation_lease_until <= CURRENT_TIMESTAMP
+          OR operation_lease_id = ${execution.id}::uuid
+        )
+      RETURNING operation_generation
+    `;
+    const leaseGeneration = leaseRows[0]?.operation_generation;
+    if (leaseGeneration === undefined) throw new Error("channel_operation_busy");
     if (execution.state === PlatformExecutionState.NOT_STARTED) {
       await transaction.platformExecution.update({
         where: { id: execution.id },
@@ -483,6 +561,8 @@ export async function readYouTubeExecutionWorkItem(
       providerId: execution.providerId,
       channelId: channel.id,
       tokenEnvelopeCiphertext: channel.tokenEnvelopeCiphertext,
+      tokenCiphertextReference: channel.tokenCiphertextReference,
+      leaseGeneration,
       objectKey: content.sourceAsset.objectKey,
       mediaType: content.sourceAsset.mediaType,
       byteSize: Number(content.sourceAsset.byteSize),
@@ -495,20 +575,50 @@ export async function readYouTubeExecutionWorkItem(
 
 export async function resetYouTubeExecutionForRetry(
   client: PrismaClient,
-  workspaceId: string,
-  executionId: string,
+  input: {
+    readonly workspaceId: string;
+    readonly executionId: string;
+    readonly channelId: string;
+    readonly leaseGeneration: bigint;
+  },
 ): Promise<void> {
-  await withTenant(client, workspaceId, (transaction) =>
-    transaction.platformExecution.updateMany({
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const updated = await transaction.platformExecution.updateMany({
       where: {
-        id: executionId,
-        workspaceId,
+        id: input.executionId,
+        workspaceId: input.workspaceId,
         state: PlatformExecutionState.PUBLISHING,
         providerId: null,
       },
       data: { state: PlatformExecutionState.NOT_STARTED },
-    }),
-  );
+    });
+    if (updated.count !== 1) throw new Error("execution_retry_reset_rejected");
+  });
+}
+
+async function assertYouTubePublishFence(
+  transaction: Prisma.TransactionClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly executionId: string;
+    readonly leaseGeneration: bigint;
+  },
+): Promise<void> {
+  const rows = await transaction.$queryRaw<{ valid: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1 FROM channels
+      WHERE id = ${input.channelId}::uuid
+        AND workspace_id = ${input.workspaceId}::uuid
+        AND state = 'connected'::channel_state
+        AND operation_lease_id = ${input.executionId}::uuid
+        AND operation_generation = ${input.leaseGeneration}
+        AND operation_lease_generation = ${input.leaseGeneration}
+        AND operation_lease_until > CURRENT_TIMESTAMP
+    ) AS valid
+  `;
+  if (!rows[0]?.valid) throw new Error("publish_fence_lost");
 }
 
 export async function recordYouTubeUploadAccepted(
@@ -518,9 +628,12 @@ export async function recordYouTubeUploadAccepted(
     readonly executionId: string;
     readonly providerId: string;
     readonly providerUrl: string;
+    readonly channelId: string;
+    readonly leaseGeneration: bigint;
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
     const updated = await transaction.platformExecution.updateMany({
       where: {
         id: input.executionId,
@@ -549,28 +662,97 @@ export async function recordYouTubeUploadAccepted(
 
 export async function recordYouTubeExecutionPublished(
   client: PrismaClient,
-  workspaceId: string,
-  executionId: string,
+  input: {
+    readonly workspaceId: string;
+    readonly executionId: string;
+    readonly channelId: string;
+    readonly leaseGeneration: bigint;
+  },
 ): Promise<void> {
-  await withTenant(client, workspaceId, async (transaction) => {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
     const updated = await transaction.platformExecution.updateMany({
       where: {
-        id: executionId,
-        workspaceId,
+        id: input.executionId,
+        workspaceId: input.workspaceId,
         state: PlatformExecutionState.PROCESSING,
       },
       data: { state: PlatformExecutionState.PUBLISHED, failureCategory: null },
     });
     if (updated.count !== 1) throw new Error("execution_not_processing");
     await appendAudit(transaction, {
-      workspaceId,
+      workspaceId: input.workspaceId,
       action: "platform.published",
       targetType: "platform_execution",
-      targetId: executionId,
+      targetId: input.executionId,
       result: "success",
-      correlationId: executionId,
+      correlationId: input.executionId,
       metadata: { platform: "youtube" },
     });
+  });
+}
+
+export async function recordYouTubeExecutionPublishedAndCompleteOutbox(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly executionId: string;
+    readonly channelId: string;
+    readonly leaseGeneration: bigint;
+    readonly outboxMessageId: string;
+    readonly claimOwner: string;
+    readonly claimGeneration: bigint;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const execution = await transaction.platformExecution.findFirst({
+      where: { id: input.executionId, workspaceId: input.workspaceId },
+      select: { state: true },
+    });
+    if (!execution) throw new Error("platform_execution_not_found");
+    if (execution.state === PlatformExecutionState.PROCESSING) {
+      const updated = await transaction.platformExecution.updateMany({
+        where: {
+          id: input.executionId,
+          workspaceId: input.workspaceId,
+          state: PlatformExecutionState.PROCESSING,
+        },
+        data: { state: PlatformExecutionState.PUBLISHED, failureCategory: null },
+      });
+      if (updated.count !== 1) throw new Error("execution_not_processing");
+      await appendAudit(transaction, {
+        workspaceId: input.workspaceId,
+        action: "platform.published",
+        targetType: "platform_execution",
+        targetId: input.executionId,
+        result: "success",
+        correlationId: input.executionId,
+        metadata: { platform: "youtube" },
+      });
+    } else if (execution.state !== PlatformExecutionState.PUBLISHED) {
+      throw new Error("execution_not_processing");
+    }
+    const completed = await transaction.$executeRaw`
+      UPDATE "outbox_messages"
+      SET
+        "state" = 'completed'::"outbox_state",
+        "completed_at" = CURRENT_TIMESTAMP,
+        "claimed_at" = NULL,
+        "claim_owner" = NULL,
+        "claim_until" = NULL,
+        "failure_category" = NULL,
+        "updated_at" = CURRENT_TIMESTAMP
+      WHERE
+        "id" = ${input.outboxMessageId}::uuid
+        AND "workspace_id" = ${input.workspaceId}::uuid
+        AND "platform_execution_id" = ${input.executionId}::uuid
+        AND "state" = 'claimed'::"outbox_state"
+        AND "claim_owner" = ${input.claimOwner}
+        AND "claim_generation" = ${input.claimGeneration}
+        AND "claim_until" > CURRENT_TIMESTAMP
+    `;
+    if (completed !== 1) throw new Error("outbox_claim_lost");
   });
 }
 
@@ -581,9 +763,12 @@ export async function recordYouTubeExecutionFailure(
     readonly executionId: string;
     readonly failureCategory: string;
     readonly needsAttention: boolean;
+    readonly channelId: string;
+    readonly leaseGeneration: bigint;
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
     const updated = await transaction.platformExecution.updateMany({
       where: {
         id: input.executionId,
@@ -612,19 +797,348 @@ export async function recordYouTubeExecutionFailure(
   });
 }
 
+export async function recordYouTubeExecutionFailureAndCompleteOutbox(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly executionId: string;
+    readonly failureCategory: string;
+    readonly needsAttention: boolean;
+    readonly requireReauthorization: boolean;
+    readonly channelId: string;
+    readonly leaseGeneration: bigint;
+    readonly outboxMessageId: string;
+    readonly claimOwner: string;
+    readonly claimGeneration: bigint;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.channelId}, 6))`;
+    await assertYouTubePublishFence(transaction, input);
+    const execution = await transaction.platformExecution.findFirst({
+      where: { id: input.executionId, workspaceId: input.workspaceId },
+      select: { state: true },
+    });
+    if (!execution) throw new Error("platform_execution_not_found");
+    if (
+      execution.state === PlatformExecutionState.PUBLISHED ||
+      execution.state === PlatformExecutionState.CANCELLED
+    ) {
+      throw new Error("execution_failure_superseded");
+    }
+    if (
+      execution.state !== PlatformExecutionState.FAILED &&
+      execution.state !== PlatformExecutionState.NEEDS_ATTENTION
+    ) {
+      await transaction.platformExecution.update({
+        where: { id: input.executionId },
+        data: {
+          state: input.needsAttention
+            ? PlatformExecutionState.NEEDS_ATTENTION
+            : PlatformExecutionState.FAILED,
+          failureCategory: input.failureCategory,
+        },
+      });
+      await appendAudit(transaction, {
+        workspaceId: input.workspaceId,
+        action: "platform.publish_failed",
+        targetType: "platform_execution",
+        targetId: input.executionId,
+        result: "failed",
+        correlationId: input.executionId,
+        metadata: { platform: "youtube", failure_category: input.failureCategory },
+      });
+    }
+    if (input.requireReauthorization) {
+      await requireYouTubeReauthorizationInTransaction(transaction, input);
+    }
+    const completed = await transaction.$executeRaw`
+      UPDATE "outbox_messages"
+      SET "state" = 'dead'::"outbox_state",
+          "completed_at" = CURRENT_TIMESTAMP,
+          "claimed_at" = NULL,
+          "claim_owner" = NULL,
+          "claim_until" = NULL,
+          "failure_category" = ${input.failureCategory},
+          "updated_at" = CURRENT_TIMESTAMP
+      WHERE "id" = ${input.outboxMessageId}::uuid
+        AND "workspace_id" = ${input.workspaceId}::uuid
+        AND "platform_execution_id" = ${input.executionId}::uuid
+        AND "state" = 'claimed'::"outbox_state"
+        AND "claim_owner" = ${input.claimOwner}
+        AND "claim_generation" = ${input.claimGeneration}
+        AND "claim_until" > CURRENT_TIMESTAMP
+    `;
+    if (completed !== 1) throw new Error("outbox_claim_lost");
+  });
+}
+
+export async function recordClaimedYouTubeExecutionFailure(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly executionId: string;
+    readonly outboxMessageId: string;
+    readonly claimOwner: string;
+    readonly claimGeneration: bigint;
+    readonly failureCategory: string;
+    readonly needsAttention: boolean;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    const claim = await transaction.$queryRaw<{ valid: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM "outbox_messages"
+        WHERE "id" = ${input.outboxMessageId}::uuid
+          AND "workspace_id" = ${input.workspaceId}::uuid
+          AND "platform_execution_id" = ${input.executionId}::uuid
+          AND "state" = 'claimed'::"outbox_state"
+          AND "claim_owner" = ${input.claimOwner}
+          AND "claim_generation" = ${input.claimGeneration}
+          AND "claim_until" > CURRENT_TIMESTAMP
+      ) AS valid
+    `;
+    if (!claim[0]?.valid) throw new Error("outbox_claim_lost");
+    const execution = await transaction.platformExecution.findFirst({
+      where: { id: input.executionId, workspaceId: input.workspaceId },
+      select: { state: true, publishingIntentId: true },
+    });
+    if (!execution) throw new Error("platform_execution_not_found");
+    if (
+      execution.state === PlatformExecutionState.PUBLISHED ||
+      execution.state === PlatformExecutionState.CANCELLED ||
+      execution.state === PlatformExecutionState.FAILED ||
+      execution.state === PlatformExecutionState.NEEDS_ATTENTION
+    ) {
+      return;
+    }
+    const updated = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: { in: [PlatformExecutionState.NOT_STARTED, PlatformExecutionState.PUBLISHING] },
+        providerId: null,
+      },
+      data: {
+        state: input.needsAttention
+          ? PlatformExecutionState.NEEDS_ATTENTION
+          : PlatformExecutionState.FAILED,
+        failureCategory: input.failureCategory,
+      },
+    });
+    if (updated.count !== 1) throw new Error("execution_recovery_superseded");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.publish_failed",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "failed",
+      correlationId: execution.publishingIntentId,
+      metadata: { platform: "youtube", failure_category: input.failureCategory },
+    });
+  });
+}
+
+export async function recordClaimedYouTubeExecutionFailureAndCompleteOutbox(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly executionId: string;
+    readonly outboxMessageId: string;
+    readonly claimOwner: string;
+    readonly claimGeneration: bigint;
+    readonly failureCategory: string;
+    readonly needsAttention: boolean;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    const claim = await transaction.$queryRaw<{ valid: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM "outbox_messages"
+        WHERE "id" = ${input.outboxMessageId}::uuid
+          AND "workspace_id" = ${input.workspaceId}::uuid
+          AND "platform_execution_id" = ${input.executionId}::uuid
+          AND "state" = 'claimed'::"outbox_state"
+          AND "claim_owner" = ${input.claimOwner}
+          AND "claim_generation" = ${input.claimGeneration}
+          AND "claim_until" > CURRENT_TIMESTAMP
+      ) AS valid
+    `;
+    if (!claim[0]?.valid) throw new Error("outbox_claim_lost");
+    const execution = await transaction.platformExecution.findFirst({
+      where: { id: input.executionId, workspaceId: input.workspaceId },
+      select: { state: true, publishingIntentId: true },
+    });
+    if (!execution) throw new Error("platform_execution_not_found");
+    const alreadyTerminal =
+      execution.state === PlatformExecutionState.PUBLISHED ||
+      execution.state === PlatformExecutionState.CANCELLED ||
+      execution.state === PlatformExecutionState.FAILED ||
+      execution.state === PlatformExecutionState.NEEDS_ATTENTION;
+    if (!alreadyTerminal) {
+      const updated = await transaction.platformExecution.updateMany({
+        where: {
+          id: input.executionId,
+          workspaceId: input.workspaceId,
+          state: {
+            in: [
+              PlatformExecutionState.NOT_STARTED,
+              PlatformExecutionState.PUBLISHING,
+              PlatformExecutionState.PROCESSING,
+            ],
+          },
+        },
+        data: {
+          state: input.needsAttention
+            ? PlatformExecutionState.NEEDS_ATTENTION
+            : PlatformExecutionState.FAILED,
+          failureCategory: input.failureCategory,
+        },
+      });
+      if (updated.count !== 1) throw new Error("execution_recovery_superseded");
+      await appendAudit(transaction, {
+        workspaceId: input.workspaceId,
+        action: "platform.publish_failed",
+        targetType: "platform_execution",
+        targetId: input.executionId,
+        result: "failed",
+        correlationId: execution.publishingIntentId,
+        metadata: { platform: "youtube", failure_category: input.failureCategory },
+      });
+    }
+    const published = execution.state === PlatformExecutionState.PUBLISHED;
+    const completed = await transaction.$executeRaw`
+      UPDATE "outbox_messages"
+      SET "state" = ${published ? "completed" : "dead"}::"outbox_state",
+          "completed_at" = CURRENT_TIMESTAMP,
+          "claimed_at" = NULL,
+          "claim_owner" = NULL,
+          "claim_until" = NULL,
+          "failure_category" = ${published ? null : input.failureCategory},
+          "updated_at" = CURRENT_TIMESTAMP
+      WHERE "id" = ${input.outboxMessageId}::uuid
+        AND "workspace_id" = ${input.workspaceId}::uuid
+        AND "platform_execution_id" = ${input.executionId}::uuid
+        AND "state" = 'claimed'::"outbox_state"
+        AND "claim_owner" = ${input.claimOwner}
+        AND "claim_generation" = ${input.claimGeneration}
+        AND "claim_until" > CURRENT_TIMESTAMP
+    `;
+    if (completed !== 1) throw new Error("outbox_claim_lost");
+  });
+}
+
 export async function updateChannelTokenEnvelope(
   client: PrismaClient,
   input: {
     readonly workspaceId: string;
     readonly channelId: string;
     readonly tokenEnvelopeCiphertext: string;
+    readonly tokenCiphertextReference: string;
+    readonly expectedTokenCiphertextReference: string | null;
+    readonly executionId: string;
+    readonly leaseGeneration: bigint;
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
-    await transaction.channel.updateMany({
-      where: { id: input.channelId, workspaceId: input.workspaceId, state: ChannelState.CONNECTED },
-      data: { tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext, refreshedAt: new Date() },
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.channelId}, 6))`;
+    await assertYouTubePublishFence(transaction, input);
+    const updated = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        state: ChannelState.CONNECTED,
+        tokenCiphertextReference: input.expectedTokenCiphertextReference,
+      },
+      data: {
+        tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: input.tokenCiphertextReference,
+        refreshedAt: new Date(),
+      },
     });
+    if (updated.count !== 1) throw new Error("publish_fence_lost");
+    await enqueueTokenKeyRetirement(transaction, {
+      workspaceId: input.workspaceId,
+      channelId: input.channelId,
+      keyReference: input.expectedTokenCiphertextReference,
+      correlationId: input.executionId,
+    });
+  });
+}
+
+async function requireYouTubeReauthorizationInTransaction(
+  transaction: Prisma.TransactionClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly executionId: string;
+    readonly leaseGeneration: bigint;
+  },
+): Promise<void> {
+  const channel = await transaction.channel.findFirst({
+    where: {
+      id: input.channelId,
+      workspaceId: input.workspaceId,
+      state: { in: [ChannelState.CONNECTED, ChannelState.CONNECTING] },
+    },
+    select: { externalAccountId: true, tokenCiphertextReference: true },
+  });
+  if (!channel) return;
+  const result = await transaction.channel.updateMany({
+    where: {
+      id: input.channelId,
+      workspaceId: input.workspaceId,
+      state: { in: [ChannelState.CONNECTED, ChannelState.CONNECTING] },
+    },
+    data: {
+      state: ChannelState.REAUTHORIZATION_REQUIRED,
+      deniedAt: new Date(),
+    },
+  });
+  if (result.count === 0) return;
+  let authorizedAuditTargetIds: readonly string[] = [input.channelId];
+  if (channel.externalAccountId) {
+    authorizedAuditTargetIds = await pseudonymizeYouTubeAuthorizedData(transaction, {
+      workspaceId: input.workspaceId,
+      channelId: input.channelId,
+      accountReference: channel.externalAccountId,
+      replacementAccountReference: `expired:${input.channelId}`,
+      replacementDisplayName: "Expired YouTube authorization",
+    });
+  }
+  await transaction.$executeRaw`SELECT pseudonymize_channel_audit(
+      ${input.workspaceId}::uuid,
+      ${input.channelId}::uuid,
+      ${authorizedAuditTargetIds}::text[]
+  )`;
+  await enqueueTokenKeyRetirement(transaction, {
+    workspaceId: input.workspaceId,
+    channelId: input.channelId,
+    keyReference: channel.tokenCiphertextReference,
+    correlationId: input.executionId,
+  });
+  await transaction.channel.update({
+    where: { id: input.channelId },
+    data: {
+      externalAccountId: null,
+      displayName: null,
+      tokenEnvelopeCiphertext: null,
+      tokenCiphertextReference: null,
+      grantedScopes: [],
+      authorizedAt: null,
+      refreshedAt: null,
+      authorizedDataExpiresAt: null,
+    },
+  });
+  await appendAudit(transaction, {
+    workspaceId: input.workspaceId,
+    action: "channel.reauthorization_required",
+    targetType: "channel",
+    targetId: input.channelId,
+    result: "failed",
+    correlationId: input.executionId,
+    metadata: { platform: "youtube", execution_id: input.executionId },
   });
 }
 
@@ -634,30 +1148,12 @@ export async function requireYouTubeReauthorization(
     readonly workspaceId: string;
     readonly channelId: string;
     readonly executionId: string;
+    readonly leaseGeneration: bigint;
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
-    const result = await transaction.channel.updateMany({
-      where: {
-        id: input.channelId,
-        workspaceId: input.workspaceId,
-        state: { in: [ChannelState.CONNECTED, ChannelState.CONNECTING] },
-      },
-      data: {
-        state: ChannelState.REAUTHORIZATION_REQUIRED,
-        tokenEnvelopeCiphertext: null,
-        grantedScopes: [],
-      },
-    });
-    if (result.count === 0) return;
-    await appendAudit(transaction, {
-      workspaceId: input.workspaceId,
-      action: "channel.reauthorization_required",
-      targetType: "channel",
-      targetId: input.channelId,
-      result: "failed",
-      correlationId: input.executionId,
-      metadata: { platform: "youtube", execution_id: input.executionId },
-    });
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.channelId}, 6))`;
+    await assertYouTubePublishFence(transaction, input);
+    await requireYouTubeReauthorizationInTransaction(transaction, input);
   });
 }

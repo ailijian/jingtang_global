@@ -100,7 +100,9 @@ export function PublishActions({
           <dd>{description || t("composer.preview.noDescription")}</dd>
         </div>
         <div>
-          <dt>{t("composer.platform.connectedChannel")}</dt>
+          <dt>
+            {t(hasExecution ? "detail.publish.channel" : "composer.platform.connectedChannel")}
+          </dt>
           <dd>{channel}</dd>
         </div>
         <div>

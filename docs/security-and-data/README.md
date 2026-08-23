@@ -1,8 +1,8 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 7
-- Effective Date: 2026-08-22
+- Security/Data Revision: 12
+- Effective Date: 2026-08-23
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
 - Architecture dependency: [`docs/architecture/README.md`](../architecture/README.md)
@@ -48,13 +48,13 @@ Adding analytics, CRM, customer support, error-reporting, CDN, AI, or marketing 
 | DF-05 | YouTube connect | OAuth state/PKCE, code, access/refresh token, scope, Google/YouTube channel ID and display metadata | Code exchanged at BFF; token envelope-encrypted with Tencent KMS in deployed environments; channel metadata in TencentDB | Google/YouTube | Cancel starts no OAuth; disconnect deny-marks, revokes, cryptographically erases token, then cleans Authorized Data |
 | DF-06 | Confirm/publish | Approved asset/version snapshot, title, description, privacy/audience settings, channel, actor, confirmation time | Immutable intent and per-channel execution in TencentDB; TDMQ reference; worker streams media from COS | YouTube only after explicit Publisher confirmation | Worker rechecks authorization/deletion; no silent account/platform expansion; retained API Data refreshes or deletes within policy window |
 | DF-07 | Track result | YouTube video ID/URL, publish/processing status, failure category, timestamps | TencentDB execution record; provider payload minimized/redacted | Authorized Workspace users | API-derived values refresh/delete every 30 days; user/revocation deletion paths below |
-| DF-08 | Disconnect/delete | Requester, target, reason code, timestamps, revocation result, cleanup jobs | Deny marker + audit/deletion ledger in TencentDB; worker cleanup | Google revocation endpoint when applicable | New API calls stop before cleanup; token revocation is immediate attempt; retry is bounded and observable |
-| DF-09 | Audit/telemetry | Actor/workspace/action/target/result/time, correlation IDs, safe error codes, infrastructure signals | Append-only audit table and restricted Tencent CLS/Cloud Monitor telemetry | Authorized Workspace Activity view; restricted operators | No token/raw media/final content; retention and pseudonymization per matrix |
+| DF-08 | Disconnect/delete | Requester, target, reason code, timestamps, revocation result, cleanup operations | Deny marker + protected lifecycle/deletion ledgers in TencentDB; worker-only cleanup | Google revocation endpoint when applicable | New API calls stop before cleanup; token revocation is attempted immediately; retry backoff is bounded but the operation remains durable until completion |
+| DF-09 | Audit/telemetry | Account or Workspace actor/action/target/result/time, correlation IDs, safe error codes, infrastructure signals | Append-only tenant audit for Workspace actions; separate append-only global account audit for login/logout/locale/account deletion; restricted Tencent CLS/Cloud Monitor telemetry | Authorized Workspace Activity receives only tenant actions; global account evidence is restricted and is never assigned or fanned out to a Workspace | No token/raw media/final content; identifiers and retention are minimized per matrix |
 | DF-10 | Website demo/contact | Business contact details and free-text inquiry | Values remain in the visitor's browser until they explicitly open an email draft to `developer@jingtangai.com`; the resulting message is held in the domain mailbox | JINGTANG support | Notice at collection; no website database or analytics copy; purge inactive inquiry per matrix |
 
 ## Retention Matrix
 
-Periods are maximum defaults from the event shown. “Delete” includes live databases, indexes, object versions, queues, caches, and derived views. Backups are isolated and expire within 35 days; a restore must replay the deletion ledger before serving traffic.
+Periods are maximum defaults from the event shown. “Delete” includes live databases, indexes, object versions, queues, caches, and derived views. Backups are isolated and expire within 35 days; a restore must import and replay protected deletion/lifecycle records occurring after the selected recovery point through current time before any application read.
 
 | Data class | Active retention | Triggered deletion / expiry | Backup treatment |
 | --- | --- | --- | --- |
@@ -67,7 +67,7 @@ Periods are maximum defaults from the event shown. “Delete” includes live da
 | OAuth authorization code/state | Minutes; only for one callback | Single use or immediate expiry; never persist in ordinary logs | Not backed up |
 | OAuth access/refresh token | Only while connection active and needed | On in-product disconnect: deny first, programmatically revoke immediately, delete wrapped data key/token live record immediately; failed revoke retries without re-enabling access | Per-connection key deletion makes backup ciphertext unusable; backup expires ≤35 days |
 | YouTube Authorized/API Data, including channel metadata and platform ID/status | No more than 30 calendar days without refresh while consent remains active | In-product revoke or user deletion: delete live Authorized Data as soon as possible and within 7 days. Externally revoked/unrefreshable authorization: detect by scheduled validity check and delete no later than 30 days | Encrypted isolated backups; deletion ledger reapplied on restore; expires ≤35 days |
-| Audit events | 365 days | Pseudonymize deleted user identity and remove content/provider payload; retain deletion/security action facts until expiry | Expire ≤35 days after live expiry |
+| Tenant and global account audit events | 365 days | Tenant deletion pseudonymizes actor linkage and removes content/provider payload; account deletion retains only hashed/minimized global request/completion facts; neither ledger is reassigned across tenants | Expire ≤35 days after live expiry |
 | Application logs/traces | 30 days | Automatic expiry; immediate purge path for discovered secret/Restricted data | No separate application backup |
 | Security/access logs | 365 days | Automatic expiry unless documented incident hold; holds are scoped and approved | No separate application backup |
 | Queue messages and dead letters | Success + 24 hours; dead letter ≤14 days | Purge on completion/deletion; payload contains opaque references, not tokens/media | No backup |
@@ -80,7 +80,7 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 
 - TLS 1.2 or newer is required for browser, API, internal service, database, queue, email API, and provider traffic.
 - TencentDB, COS, TDMQ, CLS, backups, and Secrets Manager use customer-managed or service KMS encryption appropriate to the service, with separate production/integration keys.
-- OAuth tokens use application-level envelope encryption in addition to database encryption. A unique data key is generated per connection; only the worker and OAuth server role may decrypt it.
+- OAuth tokens use application-level envelope encryption in addition to database encryption. A unique data key is generated per connection; the OAuth callback may seal a new envelope, while only the lifecycle/publishing worker may open persisted token envelopes. Replacing or clearing an envelope atomically persists a lifecycle retirement operation for its old key reference; the worker's idempotent destruction cryptographically erases live and backup token ciphertext even across a post-commit crash.
 - Source assets use private COS objects and short-lived signed requests. Object keys are opaque and contain no email, Workspace name, or original filename.
 - Secrets rotate through Tencent Cloud Secrets Manager; GitHub uses short-lived federation where supported. A secret must never enter source control, CI artifact, browser configuration, log, trace, audit metadata, error message, screenshot, or demo video.
 - Key administration, application decryption, and security audit permissions are separate IAM roles. Production humans have no standing token-decryption permission.
@@ -89,13 +89,14 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 
 - TencentDB for PostgreSQL uses the selected high-availability mode, point-in-time recovery, and encrypted automated backups retained for 35 days in Singapore.
 - COS uses versioning and lifecycle expiry. Database and object-store recovery points are reconciled by object hash and deletion ledger.
-- A quarterly restore exercise begins in D6. Restores occur into an isolated environment, replay all deletion/deny records through the recovery point, validate tenant/RLS policy, and only then may replace service state.
+- A quarterly restore exercise begins in D6. Restores occur into an isolated environment, import protected deletion/lifecycle records from after the selected recovery point through current time, replay them before application access, validate tenant/RLS policy, and only then may replace service state.
+- Deletion-ledger rows are retained records: the runtime database role cannot delete them, completed rows and core request facts are database-enforced immutable, and lifecycle transitions are checked against the Workspace deletion state. Recovery replay uses separate administrator-only functions that are not executable by the application role.
 - Disconnect and deletion are sagas with durable steps: deny new work → cancel/reject queued work → revoke provider token → erase token key → delete applicable Authorized Data/assets → record minimized result.
-- A failed external revocation never restores local access. It emits a structured warning and receives at most five worker retries while the local connection stays denied; D7 owns production alert routing.
+- A failed external revocation never restores local access. It receives durable worker retries while the local connection stays denied; at the seven-day deadline JINGTANG-held token and Authorized Data are erased even if the provider remains unavailable, and the unresolved provider outcome is escalated without retaining the token. D7 owns production alert routing.
 
 ## Access, Audit, and Observability Controls
 
-- Application roles are deny-by-default and tenant-scoped. Production infrastructure roles use least privilege, MFA, short sessions, and recorded reason/ticket context.
+- Application roles are deny-by-default and tenant-scoped. The BFF and worker use separate non-superuser database roles: the BFF can request lifecycle work but cannot claim it or execute cleanup/pseudonymization functions; the worker can perform only the granted lifecycle and publishing operations. Production infrastructure roles use least privilege, MFA, short sessions, and recorded reason/ticket context.
 - Audit events include user, Workspace, action, target, timestamp, result, correlation ID, and only necessary safe technical metadata.
 - Security alerts cover authentication abuse, RLS/authorization denials, secret-access anomalies, queue dead letters, repeated provider failures, deletion SLA risk, and backup/restore failure.
 - Redaction tests and canary secret tests are blocking repository checks. D7 verifies production alert routing and incident response evidence.
@@ -124,3 +125,8 @@ D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant
 - Revision 5 — 2026-08-21：Human Owner 在 D5 前明确批准把尚未实施的 SaaS/worker AWS 架构修订为腾讯云，并选择不单独准备测试服务器。SaaS 生产处理方、主区域与服务边界相应改为腾讯云新加坡；Test/Integration 必须保持独立数据库、COS Bucket、TDMQ Queue、KMS Key、Secret、Log 与 Google Cloud Test Project，即使复用同一物理主机也不得复用生产数据或凭据。本修订不声称这些腾讯 SaaS 资源已经创建，也不改变已验收的腾讯云首尔静态官网边界。
 - Revision 6 — 2026-08-22：Human Owner 授权按 D5 re-review 的最小修正实施治理。受保护本地 D5 harness 可使用 Google Cloud Test Project、allow-listed Human account 与用户自有测试素材证明真实 OAuth/私密上传；其数据库、对象存储、本地 envelope key 和 PostgreSQL outbox 仅是 test evidence，不得复用 production credential、不得标记 Available，也不替代 D7 的腾讯云新加坡 CIAM、TencentDB、COS、TDMQ、Secrets Manager/KMS、CLS/Cloud Monitor 和生产访问控制证据。
 - Revision 7 — 2026-08-22：D6 实现并以受控测试验证 Disconnect deny-first、Google programmatic revoke、Token/Authorized Data 清理、Workspace 删除申请台账、7/30 天 retention clock、审计载荷匿名化与 restore drill；生产腾讯云控制证据仍明确归 D7，未新增处理方、区域、用途或更长保留期。
+- Revision 8 — 2026-08-22：Human Owner 同意 D6 Acceptance Review 的最小修正。Disconnect 改为持久化重试并在第七天强制清除 JINGTANG 保存的 Token/Authorized Data；Workspace 删除失败保持 `deletion_pending`、普通访问持续阻断并由幂等 worker 自动重试，不再恢复为 Active。本修订不改变处理方、区域、用途或保留期。
+- Revision 9 — 2026-08-22：D6 Code Review 修正确保断开、授权失效与 30 天过期路径同步清除发布快照中的频道标识；Workspace 删除到达第七天时，本地数据库、会话、Token 与 Authorized Data 清理不再受临时 COS 故障阻塞，未删除对象仅以不含用户内容的 opaque key 留在删除台账并持续重试。本修订未扩大处理方、区域、用途或保留期。
+- Revision 10 — 2026-08-22：D6 收口修复为尚无 Workspace 的身份事件增加用户隔离的不可改写待归属记录，并在首个真实 Workspace 创建时保留原始时间与关联 ID 原子回放；曾属于 Workspace 的用户继续以最后一个真实 Workspace 作为最小历史审计范围。补充 Google 撤销成功判定、COS 请求超时与独立 lifecycle loop 控制；未新增处理方、区域、用途或更长保留期。
+- Revision 11 — 2026-08-23：D6 正式 Code Review 将删除台账的 365 天留存边界下沉为数据库约束：运行角色不得删除台账、不得改写已完成记录或核心请求事实，状态转换必须匹配 Workspace 删除生命周期；灾备恢复改用不授予应用角色的独立管理员函数，历史完成记录不再能授权在线应用清理或审计伪匿名化。本修订未新增处理方、区域、用途或更长保留期。
+- Revision 12 — 2026-08-23：D6 收口统一为数据库驱动的 lifecycle control plane：BFF 只持久化 deny/request，worker 通过数据库时间、租约与递增 generation 执行并防止 stale worker 写入；合规 SLA 超期只触发升级而不会放弃清理。账号级事件迁移到独立全局 append-only audit，不再归属任一 Workspace；恢复演练明确导入并回放恢复点之后至当前的受保护删除台账。本修订未新增处理方、区域、用途或更长保留期。

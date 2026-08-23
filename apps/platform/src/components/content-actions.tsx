@@ -3,6 +3,7 @@
 import type { ContentStatus, Locale, PrivacyStatus } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 import { Button, StatusMessage } from "@jingtang/ui";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -27,6 +28,8 @@ export function ContentActions({
   canSubmit,
   canApprove,
   canReject,
+  requiresChannelReselection,
+  currentChannel,
 }: {
   readonly locale: Locale;
   readonly contentId: string;
@@ -38,6 +41,8 @@ export function ContentActions({
   readonly canSubmit: boolean;
   readonly canApprove: boolean;
   readonly canReject: boolean;
+  readonly requiresChannelReselection: boolean;
+  readonly currentChannel?: Pick<VersionInput, "accountReference" | "accountDisplayName">;
 }) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
@@ -92,6 +97,13 @@ export function ContentActions({
     } finally {
       setBusy(false);
     }
+  }
+
+  function startEditing() {
+    if (requiresChannelReselection && currentChannel) {
+      setDraftVersion((current) => ({ ...current, ...currentChannel }));
+    }
+    setEditing((value) => !value);
   }
 
   return (
@@ -150,9 +162,18 @@ export function ContentActions({
 
       {status !== "pending_approval" && canEdit ? (
         <>
-          <Button variant="secondary" onClick={() => setEditing((value) => !value)}>
-            {t("detail.edit")}
-          </Button>
+          {!requiresChannelReselection || currentChannel ? (
+            <Button variant="secondary" onClick={startEditing}>
+              {requiresChannelReselection
+                ? t("detail.publish.createRevisionForCurrentChannel")
+                : t("detail.edit")}
+            </Button>
+          ) : (
+            <p>
+              {t("detail.publish.connectBeforeRevision")}{" "}
+              <Link href="/app/channels">{t("detail.publish.reviewChannel")}</Link>
+            </p>
+          )}
           {editing ? (
             <form className="revision-edit-form" onSubmit={(event) => event.preventDefault()}>
               <label className="content-field">

@@ -1,5 +1,5 @@
 import { getContentDetail, listYouTubeChannels } from "@jingtang/db";
-import { hasPermission } from "@jingtang/domain";
+import { hasPermission, type Locale } from "@jingtang/domain";
 import { formatDateTime, formatNumber, translate } from "@jingtang/i18n";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,20 @@ import { PublishActions } from "../../../../components/publish-actions";
 import { contentStatusMessage } from "../../../../server/content-labels";
 import { workspacePageContext } from "../../../../server/page-context";
 import { getRuntime } from "../../../../server/runtime";
+
+function platformAccountLabel(
+  locale: Locale,
+  accountDisplayName: string,
+  accountReference: string,
+): string {
+  if (accountReference.startsWith("disconnected:")) {
+    return translate(locale, "detail.publish.channelDisconnected");
+  }
+  if (accountReference.startsWith("expired:")) {
+    return translate(locale, "detail.publish.channelExpired");
+  }
+  return `${accountDisplayName} · ${accountReference}`;
+}
 
 export default async function ContentDetailPage({
   params,
@@ -21,10 +35,19 @@ export default async function ContentDetailPage({
   if (!content) notFound();
   const version = content.revision.platformVersions[0];
   if (!version) notFound();
-  const connectedChannel = (await listYouTubeChannels(getRuntime().db, workspaceId)).some(
-    (channel) =>
-      channel.state === "connected" && channel.externalAccountId === version.accountReference,
+  const historicalChannelIdentityCleared =
+    version.accountReference.startsWith("disconnected:") ||
+    version.accountReference.startsWith("expired:");
+  const versionChannelLabel = platformAccountLabel(
+    locale,
+    version.accountDisplayName,
+    version.accountReference,
   );
+  const currentConnectedChannel = (await listYouTubeChannels(getRuntime().db, workspaceId)).find(
+    (channel) => channel.state === "connected" && channel.externalAccountId,
+  );
+  const versionTargetsCurrentChannel =
+    currentConnectedChannel?.externalAccountId === version.accountReference;
   const statusLabel = translate(locale, contentStatusMessage[content.status]);
   const activeExecution = content.publishing.executions.some((entry) =>
     ["not_started", "publishing", "processing"].includes(entry.state),
@@ -88,7 +111,8 @@ export default async function ContentDetailPage({
                 <span>{entry.platform.toUpperCase()}</span>
                 <strong>{entry.title}</strong>
                 <small>
-                  {entry.accountDisplayName} · {entry.accountReference}
+                  {translate(locale, "detail.publish.channel")}:{" "}
+                  {platformAccountLabel(locale, entry.accountDisplayName, entry.accountReference)}
                 </small>
               </div>
               <dl>
@@ -136,6 +160,15 @@ export default async function ContentDetailPage({
             canSubmit={hasPermission(role, "content.submit")}
             canApprove={hasPermission(role, "content.approve")}
             canReject={hasPermission(role, "content.reject")}
+            requiresChannelReselection={historicalChannelIdentityCleared}
+            {...(currentConnectedChannel?.externalAccountId && currentConnectedChannel.displayName
+              ? {
+                  currentChannel: {
+                    accountReference: currentConnectedChannel.externalAccountId,
+                    accountDisplayName: currentConnectedChannel.displayName,
+                  },
+                }
+              : {})}
           />
         </section>
 
@@ -146,6 +179,24 @@ export default async function ContentDetailPage({
               ? translate(locale, "detail.noPublishing")
               : `${content.publishing.intentCount} / ${content.publishing.executionCount}`}
           </p>
+          {historicalChannelIdentityCleared || content.publishing.executionCount > 0 ? (
+            <>
+              <dl className="review-list publishing-channel-context">
+                <div>
+                  <dt>{translate(locale, "detail.publish.currentChannel")}</dt>
+                  <dd>
+                    {currentConnectedChannel?.displayName
+                      ? `${currentConnectedChannel.displayName} · ${translate(
+                          locale,
+                          "channel.status.connected",
+                        )}`
+                      : translate(locale, "detail.publish.currentChannelNone")}
+                  </dd>
+                </div>
+              </dl>
+              <p>{translate(locale, "detail.publish.currentChannelHistoryNote")}</p>
+            </>
+          ) : null}
           {content.publishing.executions.map((execution) => (
             <article className="publishing-execution" key={execution.id}>
               <strong>{translate(locale, executionLabel[execution.state])}</strong>
@@ -153,6 +204,8 @@ export default async function ContentDetailPage({
                 <a href={execution.providerUrl} target="_blank" rel="noreferrer">
                   {translate(locale, "detail.publish.openVideo")}
                 </a>
+              ) : execution.state === "published" && historicalChannelIdentityCleared ? (
+                <small>{translate(locale, "detail.publish.providerLinkCleared")}</small>
               ) : null}
               {execution.state === "needs_attention" ? (
                 <Link href="/app/channels">
@@ -185,7 +238,7 @@ export default async function ContentDetailPage({
               contentId={content.id}
               revisionId={content.revision.id}
               canPublish={
-                connectedChannel &&
+                versionTargetsCurrentChannel &&
                 version.privacyStatus === "private" &&
                 hasPermission(role, "content.publish")
               }
@@ -194,7 +247,7 @@ export default async function ContentDetailPage({
               sourceFilename={content.sourceAsset.filename}
               title={version.title}
               description={version.description}
-              channel={`${version.accountDisplayName} · ${version.accountReference}`}
+              channel={versionChannelLabel}
               madeForKids={version.madeForKids}
             />
           ) : null}

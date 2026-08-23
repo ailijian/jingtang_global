@@ -6,16 +6,17 @@ import { DeterministicYouTubeTestAdapter } from "./deterministic-youtube-test-ad
 function delegate() {
   const uploadPrivateVideo = vi.fn();
   const readVideoStatus = vi.fn();
+  const revokeAuthorization = vi.fn();
   const provider: YouTubeOAuthProvider = {
     authorizationUrl: vi.fn(() => new URL("https://accounts.example.test")),
     exchangeAuthorizationCode: vi.fn(),
     refreshAuthorization: vi.fn(),
-    revokeAuthorization: vi.fn(),
+    revokeAuthorization,
     readAuthorizedChannel: vi.fn(),
     uploadPrivateVideo,
     readVideoStatus,
   };
-  return { provider, uploadPrivateVideo, readVideoStatus };
+  return { provider, revokeAuthorization, uploadPrivateVideo, readVideoStatus };
 }
 
 const upload = {
@@ -51,5 +52,14 @@ describe("Deterministic YouTube test adapter", () => {
     });
     expect(base.uploadPrivateVideo).not.toHaveBeenCalled();
     expect(base.readVideoStatus).not.toHaveBeenCalled();
+  });
+
+  it("produces a deterministic revocation timeout without calling Google", async () => {
+    const base = delegate();
+    const adapter = new DeterministicYouTubeTestAdapter(base.provider, "timeout");
+    await expect(adapter.revokeAuthorization("refresh-token")).rejects.toMatchObject({
+      code: "service_unavailable",
+    });
+    expect(base.revokeAuthorization).not.toHaveBeenCalled();
   });
 });

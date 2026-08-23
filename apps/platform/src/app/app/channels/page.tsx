@@ -3,6 +3,7 @@ import { hasPermission } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 
 import { DestructiveActionDialog } from "../../../components/destructive-action-dialog";
+import { StatusAutoRefresh } from "../../../components/status-auto-refresh";
 import { workspacePageContext } from "../../../server/page-context";
 import { getRuntime } from "../../../server/runtime";
 
@@ -17,12 +18,14 @@ export default async function ChannelsPage({
   ]);
   const runtime = getRuntime();
   const channels = await listYouTubeChannels(runtime.db, workspaceId);
+  const result = typeof query.youtube === "string" ? query.youtube : undefined;
   const connected = channels.find((channel) => channel.state === "connected");
   const reauthorization = channels.find((channel) => channel.state === "reauthorization_required");
   const disconnecting = channels.find((channel) => channel.state === "disconnecting");
   const disconnected = channels.find((channel) => channel.state === "disconnected");
+  const disconnectFailed = Boolean(disconnecting?.revokeFailureCategory);
+  const disconnectCompleted = result === "disconnecting" && Boolean(disconnected);
   const activeChannel = connected ?? disconnecting ?? reauthorization;
-  const result = typeof query.youtube === "string" ? query.youtube : undefined;
   const canConnect =
     hasPermission(role, "channel.connect") &&
     runtime.config.YOUTUBE_OAUTH_ENABLED &&
@@ -78,6 +81,9 @@ export default async function ChannelsPage({
   );
   return (
     <>
+      <StatusAutoRefresh
+        enabled={result === "disconnecting" && Boolean(disconnecting) && !disconnectFailed}
+      />
       <header className="page-heading">
         <p className="eyebrow">CHANNELS / YOUTUBE</p>
         <h1>{translate(locale, "channel.title")}</h1>
@@ -89,17 +95,17 @@ export default async function ChannelsPage({
             {translate(locale, "channel.result.connected")}
           </p>
         ) : null}
-        {result === "disconnected" ? (
+        {result === "disconnected" || disconnectCompleted ? (
           <p className="channel-notice channel-notice--success" role="status">
             {translate(locale, "channel.result.disconnected")}
           </p>
         ) : null}
-        {result === "disconnecting" ? (
+        {result === "disconnecting" && !disconnectFailed && !disconnectCompleted ? (
           <p className="channel-notice" role="status">
             {translate(locale, "channel.result.disconnecting")}
           </p>
         ) : null}
-        {result === "disconnect_failed" ? (
+        {result === "disconnect_failed" || disconnectFailed ? (
           <p className="channel-notice channel-notice--error" role="alert">
             {translate(locale, "channel.result.disconnectFailed")}
           </p>

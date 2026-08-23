@@ -457,6 +457,7 @@
   border: 1px solid var(--jt-gold);
   border-radius: 8px;
   background: var(--jt-surface);
+  overflow-wrap: anywhere;
 }
 .channel-notice--error {
   color: var(--jt-danger);

@@ -1,7 +1,8 @@
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated"
-  moduleFormat = "esm"
+  provider            = "prisma-client"
+  output              = "../src/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
@@ -150,26 +151,60 @@ enum DataDeletionState {
   @@map("data_deletion_state")
 }
 
+enum LifecycleOperationKind {
+  CHANNEL_DISCONNECT        @map("channel_disconnect")
+  WORKSPACE_DATA_DELETION   @map("workspace_data_deletion")
+  ACCOUNT_DELETION          @map("account_deletion")
+  AUTHORIZED_DATA_RETENTION @map("authorized_data_retention")
+  RETENTION_PURGE           @map("retention_purge")
+  TOKEN_KEY_RETIREMENT      @map("token_key_retirement")
+
+  @@map("lifecycle_operation_kind")
+}
+
+enum LifecycleOperationState {
+  PENDING   @map("pending")
+  CLAIMED   @map("claimed")
+  RETRY     @map("retry")
+  COMPLETED @map("completed")
+  DEAD      @map("dead")
+
+  @@map("lifecycle_operation_state")
+}
+
+enum LifecycleStepState {
+  PENDING   @map("pending")
+  RUNNING   @map("running")
+  COMPLETED @map("completed")
+  FAILED    @map("failed")
+  SKIPPED   @map("skipped")
+
+  @@map("lifecycle_step_state")
+}
+
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  cognitoSubject    String             @unique @map("cognito_subject") @db.VarChar(255)
-  email             String             @unique @db.VarChar(320)
-  name              String             @db.VarChar(160)
-  localePreference  Locale             @default(EN) @map("locale_preference")
-  lastWorkspaceId   String?            @map("last_workspace_id") @db.Uuid
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
-  memberships       Membership[]
-  sessions          Session[]
-  consents          ConsentRecord[]
-  createdWorkspaces Workspace[]        @relation("WorkspaceCreator")
-  invitedMembers    Invitation[]       @relation("InvitationActor")
-  auditEvents       AuditEvent[]       @relation("AuditActor")
-  uploadedAssets    SourceAsset[]      @relation("SourceAssetUploader")
-  createdContents   Content[]          @relation("ContentCreator")
-  createdRevisions  ContentRevision[]  @relation("RevisionCreator")
-  approvalDecisions ApprovalDecision[] @relation("ApprovalActor")
-  confirmedIntents  PublishingIntent[] @relation("PublishingConfirmer")
+  id                  String             @id @default(uuid()) @db.Uuid
+  cognitoSubject      String             @unique @map("cognito_subject") @db.VarChar(255)
+  email               String             @unique @db.VarChar(320)
+  name                String             @db.VarChar(160)
+  localePreference    Locale             @default(EN) @map("locale_preference")
+  lastWorkspaceId     String?            @map("last_workspace_id") @db.Uuid
+  lifecycleState      String             @default("active") @map("lifecycle_state") @db.VarChar(32)
+  deletionRequestedAt DateTime?          @map("deletion_requested_at") @db.Timestamptz(3)
+  deletedAt           DateTime?          @map("deleted_at") @db.Timestamptz(3)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships         Membership[]
+  sessions            Session[]
+  consents            ConsentRecord[]
+  createdWorkspaces   Workspace[]        @relation("WorkspaceCreator")
+  invitedMembers      Invitation[]       @relation("InvitationActor")
+  auditEvents         AuditEvent[]       @relation("AuditActor")
+  uploadedAssets      SourceAsset[]      @relation("SourceAssetUploader")
+  createdContents     Content[]          @relation("ContentCreator")
+  createdRevisions    ContentRevision[]  @relation("RevisionCreator")
+  approvalDecisions   ApprovalDecision[] @relation("ApprovalActor")
+  confirmedIntents    PublishingIntent[] @relation("PublishingConfirmer")
 
   @@map("users")
 }
@@ -197,6 +232,7 @@ model Workspace {
   platformExecutions   PlatformExecution[]
   outboxMessages       OutboxMessage[]
   dataDeletionRequests DataDeletionRequest[]
+  lifecycleOperations  LifecycleOperation[]
 
   @@index([createdByUserId])
   @@map("workspaces")
@@ -289,6 +325,8 @@ model Channel {
   revokeAttemptCount       Int            @default(0) @map("revoke_attempt_count")
   operationLeaseId         String?        @map("operation_lease_id") @db.Uuid
   operationLeaseUntil      DateTime?      @map("operation_lease_until") @db.Timestamptz(3)
+  operationGeneration      BigInt         @default(0) @map("operation_generation")
+  operationLeaseGeneration BigInt?        @map("operation_lease_generation")
   createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
   workspace                Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -469,6 +507,9 @@ model OutboxMessage {
   attempt             Int               @default(0)
   availableAt         DateTime          @default(now()) @map("available_at") @db.Timestamptz(3)
   claimedAt           DateTime?         @map("claimed_at") @db.Timestamptz(3)
+  claimOwner          String?           @map("claim_owner") @db.VarChar(160)
+  claimUntil          DateTime?         @map("claim_until") @db.Timestamptz(3)
+  claimGeneration     BigInt            @default(0) @map("claim_generation")
   completedAt         DateTime?         @map("completed_at") @db.Timestamptz(3)
   failureCategory     String?           @map("failure_category") @db.VarChar(80)
   createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -504,21 +545,100 @@ model AuditEvent {
 }
 
 model DataDeletionRequest {
-  id                String            @id @default(uuid()) @db.Uuid
-  workspaceId       String            @map("workspace_id") @db.Uuid
-  requestedByUserId String?           @map("requested_by_user_id") @db.Uuid
-  scope             String            @default("workspace_data") @db.VarChar(40)
-  state             DataDeletionState @default(PENDING)
-  requestReference  String            @unique @map("request_reference") @db.VarChar(32)
-  dataClasses       String[]          @default([]) @map("data_classes")
-  failureCategory   String?           @map("failure_category") @db.VarChar(80)
-  requestedAt       DateTime          @default(now()) @map("requested_at") @db.Timestamptz(3)
-  startedAt         DateTime?         @map("started_at") @db.Timestamptz(3)
-  completedAt       DateTime?         @map("completed_at") @db.Timestamptz(3)
-  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
-  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  id                   String              @id @default(uuid()) @db.Uuid
+  workspaceId          String              @map("workspace_id") @db.Uuid
+  requestedByUserId    String?             @map("requested_by_user_id") @db.Uuid
+  requesterReference   String?             @map("requester_reference") @db.VarChar(64)
+  scope                String              @default("workspace_data") @db.VarChar(40)
+  state                DataDeletionState   @default(PENDING)
+  requestReference     String              @unique @map("request_reference") @db.VarChar(32)
+  dataClasses          String[]            @default([]) @map("data_classes")
+  pendingObjectKeys    String[]            @default([]) @map("pending_object_keys")
+  failureCategory      String?             @map("failure_category") @db.VarChar(80)
+  requestedAt          DateTime            @default(now()) @map("requested_at") @db.Timestamptz(3)
+  startedAt            DateTime?           @map("started_at") @db.Timestamptz(3)
+  completedAt          DateTime?           @map("completed_at") @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lifecycleOperationId String?             @unique @map("lifecycle_operation_id") @db.Uuid
+  retentionExpiresAt   DateTime?           @map("retention_expires_at") @db.Timestamptz(3)
+  workspace            Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  lifecycleOperation   LifecycleOperation? @relation(fields: [lifecycleOperationId], references: [id], onDelete: Restrict)
 
   @@index([workspaceId, state, requestedAt(sort: Desc)])
   @@index([state, requestedAt])
   @@map("data_deletion_requests")
+}
+
+model LifecycleOperation {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  kind                LifecycleOperationKind
+  state               LifecycleOperationState @default(PENDING)
+  workspaceId         String?                 @map("workspace_id") @db.Uuid
+  channelId           String?                 @map("channel_id") @db.Uuid
+  subjectUserId       String?                 @map("subject_user_id") @db.Uuid
+  actorUserId         String?                 @map("actor_user_id") @db.Uuid
+  dedupeKey           String                  @unique @map("dedupe_key") @db.VarChar(255)
+  requestReference    String                  @unique @map("request_reference") @db.VarChar(40)
+  correlationId       String                  @map("correlation_id") @db.Uuid
+  requestedAt         DateTime                @default(now()) @map("requested_at") @db.Timestamptz(3)
+  deadlineAt          DateTime                @map("deadline_at") @db.Timestamptz(3)
+  nextAttemptAt       DateTime                @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  claimedBy           String?                 @map("claimed_by") @db.VarChar(160)
+  claimedUntil        DateTime?               @map("claimed_until") @db.Timestamptz(3)
+  claimGeneration     BigInt                  @default(0) @map("claim_generation")
+  attempt             Int                     @default(0)
+  failureCategory     String?                 @map("failure_category") @db.VarChar(80)
+  outcome             Json                    @default("{}")
+  completedAt         DateTime?               @map("completed_at") @db.Timestamptz(3)
+  retentionExpiresAt  DateTime                @map("retention_expires_at") @db.Timestamptz(3)
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace           Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  steps               LifecycleStep[]
+  dataDeletionRequest DataDeletionRequest?
+
+  @@index([state, nextAttemptAt, requestedAt])
+  @@index([workspaceId, kind, requestedAt(sort: Desc)])
+  @@index([channelId, kind, requestedAt(sort: Desc)])
+  @@map("lifecycle_operations")
+}
+
+model LifecycleStep {
+  id              String             @id @default(uuid()) @db.Uuid
+  operationId     String             @map("operation_id") @db.Uuid
+  name            String             @db.VarChar(80)
+  ordinal         Int
+  state           LifecycleStepState @default(PENDING)
+  attempt         Int                @default(0)
+  claimGeneration BigInt             @default(0) @map("claim_generation")
+  outcome         Json               @default("{}")
+  failureCategory String?            @map("failure_category") @db.VarChar(80)
+  startedAt       DateTime?          @map("started_at") @db.Timestamptz(3)
+  completedAt     DateTime?          @map("completed_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  operation       LifecycleOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@unique([operationId, name])
+  @@index([operationId, ordinal])
+  @@map("lifecycle_steps")
+}
+
+model AccountAuditEvent {
+  id                 String   @id @default(uuid()) @db.Uuid
+  eventVersion       Int      @default(1) @map("event_version")
+  subjectReference   String   @map("subject_reference") @db.VarChar(80)
+  actorReference     String?  @map("actor_reference") @db.VarChar(80)
+  action             String   @db.VarChar(80)
+  targetType         String   @map("target_type") @db.VarChar(40)
+  targetId           String   @map("target_id") @db.VarChar(255)
+  result             String   @db.VarChar(20)
+  correlationId      String   @map("correlation_id") @db.Uuid
+  metadata           Json     @default("{}")
+  occurredAt         DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt         DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  retentionExpiresAt DateTime @map("retention_expires_at") @db.Timestamptz(3)
+
+  @@index([subjectReference, occurredAt(sort: Desc)])
+  @@index([retentionExpiresAt])
+  @@map("account_audit_events")
 }

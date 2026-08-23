@@ -76,13 +76,40 @@ export interface YouTubeOAuthProvider {
     readonly mediaType: string;
     readonly byteSize: number;
     readonly body: ReadableStream<Uint8Array>;
+    readonly signal?: AbortSignal;
   }): Promise<YouTubeUploadResult>;
-  readVideoStatus(accessToken: string, videoId: string): Promise<YouTubeVideoStatus>;
+  readVideoStatus(
+    accessToken: string,
+    videoId: string,
+    signal?: AbortSignal,
+  ): Promise<YouTubeVideoStatus>;
 }
 
 export interface TokenEnvelopeVault {
-  seal(value: unknown): Promise<string>;
-  open<T>(envelope: string): Promise<T>;
+  seal(value: unknown): Promise<{
+    readonly ciphertext: string;
+    readonly keyReference: string;
+  }>;
+  open<T>(ciphertext: string, keyReference: string | null): Promise<T>;
+  destroy(keyReference: string): Promise<void>;
+}
+
+export async function persistSealedTokenEnvelope<T>(
+  vault: TokenEnvelopeVault,
+  value: unknown,
+  persist: (envelope: { readonly ciphertext: string; readonly keyReference: string }) => Promise<T>,
+): Promise<T> {
+  const envelope = await vault.seal(value);
+  try {
+    return await persist(envelope);
+  } catch (error) {
+    try {
+      await vault.destroy(envelope.keyReference);
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "token_envelope_persistence_cleanup_failed");
+    }
+    throw error;
+  }
 }
 
 export type YouTubeTestFault =
@@ -104,6 +131,7 @@ export function youtubeExecutionFailureDisposition(
     "token_envelope_invalid",
   ].includes(failureCategory);
   const nonRetryable = [
+    "execution_terminal",
     "execution_not_authorized",
     "source_asset_size_mismatch",
     "source_asset_body_missing",
@@ -112,4 +140,43 @@ export function youtubeExecutionFailureDisposition(
     needsAttention,
     terminal: needsAttention || nonRetryable || attempt >= 4,
   };
+}
+
+export function shouldResetYouTubeExecutionForRetry(input: {
+  readonly executionState: string;
+  readonly providerReferencePersisted: boolean;
+}): boolean {
+  return input.executionState === "publishing" && !input.providerReferencePersisted;
+}
+
+const unrecoverableAuthorizedDataRefreshFailures = new Set([
+  "authentication_failed",
+  "permission_denied",
+  "not_found",
+  "authorized_channel_identity_mismatch",
+  "token_envelope_invalid",
+  "invalid_envelope",
+  "key_destroyed",
+  "authorized_data_refresh_deadline_exceeded",
+]);
+
+export function authorizedDataRefreshFailureRequiresDeletion(
+  failureCategory: string,
+  deadlineExceeded: boolean,
+): boolean {
+  return deadlineExceeded || unrecoverableAuthorizedDataRefreshFailures.has(failureCategory);
+}
+
+const permanentlyUnreadableAuthorizationFailures = new Set([
+  "authentication_failed",
+  "token_envelope_invalid",
+  "invalid_envelope",
+  "key_destroyed",
+]);
+
+export function authorizationMaterialFailureRequiresLocalErasure(
+  failureCategory: string,
+  deadlineExceeded: boolean,
+): boolean {
+  return deadlineExceeded || permanentlyUnreadableAuthorizationFailures.has(failureCategory);
 }

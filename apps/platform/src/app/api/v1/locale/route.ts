@@ -1,5 +1,5 @@
 import { ApplicationError } from "@jingtang/application";
-import { recordAudit, updateLocalePreference } from "@jingtang/db";
+import { recordUserScopedAudit, updateLocalePreference } from "@jingtang/db";
 import { isLocale } from "@jingtang/i18n";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -25,18 +25,16 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
     if (session) {
       await updateLocalePreference(runtime.db, session.user.id, locale);
-      if (session.currentWorkspaceId) {
-        await recordAudit(runtime.db, {
-          workspaceId: session.currentWorkspaceId,
-          actorUserId: session.user.id,
-          action: "locale.changed",
-          targetType: "user",
-          targetId: session.user.id,
-          result: "success",
-          correlationId: requestId,
-          metadata: { locale },
-        });
-      }
+      await recordUserScopedAudit(runtime.db, {
+        userId: session.user.id,
+        currentWorkspaceId: session.currentWorkspaceId,
+        action: "locale.changed",
+        targetType: "user",
+        targetId: session.user.id,
+        result: "success",
+        correlationId: requestId,
+        metadata: { locale },
+      });
     }
     const response = NextResponse.json({ locale, request_id: requestId });
     setLocaleCookie(response, locale);

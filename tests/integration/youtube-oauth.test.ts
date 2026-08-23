@@ -4,6 +4,7 @@ import { youtubeOAuthScopes } from "@jingtang/application";
 import {
   beginYouTubeConnection,
   claimNextOutboxMessage,
+  completeYouTubeDisconnect,
   completeSourceAsset,
   completeYouTubeConnection,
   denyYouTubeConnection,
@@ -14,12 +15,16 @@ import {
   createSession,
   createWorkspace,
   listYouTubeChannels,
+  prepareYouTubeDisconnect,
   recordConsent,
   readYouTubeExecutionWorkItem,
+  recordClaimedYouTubeExecutionFailureAndCompleteOutbox,
+  recordYouTubeExecutionFailureAndCompleteOutbox,
   recordYouTubeExecutionPublished,
+  recordYouTubeExecutionPublishedAndCompleteOutbox,
+  recordYouTubeExecutionFailure,
   recordYouTubeUploadAccepted,
   releaseYouTubeChannelOperationLease,
-  resetYouTubeExecutionForRetry,
   decideContent,
   finishOutboxMessage,
   submitContent,
@@ -33,6 +38,7 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required for D5 integration tests");
 const db = createDatabaseClient(databaseUrl);
 const adminDb = createDatabaseClient(process.env.DATABASE_ADMIN_URL ?? databaseUrl);
+const workerDb = createDatabaseClient(process.env.DATABASE_WORKER_URL ?? databaseUrl);
 const vault = new LocalEnvelopeTokenVault("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
 async function fixture(label: string) {
@@ -63,7 +69,9 @@ async function fixture(label: string) {
   return { user, workspace, consent };
 }
 
-afterAll(async () => Promise.all([db.$disconnect(), adminDb.$disconnect()]));
+afterAll(async () =>
+  Promise.all([db.$disconnect(), adminDb.$disconnect(), workerDb.$disconnect()]),
+);
 
 describe("D5 YouTube OAuth persistence boundary", () => {
   it("stores only an authenticated token envelope and exposes tenant-bound channel metadata", async () => {
@@ -86,7 +94,8 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       externalAccountId: "UC_TEST_OWNER",
       displayName: "JINGTANG Test Channel",
       grantedScopes: youtubeOAuthScopes,
-      tokenEnvelopeCiphertext: envelope,
+      tokenEnvelopeCiphertext: envelope.ciphertext,
+      tokenCiphertextReference: envelope.keyReference,
       correlationId: randomUUID(),
     });
 
@@ -104,7 +113,9 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       transaction.channel.findUniqueOrThrow({ where: { id: channel.id } }),
     );
     expect(persisted.tokenEnvelopeCiphertext).not.toContain("integration-refresh-token");
-    await expect(vault.open(persisted.tokenEnvelopeCiphertext ?? "")).resolves.toMatchObject({
+    await expect(
+      vault.open(persisted.tokenEnvelopeCiphertext ?? "", persisted.tokenCiphertextReference ?? ""),
+    ).resolves.toMatchObject({
       refreshToken: "integration-refresh-token",
     });
     const actions = await withTenant(db, owner.workspace.id, (transaction) =>
@@ -137,6 +148,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
         correlationId: randomUUID(),
       }),
     ).rejects.toThrow("channel_connection_in_progress");
+    const envelope = await vault.seal({ refreshToken: "must-not-persist" });
     await expect(
       completeYouTubeConnection(db, {
         workspaceId: other.workspace.id,
@@ -145,7 +157,8 @@ describe("D5 YouTube OAuth persistence boundary", () => {
         externalAccountId: "UC_CROSS_TENANT",
         displayName: "Cross tenant",
         grantedScopes: youtubeOAuthScopes,
-        tokenEnvelopeCiphertext: await vault.seal({ refreshToken: "must-not-persist" }),
+        tokenEnvelopeCiphertext: envelope.ciphertext,
+        tokenCiphertextReference: envelope.keyReference,
         correlationId: randomUUID(),
       }),
     ).rejects.toThrow("channel_not_found");
@@ -159,6 +172,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       actorUserId: owner.user.id,
       correlationId: randomUUID(),
     });
+    const envelope = await vault.seal({ refreshToken: "protected" });
     const connection = {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
@@ -166,7 +180,8 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       externalAccountId: "UC_REPLAY_PROTECTED",
       displayName: "Replay protected",
       grantedScopes: youtubeOAuthScopes,
-      tokenEnvelopeCiphertext: await vault.seal({ refreshToken: "protected" }),
+      tokenEnvelopeCiphertext: envelope.ciphertext,
+      tokenCiphertextReference: envelope.keyReference,
       correlationId: randomUUID(),
     } as const;
     await completeYouTubeConnection(db, connection);
@@ -197,6 +212,12 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       actorUserId: owner.user.id,
       correlationId: randomUUID(),
     });
+    const envelope = await vault.seal({
+      accessToken: "access",
+      refreshToken: "refresh",
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      grantedScopes: youtubeOAuthScopes,
+    });
     await completeYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
@@ -204,12 +225,8 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       externalAccountId: "UC_PUBLISH_TARGET",
       displayName: "Publish target",
       grantedScopes: youtubeOAuthScopes,
-      tokenEnvelopeCiphertext: await vault.seal({
-        accessToken: "access",
-        refreshToken: "refresh",
-        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-        grantedScopes: youtubeOAuthScopes,
-      }),
+      tokenEnvelopeCiphertext: envelope.ciphertext,
+      tokenCiphertextReference: envelope.keyReference,
       correlationId: randomUUID(),
     });
     const assetId = randomUUID();
@@ -288,19 +305,22 @@ describe("D5 YouTube OAuth persistence boundary", () => {
         transaction.outboxMessage.count({ where: { workspaceId: owner.workspace.id } }),
       ),
     ).resolves.toBe(1);
-    const firstClaim = await claimNextOutboxMessage(adminDb);
+    const workerId = `youtube-oauth-${randomUUID()}`;
+    const firstClaim = await claimNextOutboxMessage(workerDb, workerId);
     expect(firstClaim).toMatchObject({
       workspaceId: owner.workspace.id,
       platformExecutionId: first.executionId,
       attempt: 0,
     });
-    await finishOutboxMessage(adminDb, {
+    await finishOutboxMessage(workerDb, {
       id: firstClaim?.id ?? randomUUID(),
       outcome: "retry",
       failureCategory: "service_unavailable",
       retryAfterSeconds: 0,
+      claimOwner: firstClaim?.claimOwner ?? workerId,
+      claimGeneration: firstClaim?.claimGeneration ?? 0n,
     });
-    const secondClaim = await claimNextOutboxMessage(adminDb);
+    const secondClaim = await claimNextOutboxMessage(workerDb, workerId);
     expect(secondClaim).toMatchObject({
       platformExecutionId: first.executionId,
       attempt: 1,
@@ -310,7 +330,49 @@ describe("D5 YouTube OAuth persistence boundary", () => {
     await expect(
       readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
     ).rejects.toThrow("execution_recovery_required");
-    await resetYouTubeExecutionForRetry(db, owner.workspace.id, first.executionId);
+    await recordClaimedYouTubeExecutionFailureAndCompleteOutbox(workerDb, {
+      workspaceId: owner.workspace.id,
+      executionId: first.executionId,
+      outboxMessageId: secondClaim?.id ?? randomUUID(),
+      claimOwner: secondClaim?.claimOwner ?? workerId,
+      claimGeneration: secondClaim?.claimGeneration ?? 0n,
+      failureCategory: "execution_recovery_required",
+      needsAttention: true,
+    });
+    await expect(
+      adminDb.platformExecution.findUniqueOrThrow({ where: { id: first.executionId } }),
+    ).resolves.toMatchObject({
+      state: "NEEDS_ATTENTION",
+      failureCategory: "execution_recovery_required",
+    });
+    await expect(
+      adminDb.outboxMessage.findUniqueOrThrow({ where: { id: secondClaim?.id ?? randomUUID() } }),
+    ).resolves.toMatchObject({
+      state: "DEAD",
+      failureCategory: "execution_recovery_required",
+    });
+    await expect(
+      readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
+    ).rejects.toThrow("execution_terminal");
+    // Continue exercising the remaining publish transitions with a fresh execution
+    // state after the focused crash-recovery assertion above.
+    await adminDb.$transaction([
+      adminDb.platformExecution.update({
+        where: { id: first.executionId },
+        data: { state: "NOT_STARTED", failureCategory: null },
+      }),
+      adminDb.outboxMessage.update({
+        where: { id: secondClaim?.id ?? randomUUID() },
+        data: {
+          state: "CLAIMED",
+          completedAt: null,
+          claimedAt: new Date(),
+          claimOwner: secondClaim?.claimOwner ?? workerId,
+          claimUntil: new Date(Date.now() + 120_000),
+          failureCategory: null,
+        },
+      }),
+    ]);
     await expect(
       readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
     ).resolves.toMatchObject({ state: "publishing", providerId: null });
@@ -319,32 +381,250 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       executionId: first.executionId,
       providerId: "youtube-video-id",
       providerUrl: "https://www.youtube.com/watch?v=youtube-video-id",
+      channelId: firstWork.channelId,
+      leaseGeneration: firstWork.leaseGeneration,
     });
     await expect(
       readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
     ).resolves.toMatchObject({ state: "processing", providerId: "youtube-video-id" });
-    await recordYouTubeExecutionPublished(db, owner.workspace.id, first.executionId);
+
+    await recordYouTubeExecutionFailureAndCompleteOutbox(workerDb, {
+      workspaceId: owner.workspace.id,
+      executionId: first.executionId,
+      channelId: firstWork.channelId,
+      leaseGeneration: firstWork.leaseGeneration,
+      outboxMessageId: secondClaim?.id ?? randomUUID(),
+      claimOwner: secondClaim?.claimOwner ?? workerId,
+      claimGeneration: secondClaim?.claimGeneration ?? 0n,
+      failureCategory: "provider_processing_failed",
+      needsAttention: false,
+      requireReauthorization: false,
+    });
+    await expect(
+      adminDb.platformExecution.findUniqueOrThrow({ where: { id: first.executionId } }),
+    ).resolves.toMatchObject({
+      state: "FAILED",
+      failureCategory: "provider_processing_failed",
+    });
+    await expect(
+      adminDb.outboxMessage.findUniqueOrThrow({ where: { id: secondClaim?.id ?? randomUUID() } }),
+    ).resolves.toMatchObject({ state: "DEAD", failureCategory: "provider_processing_failed" });
+    await expect(
+      readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
+    ).rejects.toThrow("execution_terminal");
+    await adminDb.$transaction([
+      adminDb.platformExecution.update({
+        where: { id: first.executionId },
+        data: { state: "PROCESSING", failureCategory: null },
+      }),
+      adminDb.outboxMessage.update({
+        where: { id: secondClaim?.id ?? randomUUID() },
+        data: {
+          state: "CLAIMED",
+          completedAt: null,
+          claimedAt: new Date(),
+          claimOwner: secondClaim?.claimOwner ?? workerId,
+          claimUntil: new Date(Date.now() + 120_000),
+          failureCategory: null,
+        },
+      }),
+    ]);
+
+    // An expired outbox claim must roll back the execution transition and its audit event.
+    await adminDb.outboxMessage.update({
+      where: { id: secondClaim?.id ?? randomUUID() },
+      data: { claimUntil: new Date(0) },
+    });
+    await expect(
+      recordYouTubeExecutionPublishedAndCompleteOutbox(workerDb, {
+        workspaceId: owner.workspace.id,
+        executionId: first.executionId,
+        channelId: firstWork.channelId,
+        leaseGeneration: firstWork.leaseGeneration,
+        outboxMessageId: secondClaim?.id ?? randomUUID(),
+        claimOwner: secondClaim?.claimOwner ?? workerId,
+        claimGeneration: secondClaim?.claimGeneration ?? 0n,
+      }),
+    ).rejects.toThrow("outbox_claim_lost");
+    await expect(
+      adminDb.platformExecution.findUniqueOrThrow({ where: { id: first.executionId } }),
+    ).resolves.toMatchObject({ state: "PROCESSING", providerId: "youtube-video-id" });
+    await expect(
+      withTenant(db, owner.workspace.id, (transaction) =>
+        transaction.auditEvent.count({
+          where: {
+            workspaceId: owner.workspace.id,
+            targetId: first.executionId,
+            action: "platform.published",
+          },
+        }),
+      ),
+    ).resolves.toBe(0);
+    const publishClaim = await claimNextOutboxMessage(workerDb, `${workerId}-published-crash`);
+    expect(publishClaim).toMatchObject({ id: secondClaim?.id, attempt: 1 });
+
+    await recordYouTubeExecutionPublished(db, {
+      workspaceId: owner.workspace.id,
+      executionId: first.executionId,
+      channelId: firstWork.channelId,
+      leaseGeneration: firstWork.leaseGeneration,
+    });
     await releaseYouTubeChannelOperationLease(
       db,
       owner.workspace.id,
       firstWork.channelId,
       first.executionId,
+      firstWork.leaseGeneration,
     );
-    await finishOutboxMessage(adminDb, {
-      id: secondClaim?.id ?? randomUUID(),
-      outcome: "completed",
-    });
-    await finishOutboxMessage(adminDb, {
-      id: secondClaim?.id ?? randomUUID(),
-      outcome: "retry",
-      failureCategory: "must_not_resurrect",
-      retryAfterSeconds: 0,
+    await expect(
+      recordYouTubeExecutionFailure(db, {
+        workspaceId: owner.workspace.id,
+        executionId: first.executionId,
+        failureCategory: "stale_worker_must_not_mutate",
+        needsAttention: true,
+        channelId: firstWork.channelId,
+        leaseGeneration: firstWork.leaseGeneration,
+      }),
+    ).rejects.toThrow("publish_fence_lost");
+
+    // Simulate a worker crash after the provider result and execution state were persisted,
+    // but before the claimed outbox row was acknowledged.
+    await adminDb.outboxMessage.update({
+      where: { id: publishClaim?.id ?? randomUUID() },
+      data: { claimUntil: new Date(0) },
     });
     await expect(
+      finishOutboxMessage(workerDb, {
+        id: publishClaim?.id ?? randomUUID(),
+        outcome: "completed",
+        claimOwner: publishClaim?.claimOwner ?? `${workerId}-published-crash`,
+        claimGeneration: publishClaim?.claimGeneration ?? 0n,
+      }),
+    ).rejects.toThrow("outbox_claim_lost");
+    const recoveryClaim = await claimNextOutboxMessage(workerDb, `${workerId}-recovery`);
+    expect(recoveryClaim).toMatchObject({
+      id: secondClaim?.id,
+      platformExecutionId: first.executionId,
+      attempt: 1,
+    });
+    await expect(
+      readYouTubeExecutionWorkItem(db, owner.workspace.id, first.executionId),
+    ).rejects.toThrow("execution_terminal");
+    await recordClaimedYouTubeExecutionFailureAndCompleteOutbox(workerDb, {
+      workspaceId: owner.workspace.id,
+      executionId: first.executionId,
+      outboxMessageId: recoveryClaim?.id ?? randomUUID(),
+      claimOwner: recoveryClaim?.claimOwner ?? `${workerId}-recovery`,
+      claimGeneration: recoveryClaim?.claimGeneration ?? 0n,
+      failureCategory: "execution_terminal",
+      needsAttention: false,
+    });
+    await expect(
+      finishOutboxMessage(workerDb, {
+        id: recoveryClaim?.id ?? randomUUID(),
+        outcome: "retry",
+        failureCategory: "must_not_resurrect",
+        retryAfterSeconds: 0,
+        claimOwner: recoveryClaim?.claimOwner ?? `${workerId}-recovery`,
+        claimGeneration: recoveryClaim?.claimGeneration ?? 0n,
+      }),
+    ).rejects.toThrow("outbox_claim_lost");
+    await expect(
+      withTenant(db, owner.workspace.id, (transaction) =>
+        transaction.auditEvent.count({
+          where: {
+            workspaceId: owner.workspace.id,
+            targetId: first.executionId,
+            action: "platform.published",
+          },
+        }),
+      ),
+    ).resolves.toBe(1);
+    await expect(
       adminDb.outboxMessage.findUniqueOrThrow({
-        where: { id: secondClaim?.id ?? randomUUID() },
+        where: { id: recoveryClaim?.id ?? randomUUID() },
         select: { state: true, failureCategory: true },
       }),
     ).resolves.toEqual({ state: "COMPLETED", failureCategory: null });
+    await expect(
+      recordClaimedYouTubeExecutionFailureAndCompleteOutbox(workerDb, {
+        workspaceId: owner.workspace.id,
+        executionId: first.executionId,
+        outboxMessageId: recoveryClaim?.id ?? randomUUID(),
+        claimOwner: recoveryClaim?.claimOwner ?? `${workerId}-recovery`,
+        claimGeneration: recoveryClaim?.claimGeneration ?? 0n,
+        failureCategory: "execution_terminal",
+        needsAttention: false,
+      }),
+    ).rejects.toThrow("outbox_claim_lost");
+    await expect(
+      finishOutboxMessage(workerDb, {
+        id: secondClaim?.id ?? randomUUID(),
+        outcome: "retry",
+        failureCategory: "stale_claim_must_not_resurrect",
+        retryAfterSeconds: 0,
+        claimOwner: secondClaim?.claimOwner ?? workerId,
+        claimGeneration: secondClaim?.claimGeneration ?? 0n,
+      }),
+    ).rejects.toThrow("outbox_claim_lost");
+
+    // A disconnect that completes after an in-flight provider upload must close the
+    // execution and outbox before authorized channel references are erased.
+    await adminDb.$transaction([
+      adminDb.platformExecution.update({
+        where: { id: first.executionId },
+        data: { state: "PROCESSING", failureCategory: null },
+      }),
+      adminDb.outboxMessage.update({
+        where: { id: secondClaim?.id ?? randomUUID() },
+        data: {
+          state: "PENDING",
+          completedAt: null,
+          claimedAt: null,
+          claimOwner: null,
+          claimUntil: null,
+          failureCategory: null,
+          availableAt: new Date(),
+        },
+      }),
+    ]);
+    const disconnect = await prepareYouTubeDisconnect(db, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+    });
+    const disconnectWorkerId = `disconnect-${randomUUID()}`;
+    const claimedDisconnect = await adminDb.lifecycleOperation.update({
+      where: { id: disconnect.operationId ?? randomUUID() },
+      data: {
+        state: "CLAIMED",
+        claimedBy: disconnectWorkerId,
+        claimedUntil: new Date(Date.now() + 120_000),
+        claimGeneration: { increment: 1 },
+      },
+    });
+    await completeYouTubeDisconnect(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+      lifecycleClaim: {
+        operationId: claimedDisconnect.id,
+        workerId: disconnectWorkerId,
+        claimGeneration: claimedDisconnect.claimGeneration,
+      },
+    });
+    await expect(
+      adminDb.platformExecution.findUniqueOrThrow({ where: { id: first.executionId } }),
+    ).resolves.toMatchObject({
+      state: "NEEDS_ATTENTION",
+      failureCategory: "channel_disconnected_during_processing",
+      providerId: null,
+      providerUrl: null,
+    });
+    await expect(
+      adminDb.outboxMessage.findUniqueOrThrow({ where: { id: secondClaim?.id ?? randomUUID() } }),
+    ).resolves.toMatchObject({ state: "DEAD", failureCategory: "channel_disconnected" });
   });
 });

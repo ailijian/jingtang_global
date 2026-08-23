@@ -8,6 +8,7 @@ export interface DisposablePostgres {
   readonly name: string;
   readonly adminUrl: string;
   readonly appUrl: string;
+  readonly workerUrl: string;
 }
 
 async function waitForPostgres(name: string): Promise<void> {
@@ -25,9 +26,12 @@ async function waitForPostgres(name: string): Promise<void> {
   throw new Error("Disposable PostgreSQL did not become ready");
 }
 
-async function provisionAppRole(name: string): Promise<void> {
+async function provisionRuntimeRoles(name: string): Promise<void> {
   const sql =
-    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'jingtang_app') THEN CREATE ROLE jingtang_app LOGIN PASSWORD 'local_app_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF; END $$;";
+    "DO $$ BEGIN " +
+    "IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'jingtang_app') THEN CREATE ROLE jingtang_app LOGIN PASSWORD 'local_app_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF; " +
+    "IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'jingtang_worker') THEN CREATE ROLE jingtang_worker LOGIN PASSWORD 'local_worker_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF; " +
+    "END $$; GRANT CONNECT ON DATABASE jingtang TO jingtang_app, jingtang_worker;";
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       await execFileAsync("docker", [
@@ -48,7 +52,7 @@ async function provisionAppRole(name: string): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
-  throw new Error("Could not provision the disposable PostgreSQL application role");
+  throw new Error("Could not provision the disposable PostgreSQL runtime roles");
 }
 
 export async function startDisposablePostgres(): Promise<DisposablePostgres> {
@@ -73,11 +77,12 @@ export async function startDisposablePostgres(): Promise<DisposablePostgres> {
     const port = stdout.trim().split(":").at(-1);
     if (!port || !/^\d+$/.test(port))
       throw new Error("Could not resolve disposable PostgreSQL port");
-    await provisionAppRole(name);
+    await provisionRuntimeRoles(name);
     return {
       name,
       adminUrl: `postgresql://postgres:local_admin_only@127.0.0.1:${port}/jingtang?schema=public`,
       appUrl: `postgresql://jingtang_app:local_app_only@127.0.0.1:${port}/jingtang?schema=public`,
+      workerUrl: `postgresql://jingtang_worker:local_worker_only@127.0.0.1:${port}/jingtang?schema=public`,
     };
   } catch (error) {
     await stopDisposablePostgres(name);
@@ -108,7 +113,12 @@ export function spawnInherited(
 }
 
 export function migrationEnvironment(database: DisposablePostgres): NodeJS.ProcessEnv {
-  return { ...process.env, DATABASE_ADMIN_URL: database.adminUrl, DATABASE_URL: database.appUrl };
+  return {
+    ...process.env,
+    DATABASE_ADMIN_URL: database.adminUrl,
+    DATABASE_URL: database.appUrl,
+    DATABASE_WORKER_URL: database.workerUrl,
+  };
 }
 
 export function deployMigrations(database: DisposablePostgres): void {

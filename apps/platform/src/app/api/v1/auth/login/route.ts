@@ -1,10 +1,11 @@
 import {
   createSession,
   listUserWorkspaces,
-  recordAudit,
+  recordUserScopedAudit,
   selectWorkspace,
   upsertIdentityUser,
 } from "@jingtang/db";
+import { ApplicationError } from "@jingtang/application";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -23,8 +24,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const identity = await runtime.identity.authenticate(input);
     const existing = await runtime.db.user.findUnique({
       where: { cognitoSubject: identity.subject },
-      select: { localePreference: true, lastWorkspaceId: true },
+      select: { localePreference: true, lastWorkspaceId: true, lifecycleState: true },
     });
+    if (existing && existing.lifecycleState !== "active") {
+      throw new ApplicationError("authentication_failed", "Account is not active", 401);
+    }
     const locale = existing?.localePreference === "ZH_CN" ? "zh-CN" : "en";
     const user = await upsertIdentityUser(runtime.db, { ...identity, locale });
     const session = await createSession(runtime.db, {
@@ -42,16 +46,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         sessionId: session.id,
         correlationId: requestId,
       });
-      await recordAudit(runtime.db, {
-        workspaceId: selectedWorkspace.id,
-        actorUserId: user.id,
-        action: "identity.login",
-        targetType: "session",
-        targetId: session.id,
-        result: "success",
-        correlationId: requestId,
-      });
     }
+    await recordUserScopedAudit(runtime.db, {
+      userId: user.id,
+      currentWorkspaceId: selectedWorkspace?.id ?? null,
+      action: "identity.login",
+      targetType: "session",
+      targetId: session.id,
+      result: "success",
+      correlationId: requestId,
+    });
     const response = NextResponse.json({
       has_workspace: workspaces.length > 0,
       request_id: requestId,

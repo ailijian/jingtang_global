@@ -1,42 +1,68 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { youtubeOAuthScopes } from "@jingtang/application";
 import {
+  accountAuthorizedDataDeletionPending,
   beginWorkspaceDataDeletion,
   beginYouTubeConnection,
+  claimLifecycleOperation,
+  completeAuthorizedDataRetention,
+  completeAccountDeletion,
   completeWorkspaceDataDeletion,
   completeYouTubeConnection,
   completeYouTubeDisconnect,
+  changeMemberRole,
   createDatabaseClient,
-  createPendingSourceAsset,
   createSession,
   createWorkspace,
+  enqueueDueLifecycleOperations,
+  enqueueTokenKeyRetirement,
   failWorkspaceDataDeletion,
   failYouTubeDisconnect,
-  listExpiredYouTubeAuthorizations,
-  listPendingYouTubeDisconnects,
+  finishLifecycleOperation,
+  LifecycleOperationKind,
+  LifecycleOperationState,
+  LifecycleStepState,
   listUserWorkspaces,
-  listYouTubeChannels,
+  lifecycleOperationDeadlineExceeded,
+  listAccountAuthorizedChannelsForDeletion,
   prepareYouTubeDisconnect,
+  prepareAccountIdentityDeletion,
+  purgeExpiredLifecycleRecords,
+  readExpiredYouTubeAuthorization,
+  readWorkspaceDataDeletionMaterial,
+  readWorkspaceDataDeletionStatus,
+  readYouTubeDisconnectMaterial,
   recordConsent,
   recordExpiredAuthorizedDataDeletion,
+  recordLifecycleStep,
   refreshYouTubeAuthorizedData,
+  renewLifecycleOperationClaim,
+  removeMember,
+  requestAccountDeletion,
   upsertIdentityUser,
   withTenant,
+  type LifecycleClaimGuard,
 } from "@jingtang/db";
 import { LocalEnvelopeTokenVault } from "@jingtang/integrations";
 import { afterAll, describe, expect, it } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is required for D6 integration tests");
+const workerDatabaseUrl = process.env.DATABASE_WORKER_URL;
+if (!databaseUrl || !workerDatabaseUrl) {
+  throw new Error("DATABASE_URL and DATABASE_WORKER_URL are required for D6 integration tests");
+}
+
 const db = createDatabaseClient(databaseUrl);
 const adminDb = createDatabaseClient(process.env.DATABASE_ADMIN_URL ?? databaseUrl);
+const workerDb = createDatabaseClient(workerDatabaseUrl);
 const vault = new LocalEnvelopeTokenVault("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
 async function fixture(label: string) {
+  const email = `d6-${label}-${randomUUID()}@example.test`;
   const user = await upsertIdentityUser(db, {
     subject: `d6-${label}-${randomUUID()}`,
-    email: `d6-${label}-${randomUUID()}@example.test`,
+    email,
     name: label,
     locale: "en",
   });
@@ -59,7 +85,7 @@ async function fixture(label: string) {
     displayedLocale: "en",
     acceptanceMethod: "youtube_connection_checkbox",
   });
-  return { user, workspace: { ...workspace, name: workspaceName }, consent };
+  return { user, email, session, workspace: { ...workspace, name: workspaceName }, consent };
 }
 
 async function connectedChannel(owner: Awaited<ReturnType<typeof fixture>>, externalId: string) {
@@ -82,237 +108,653 @@ async function connectedChannel(owner: Awaited<ReturnType<typeof fixture>>, exte
     externalAccountId: externalId,
     displayName: `${externalId} channel`,
     grantedScopes: youtubeOAuthScopes,
-    tokenEnvelopeCiphertext: envelope,
+    tokenEnvelopeCiphertext: envelope.ciphertext,
+    tokenCiphertextReference: envelope.keyReference,
     correlationId: randomUUID(),
   });
   return { channel, envelope };
 }
 
-afterAll(async () => Promise.all([db.$disconnect(), adminDb.$disconnect()]));
+async function forceClaim(operationId: string, workerId: string): Promise<LifecycleClaimGuard> {
+  const operation = await adminDb.lifecycleOperation.update({
+    where: { id: operationId },
+    data: {
+      state: "CLAIMED",
+      claimedBy: workerId,
+      claimedUntil: new Date(Date.now() + 120_000),
+      claimGeneration: { increment: 1 },
+      attempt: { increment: 1 },
+    },
+    select: { claimGeneration: true },
+  });
+  return { operationId, workerId, claimGeneration: operation.claimGeneration };
+}
 
-describe("D6 trust lifecycle", () => {
-  it("fails closed during revocation, supports retry, and scrubs Authorized Data", async () => {
+async function completeTokenKeyRetirement(input: {
+  readonly workspaceId: string;
+  readonly channelId: string;
+  readonly correlationId: string;
+  readonly keyReference: string;
+}): Promise<void> {
+  const operation = await adminDb.lifecycleOperation.findFirstOrThrow({
+    where: {
+      kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+      workspaceId: input.workspaceId,
+      channelId: input.channelId,
+      correlationId: input.correlationId,
+    },
+  });
+  const guard = await forceClaim(operation.id, `token-retirement-${randomUUID()}`);
+  await vault.destroy(input.keyReference);
+  await expect(
+    finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.COMPLETED,
+    }),
+  ).resolves.toBe(true);
+}
+
+afterAll(async () =>
+  Promise.all([db.$disconnect(), adminDb.$disconnect(), workerDb.$disconnect()]),
+);
+
+describe("D6 unified trust lifecycle", () => {
+  it("makes disconnect request-only at the BFF and fences all worker cleanup", async () => {
     const owner = await fixture("disconnect-owner");
-    const other = await fixture("disconnect-other");
     const { channel, envelope } = await connectedChannel(owner, "UC_D6_DISCONNECT");
-
-    await expect(
-      prepareYouTubeDisconnect(db, {
-        workspaceId: other.workspace.id,
-        channelId: channel.id,
-        actorUserId: other.user.id,
-        correlationId: randomUUID(),
-      }),
-    ).rejects.toThrow("channel_not_found");
-
-    await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.update({
-        where: { id: channel.id },
-        data: {
-          operationLeaseId: randomUUID(),
-          operationLeaseUntil: new Date("2026-08-22T01:10:00.000Z"),
-        },
-      }),
-    );
-    const prepared = await prepareYouTubeDisconnect(db, {
+    const disconnectCorrelationId = randomUUID();
+    const request = await prepareYouTubeDisconnect(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
       actorUserId: owner.user.id,
-      correlationId: randomUUID(),
-      now: new Date("2026-08-22T01:00:00.000Z"),
+      correlationId: disconnectCorrelationId,
     });
-    expect(prepared.tokenEnvelopeCiphertext).toBe(envelope);
-    expect(prepared.revocationDeferred).toBe(true);
+    expect(request.operationId).toBeTruthy();
+    let guard = await forceClaim(request.operationId!, `disconnect-${randomUUID()}`);
+
     await expect(
       completeYouTubeDisconnect(db, {
         workspaceId: owner.workspace.id,
         channelId: channel.id,
         actorUserId: owner.user.id,
-        correlationId: randomUUID(),
-        now: new Date("2026-08-22T01:00:00.000Z"),
+        correlationId: disconnectCorrelationId,
+        lifecycleClaim: guard,
       }),
-    ).rejects.toThrow("channel_operations_in_flight");
-    await expect(
-      listPendingYouTubeDisconnects(
-        adminDb,
-        new Date("2026-08-22T01:00:00.000Z"),
-        25,
-        new Date("2026-08-22T01:00:00.000Z"),
-      ),
-    ).resolves.not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ channelId: channel.id })]),
-    );
-    await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.update({
-        where: { id: channel.id },
-        data: { operationLeaseId: null, operationLeaseUntil: null },
-      }),
-    );
-    const ready = await prepareYouTubeDisconnect(db, {
-      workspaceId: owner.workspace.id,
-      channelId: channel.id,
-      actorUserId: owner.user.id,
-      correlationId: randomUUID(),
-    });
-    expect(ready.revocationDeferred).toBe(false);
-    await expect(listYouTubeChannels(db, owner.workspace.id)).resolves.toMatchObject([
-      { state: "disconnecting", externalAccountId: "UC_D6_DISCONNECT" },
-    ]);
+    ).rejects.toThrow("lifecycle_claim_lost");
 
-    await failYouTubeDisconnect(db, {
+    await failYouTubeDisconnect(workerDb, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
       actorUserId: owner.user.id,
       correlationId: randomUUID(),
       failureCategory: "service_unavailable",
+      lifecycleClaim: guard,
+    });
+    await finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.RETRY,
+      failureCategory: "service_unavailable",
+      retryAfterSeconds: 3_600,
     });
     await expect(
-      listPendingYouTubeDisconnects(adminDb, new Date("2026-08-22T00:59:59.999Z")),
-    ).resolves.not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ channelId: channel.id })]),
-    );
+      prepareYouTubeDisconnect(db, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectCorrelationId,
+      }),
+    ).resolves.toMatchObject({ operationId: request.operationId });
+    const [wokenOperation, wokenChannel] = await Promise.all([
+      adminDb.lifecycleOperation.findUniqueOrThrow({ where: { id: request.operationId! } }),
+      adminDb.channel.findUniqueOrThrow({ where: { id: channel.id } }),
+    ]);
+    expect(wokenOperation.state).toBe("RETRY");
+    expect(wokenOperation.failureCategory).toBeNull();
+    expect(wokenOperation.nextAttemptAt.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(wokenChannel.revokeFailureCategory).toBeNull();
+    guard = await forceClaim(request.operationId!, `disconnect-retry-${randomUUID()}`);
+
+    const currentGeneration = await adminDb.channel.findUniqueOrThrow({
+      where: { id: channel.id },
+      select: { operationGeneration: true },
+    });
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: randomUUID(),
+        operationLeaseUntil: new Date(Date.now() + 120_000),
+        // Disconnect has already advanced the generation. The physical upload
+        // lease belongs to work that started before the deny fence.
+        operationLeaseGeneration: currentGeneration.operationGeneration - 1n,
+      },
+    });
     await expect(
-      listPendingYouTubeDisconnects(adminDb, new Date("2026-08-22T01:00:00.000Z")),
-    ).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ channelId: channel.id, revokeAttemptCount: 1 }),
-      ]),
-    );
-    const retry = await prepareYouTubeDisconnect(db, {
+      readYouTubeDisconnectMaterial(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toMatchObject({ operationsInFlight: true });
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        actorUserId: owner.user.id,
+        correlationId: randomUUID(),
+        lifecycleClaim: guard,
+      }),
+    ).rejects.toThrow("channel_operations_in_flight");
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: null,
+        operationLeaseUntil: null,
+        operationLeaseGeneration: null,
+      },
+    });
+
+    const material = await readYouTubeDisconnectMaterial(workerDb, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
-      actorUserId: owner.user.id,
-      correlationId: randomUUID(),
+      lifecycleClaim: guard,
     });
-    expect(retry.tokenEnvelopeCiphertext).toBe(envelope);
-    for (let attempt = 2; attempt <= 5; attempt += 1) {
-      await failYouTubeDisconnect(db, {
+    expect(material.tokenCiphertextReference).toBe(envelope.keyReference);
+    expect(material.operationsInFlight).toBe(false);
+    await expect(vault.open(envelope.ciphertext, envelope.keyReference)).resolves.toMatchObject({
+      refreshToken: "refresh-token",
+    });
+    await expect(
+      recordLifecycleStep(workerDb, {
+        ...guard,
+        name: "provider_revoke",
+        ordinal: 10,
+        state: LifecycleStepState.COMPLETED,
+        outcome: { provider_revoked: true },
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectCorrelationId,
+        revocationOutcome: "provider_revoked",
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toBe(false);
+    const parentOperation = await adminDb.lifecycleOperation.findUniqueOrThrow({
+      where: { id: request.operationId! },
+      select: { deadlineAt: true },
+    });
+    const retirementOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        channelId: channel.id,
+        correlationId: disconnectCorrelationId,
+      },
+      select: { deadlineAt: true },
+    });
+    expect(retirementOperation.deadlineAt).toEqual(parentOperation.deadlineAt);
+    await completeTokenKeyRetirement({
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      correlationId: disconnectCorrelationId,
+      keyReference: envelope.keyReference,
+    });
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectCorrelationId,
+        revocationOutcome: "provider_revoked",
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...guard,
+        state: LifecycleOperationState.COMPLETED,
+        outcome: { provider_revoked: true },
+      }),
+    ).resolves.toBe(true);
+
+    await expect(vault.open(envelope.ciphertext, envelope.keyReference)).rejects.toThrow(
+      "OAuth token envelope could not be authenticated",
+    );
+    await expect(
+      failYouTubeDisconnect(workerDb, {
         workspaceId: owner.workspace.id,
         channelId: channel.id,
         correlationId: randomUUID(),
-        failureCategory: "service_unavailable",
-      });
-    }
+        failureCategory: "stale_worker",
+        lifecycleClaim: guard,
+      }),
+    ).rejects.toThrow("lifecycle_claim_lost");
     await expect(
-      listPendingYouTubeDisconnects(adminDb, new Date("2026-08-22T02:00:00.000Z")),
-    ).resolves.not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ channelId: channel.id })]),
-    );
-
-    await completeYouTubeDisconnect(db, {
-      workspaceId: owner.workspace.id,
-      channelId: channel.id,
-      actorUserId: owner.user.id,
-      correlationId: randomUUID(),
-      now: new Date("2026-08-22T01:05:00.000Z"),
-    });
-    await completeYouTubeDisconnect(db, {
-      workspaceId: owner.workspace.id,
-      channelId: channel.id,
-      actorUserId: owner.user.id,
-      correlationId: randomUUID(),
-    });
-    const persisted = await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.findUniqueOrThrow({ where: { id: channel.id } }),
-    );
-    expect(persisted).toMatchObject({
+      withTenant(db, owner.workspace.id, (transaction) =>
+        transaction.channel.findUniqueOrThrow({ where: { id: channel.id } }),
+      ),
+    ).resolves.toMatchObject({
       state: "DISCONNECTED",
       externalAccountId: null,
-      displayName: null,
       tokenEnvelopeCiphertext: null,
-      authorizedDataExpiresAt: null,
-      revokeAttemptCount: 0,
+      tokenCiphertextReference: null,
     });
-    const actions = await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.auditEvent.findMany({
-        where: { targetId: channel.id },
-        select: { action: true, result: true },
-        orderBy: { occurredAt: "asc" },
-      }),
-    );
-    expect(actions).toEqual(
-      expect.arrayContaining([
-        { action: "channel.disconnect_started", result: "success" },
-        { action: "channel.disconnect_failed", result: "failed" },
-        { action: "channel.disconnected", result: "success" },
-        { action: "data.retention_deleted", result: "success" },
-      ]),
-    );
   });
 
-  it("uses a controllable clock for the 30-day refresh-or-delete boundary", async () => {
-    const owner = await fixture("retention-owner");
-    const { channel } = await connectedChannel(owner, "UC_D6_RETENTION");
-    const deadline = new Date("2026-09-21T00:00:00.000Z");
+  it("keeps a disconnect open for a deduplicated key retirement from another flow", async () => {
+    const owner = await fixture("disconnect-deduplicated-retirement");
+    const { channel, envelope } = await connectedChannel(owner, "UC_D6_DEDUPED_RETIREMENT");
+    const earlierCorrelationId = randomUUID();
     await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.update({
-        where: { id: channel.id },
-        data: { authorizedDataExpiresAt: deadline },
+      enqueueTokenKeyRetirement(transaction, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        keyReference: envelope.keyReference,
+        correlationId: earlierCorrelationId,
+        deadlineAt: new Date("2100-01-01T00:00:00.000Z"),
       }),
     );
+
+    const disconnectCorrelationId = randomUUID();
+    const request = await prepareYouTubeDisconnect(db, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      actorUserId: owner.user.id,
+      correlationId: disconnectCorrelationId,
+    });
+    if (!request.operationId) throw new Error("disconnect operation was not created");
+    const guard = await forceClaim(request.operationId, `disconnect-deduped-${randomUUID()}`);
 
     await expect(
-      listExpiredYouTubeAuthorizations(adminDb, new Date("2026-09-20T23:59:59.999Z")),
-    ).resolves.not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ channelId: channel.id })]),
-    );
-    await expect(listExpiredYouTubeAuthorizations(adminDb, deadline)).resolves.toEqual(
-      expect.arrayContaining([expect.objectContaining({ channelId: channel.id })]),
-    );
-
-    const refreshedAt = new Date("2026-09-21T00:00:00.000Z");
-    await refreshYouTubeAuthorizedData(db, {
-      workspaceId: owner.workspace.id,
-      channelId: channel.id,
-      tokenEnvelopeCiphertext: await vault.seal({
-        accessToken: "refreshed-access",
-        refreshToken: "refreshed-refresh",
-        expiresAt: "2026-09-21T01:00:00.000Z",
-        grantedScopes: youtubeOAuthScopes,
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectCorrelationId,
+        lifecycleClaim: guard,
       }),
-      externalAccountId: "UC_D6_RETENTION",
-      displayName: "Retention channel",
-      now: refreshedAt,
-      correlationId: randomUUID(),
-    });
-    const refreshed = await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.findUniqueOrThrow({ where: { id: channel.id } }),
-    );
-    expect(refreshed.authorizedDataExpiresAt?.toISOString()).toBe("2026-10-21T00:00:00.000Z");
+    ).resolves.toBe(false);
 
-    await recordExpiredAuthorizedDataDeletion(db, {
-      workspaceId: owner.workspace.id,
-      channelId: channel.id,
-      correlationId: randomUUID(),
-      now: new Date("2026-10-21T00:00:00.000Z"),
+    const parent = await adminDb.lifecycleOperation.findUniqueOrThrow({
+      where: { id: request.operationId },
+      select: { deadlineAt: true },
     });
-    await expect(listYouTubeChannels(db, owner.workspace.id)).resolves.toMatchObject([
-      {
-        state: "reauthorization_required",
-        externalAccountId: null,
-        displayName: null,
-        grantedScopes: [],
+    const retirements = await adminDb.lifecycleOperation.findMany({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        channelId: channel.id,
       },
-    ]);
+    });
+    expect(retirements).toHaveLength(1);
+    const retirement = retirements[0];
+    if (!retirement) throw new Error("retirement operation was not preserved");
+    expect(retirement.correlationId).toBe(earlierCorrelationId);
+    expect(retirement.deadlineAt).toEqual(parent.deadlineAt);
+    expect(retirement.subjectUserId).toBe(owner.user.id);
+
+    const retirementGuard = await forceClaim(
+      retirement.id,
+      `token-retirement-deduped-${randomUUID()}`,
+    );
+    await vault.destroy(envelope.keyReference);
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...retirementGuard,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectCorrelationId,
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toBe(true);
   });
 
-  it("requires exact confirmation and completes tenant-scoped Workspace deletion", async () => {
-    const owner = await fixture("deletion-owner");
-    const { channel } = await connectedChannel(owner, "UC_D6_DELETE");
-    const assetId = randomUUID();
-    const objectKey = `workspaces/${owner.workspace.id}/source-assets/${assetId}/delete.mp4`;
-    await createPendingSourceAsset(db, {
-      id: assetId,
+  it("creates one retention operation per expiry cycle and refreshes only the exact channel", async () => {
+    const owner = await fixture("retention-owner");
+    const { channel, envelope } = await connectedChannel(owner, "UC_D6_RETENTION");
+    const firstExpiry = new Date(Date.now() + 12 * 60 * 60 * 1000);
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: { authorizedDataExpiresAt: firstExpiry },
+    });
+    await enqueueDueLifecycleOperations(workerDb);
+    const firstOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: { channelId: channel.id, kind: LifecycleOperationKind.AUTHORIZED_DATA_RETENTION },
+      orderBy: { requestedAt: "desc" },
+    });
+    expect(firstOperation.deadlineAt.getTime()).toBe(firstExpiry.getTime());
+    const firstGuard = await forceClaim(firstOperation.id, `retention-a-${randomUUID()}`);
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: randomUUID(),
+        operationLeaseUntil: new Date(Date.now() + 120_000),
+        operationLeaseGeneration: channel.operationGeneration,
+      },
+    });
+    await expect(
+      readExpiredYouTubeAuthorization(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        expectedAuthorizedDataExpiresAt: firstOperation.deadlineAt,
+        lifecycleClaim: firstGuard,
+      }),
+    ).rejects.toThrow("authorized_data_refresh_blocked");
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: null,
+        operationLeaseUntil: null,
+        operationLeaseGeneration: null,
+      },
+    });
+    const material = await readExpiredYouTubeAuthorization(workerDb, {
       workspaceId: owner.workspace.id,
-      objectKey,
-      filename: "delete.mp4",
-      mediaType: "video/mp4",
-      byteSize: 7,
-      sha256: "d".repeat(64),
-      ownershipConfirmed: true,
-      uploadedByUserId: owner.user.id,
+      channelId: channel.id,
+      expectedAuthorizedDataExpiresAt: firstOperation.deadlineAt,
+      lifecycleClaim: firstGuard,
+    });
+    expect(material.externalAccountId).toBe("UC_D6_RETENTION");
+
+    const refreshedEnvelope = await vault.seal({
+      accessToken: "refreshed-access",
+      refreshToken: "refreshed-refresh",
+      expiresAt: "2030-01-01T00:00:00.000Z",
+      grantedScopes: youtubeOAuthScopes,
+    });
+    const firstRefreshCorrelationId = randomUUID();
+    await refreshYouTubeAuthorizedData(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      tokenEnvelopeCiphertext: refreshedEnvelope.ciphertext,
+      tokenCiphertextReference: refreshedEnvelope.keyReference,
+      externalAccountId: material.externalAccountId,
+      expectedTokenCiphertextReference: material.tokenCiphertextReference,
+      expectedAuthorizedDataExpiresAt: firstOperation.deadlineAt,
+      channelOperationGeneration: material.channelOperationGeneration,
+      displayName: "Exact retained channel",
+      now: new Date(),
+      correlationId: firstRefreshCorrelationId,
+      lifecycleClaim: firstGuard,
+    });
+    await expect(
+      adminDb.lifecycleOperation.findFirst({
+        where: {
+          kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+          workspaceId: owner.workspace.id,
+          channelId: channel.id,
+        },
+      }),
+    ).resolves.toMatchObject({ outcome: { key_reference: envelope.keyReference } });
+    await expect(
+      completeAuthorizedDataRetention(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: firstRefreshCorrelationId,
+        lifecycleClaim: firstGuard,
+      }),
+    ).resolves.toBe(false);
+    await completeTokenKeyRetirement({
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      correlationId: firstRefreshCorrelationId,
+      keyReference: envelope.keyReference,
+    });
+    await expect(
+      completeAuthorizedDataRetention(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: firstRefreshCorrelationId,
+        lifecycleClaim: firstGuard,
+      }),
+    ).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...firstGuard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+    await expect(
+      withTenant(db, owner.workspace.id, (transaction) =>
+        transaction.channel.findUniqueOrThrow({ where: { id: channel.id } }),
+      ),
+    ).resolves.toMatchObject({
+      externalAccountId: "UC_D6_RETENTION",
+      displayName: "Exact retained channel",
+      tokenCiphertextReference: refreshedEnvelope.keyReference,
     });
 
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: { authorizedDataExpiresAt: new Date("2026-08-02T00:00:00.000Z") },
+    });
+    await enqueueDueLifecycleOperations(workerDb);
+    const operations = await adminDb.lifecycleOperation.findMany({
+      where: { channelId: channel.id, kind: LifecycleOperationKind.AUTHORIZED_DATA_RETENTION },
+      orderBy: { requestedAt: "asc" },
+    });
+    expect(operations).toHaveLength(2);
+    expect(new Set(operations.map((operation) => operation.dedupeKey)).size).toBe(2);
+    const secondOperation = operations[1];
+    if (!secondOperation) throw new Error("second retention operation was not enqueued");
+    const secondGuard = await forceClaim(secondOperation.id, `retention-b-${randomUUID()}`);
+    const secondMaterial = await readExpiredYouTubeAuthorization(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      expectedAuthorizedDataExpiresAt: secondOperation.deadlineAt,
+      lifecycleClaim: secondGuard,
+    });
+
+    await expect(
+      refreshYouTubeAuthorizedData(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        tokenEnvelopeCiphertext: refreshedEnvelope.ciphertext,
+        tokenCiphertextReference: refreshedEnvelope.keyReference,
+        externalAccountId: secondMaterial.externalAccountId,
+        expectedTokenCiphertextReference: secondMaterial.tokenCiphertextReference,
+        expectedAuthorizedDataExpiresAt: secondOperation.deadlineAt,
+        channelOperationGeneration: secondMaterial.channelOperationGeneration,
+        displayName: "Must not refresh after deadline",
+        now: secondOperation.deadlineAt,
+        correlationId: randomUUID(),
+        lifecycleClaim: secondGuard,
+      }),
+    ).rejects.toThrow("authorized_data_refresh_deadline_exceeded");
+
+    await expect(
+      refreshYouTubeAuthorizedData(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        tokenEnvelopeCiphertext: refreshedEnvelope.ciphertext,
+        tokenCiphertextReference: refreshedEnvelope.keyReference,
+        externalAccountId: "UC_DIFFERENT_CHANNEL",
+        expectedTokenCiphertextReference: secondMaterial.tokenCiphertextReference,
+        expectedAuthorizedDataExpiresAt: secondOperation.deadlineAt,
+        channelOperationGeneration: secondMaterial.channelOperationGeneration,
+        displayName: "Must not replace identity",
+        now: new Date(),
+        correlationId: randomUUID(),
+        lifecycleClaim: secondGuard,
+      }),
+    ).rejects.toThrow("authorized_data_refresh_superseded");
+    const deletionCorrelationId = randomUUID();
+    await recordExpiredAuthorizedDataDeletion(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      correlationId: deletionCorrelationId,
+      expectedTokenCiphertextReference: secondMaterial.tokenCiphertextReference,
+      channelOperationGeneration: secondMaterial.channelOperationGeneration,
+      now: new Date(),
+      lifecycleClaim: secondGuard,
+    });
+    await expect(
+      completeAuthorizedDataRetention(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: deletionCorrelationId,
+        lifecycleClaim: secondGuard,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      adminDb.auditEvent.findFirst({
+        where: {
+          workspaceId: owner.workspace.id,
+          action: "data.retention_deleted",
+          targetId: channel.id,
+          correlationId: deletionCorrelationId,
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...secondGuard,
+        state: LifecycleOperationState.RETRY,
+        failureCategory: "lifecycle_cleanup_pending",
+        retryAfterSeconds: 60,
+      }),
+    ).resolves.toBe(true);
+    const retirementOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: deletionCorrelationId,
+      },
+      select: { id: true },
+    });
+    const deferredUnrelatedOperations = await adminDb.lifecycleOperation.findMany({
+      where: {
+        id: { notIn: [secondOperation.id, retirementOperation.id] },
+        state: { in: [LifecycleOperationState.PENDING, LifecycleOperationState.RETRY] },
+        nextAttemptAt: { lte: new Date() },
+      },
+      select: { id: true, nextAttemptAt: true },
+    });
+    await adminDb.lifecycleOperation.updateMany({
+      where: { id: { in: deferredUnrelatedOperations.map((operation) => operation.id) } },
+      data: { nextAttemptAt: new Date(Date.now() + 5 * 60_000) },
+    });
+    const retirementWorkerId = `retention-child-${randomUUID()}`;
+    const retirementClaim = await claimLifecycleOperation(workerDb, retirementWorkerId);
+    await Promise.all(
+      deferredUnrelatedOperations.map((operation) =>
+        adminDb.lifecycleOperation.update({
+          where: { id: operation.id },
+          data: { nextAttemptAt: operation.nextAttemptAt },
+        }),
+      ),
+    );
+    expect(retirementClaim).toMatchObject({
+      kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      correlationId: deletionCorrelationId,
+    });
+    if (!retirementClaim) throw new Error("token retirement child was not claimable");
+    await vault.destroy(refreshedEnvelope.keyReference);
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        operationId: retirementClaim.id,
+        workerId: retirementWorkerId,
+        claimGeneration: retirementClaim.claimGeneration,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(true);
+    const resumedGuard = await forceClaim(secondOperation.id, `retention-resume-${randomUUID()}`);
+    await expect(
+      completeAuthorizedDataRetention(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: deletionCorrelationId,
+        lifecycleClaim: resumedGuard,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      adminDb.auditEvent.findFirst({
+        where: {
+          workspaceId: owner.workspace.id,
+          action: "data.retention_deleted",
+          targetId: channel.id,
+          correlationId: deletionCorrelationId,
+        },
+      }),
+    ).resolves.toMatchObject({ result: "success" });
+    await finishLifecycleOperation(workerDb, {
+      ...resumedGuard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+    await expect(
+      withTenant(db, owner.workspace.id, (transaction) =>
+        transaction.channel.findUniqueOrThrow({ where: { id: channel.id } }),
+      ),
+    ).resolves.toMatchObject({
+      state: "REAUTHORIZATION_REQUIRED",
+      externalAccountId: null,
+      tokenEnvelopeCiphertext: null,
+      tokenCiphertextReference: null,
+    });
+  });
+
+  it("never schedules an Authorized Data retry beyond its expiry deadline", async () => {
+    const owner = await fixture("retention-retry-deadline");
+    const { channel } = await connectedChannel(owner, "UC_D6_RETENTION_RETRY");
+    const expiry = new Date(Date.now() + 30_000);
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: { authorizedDataExpiresAt: expiry },
+    });
+    await enqueueDueLifecycleOperations(workerDb);
+    const operation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        channelId: channel.id,
+        kind: LifecycleOperationKind.AUTHORIZED_DATA_RETENTION,
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+    const guard = await forceClaim(operation.id, `retention-retry-${randomUUID()}`);
+
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...guard,
+        state: LifecycleOperationState.RETRY,
+        retryAfterSeconds: 900,
+      }),
+    ).resolves.toBe(true);
+    const retried = await adminDb.lifecycleOperation.findUniqueOrThrow({
+      where: { id: operation.id },
+      select: { state: true, nextAttemptAt: true, deadlineAt: true },
+    });
+    expect(retried.state).toBe(LifecycleOperationState.RETRY);
+    expect(retried.nextAttemptAt.getTime()).toBeLessThanOrEqual(retried.deadlineAt.getTime());
+  });
+
+  it("deletes Workspace data only through the claimed worker operation", async () => {
+    const owner = await fixture("workspace-delete-owner");
+    const { channel, envelope } = await connectedChannel(owner, "UC_D6_WORKSPACE_DELETE");
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: randomUUID(),
+        operationLeaseUntil: new Date(Date.now() + 120_000),
+        operationLeaseGeneration: channel.operationGeneration,
+      },
+    });
+    const outsider = await upsertIdentityUser(db, {
+      subject: `d6-workspace-delete-outsider-${randomUUID()}`,
+      email: `d6-workspace-delete-outsider-${randomUUID()}@example.test`,
+      name: "Workspace deletion outsider",
+      locale: "en",
+    });
+    await adminDb.user.update({
+      where: { id: outsider.id },
+      data: { lastWorkspaceId: owner.workspace.id },
+    });
     await expect(
       beginWorkspaceDataDeletion(db, {
         workspaceId: owner.workspace.id,
@@ -321,92 +763,641 @@ describe("D6 trust lifecycle", () => {
         correlationId: randomUUID(),
       }),
     ).rejects.toThrow("workspace_confirmation_mismatch");
-
-    await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.update({
-        where: { id: channel.id },
-        data: {
-          operationLeaseId: randomUUID(),
-          operationLeaseUntil: new Date("2026-08-22T02:10:00.000Z"),
-        },
-      }),
-    );
+    const deletionCorrelationId = randomUUID();
     const deletion = await beginWorkspaceDataDeletion(db, {
       workspaceId: owner.workspace.id,
       actorUserId: owner.user.id,
       confirmedWorkspaceName: owner.workspace.name,
-      correlationId: randomUUID(),
-      now: new Date("2026-08-22T02:00:00.000Z"),
+      correlationId: deletionCorrelationId,
     });
-    expect(deletion.objectKeys).toContain(objectKey);
-    expect(deletion.channels).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: channel.id })]),
-    );
     expect(deletion.operationsInFlight).toBe(true);
+    const request = await adminDb.dataDeletionRequest.findUniqueOrThrow({
+      where: { id: deletion.requestId },
+    });
+    await expect(
+      readWorkspaceDataDeletionStatus(db, {
+        requestReference: deletion.requestReference,
+        viewerUserId: owner.user.id,
+      }),
+    ).resolves.toMatchObject({ state: "processing" });
+    await expect(
+      readWorkspaceDataDeletionStatus(db, {
+        requestReference: deletion.requestReference,
+        viewerUserId: outsider.id,
+      }),
+    ).resolves.toBeNull();
+    if (!request.lifecycleOperationId) throw new Error("deletion operation was not linked");
+    const guard = await forceClaim(
+      request.lifecycleOperationId,
+      `workspace-delete-${randomUUID()}`,
+    );
+
     await expect(
       completeWorkspaceDataDeletion(db, {
         workspaceId: owner.workspace.id,
         requestId: deletion.requestId,
         actorUserId: owner.user.id,
-        correlationId: randomUUID(),
-        now: new Date("2026-08-22T02:00:00.000Z"),
+        correlationId: deletionCorrelationId,
+        lifecycleClaim: guard,
+      }),
+    ).rejects.toThrow("lifecycle_claim_lost");
+    const material = await readWorkspaceDataDeletionMaterial(workerDb, {
+      workspaceId: owner.workspace.id,
+      lifecycleOperationId: request.lifecycleOperationId,
+      lifecycleClaim: guard,
+    });
+    expect(material.requestReference).toBe(deletion.requestReference);
+    expect(material.operationsInFlight).toBe(true);
+    await expect(
+      completeWorkspaceDataDeletion(workerDb, {
+        workspaceId: owner.workspace.id,
+        requestId: deletion.requestId,
+        actorUserId: owner.user.id,
+        correlationId: deletionCorrelationId,
+        pendingObjectKeys: [],
+        lifecycleClaim: guard,
       }),
     ).rejects.toThrow("workspace_operations_in_flight");
-
-    await failWorkspaceDataDeletion(db, {
-      workspaceId: owner.workspace.id,
-      requestId: deletion.requestId,
-      actorUserId: owner.user.id,
-      correlationId: randomUUID(),
-      failureCategory: "service_unavailable",
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: null,
+        operationLeaseUntil: null,
+        operationLeaseGeneration: null,
+      },
     });
-    await withTenant(db, owner.workspace.id, (transaction) =>
-      transaction.channel.update({
-        where: { id: channel.id },
-        data: { operationLeaseId: null, operationLeaseUntil: null },
+    await expect(
+      completeWorkspaceDataDeletion(workerDb, {
+        workspaceId: owner.workspace.id,
+        requestId: deletion.requestId,
+        actorUserId: owner.user.id,
+        correlationId: deletionCorrelationId,
+        pendingObjectKeys: [],
+        lifecycleClaim: guard,
       }),
-    );
-    await expect(listUserWorkspaces(db, owner.user.id)).resolves.toHaveLength(1);
-    const retry = await beginWorkspaceDataDeletion(db, {
-      workspaceId: owner.workspace.id,
-      actorUserId: owner.user.id,
-      confirmedWorkspaceName: owner.workspace.name,
-      correlationId: randomUUID(),
+    ).resolves.toBe(false);
+    const parentOperation = await adminDb.lifecycleOperation.findUniqueOrThrow({
+      where: { id: request.lifecycleOperationId },
+      select: { deadlineAt: true },
     });
-    expect(retry.requestReference).toBe(deletion.requestReference);
-    expect(retry.operationsInFlight).toBe(false);
-
-    await completeWorkspaceDataDeletion(db, {
+    const retirementOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        channelId: channel.id,
+        correlationId: deletionCorrelationId,
+      },
+      select: { deadlineAt: true },
+    });
+    expect(retirementOperation.deadlineAt).toEqual(parentOperation.deadlineAt);
+    await completeTokenKeyRetirement({
       workspaceId: owner.workspace.id,
-      requestId: retry.requestId,
-      actorUserId: owner.user.id,
-      correlationId: randomUUID(),
-      now: new Date("2026-08-22T02:10:00.000Z"),
+      channelId: channel.id,
+      correlationId: deletionCorrelationId,
+      keyReference: envelope.keyReference,
+    });
+    await expect(
+      completeWorkspaceDataDeletion(workerDb, {
+        workspaceId: owner.workspace.id,
+        requestId: deletion.requestId,
+        actorUserId: owner.user.id,
+        correlationId: deletionCorrelationId,
+        pendingObjectKeys: [],
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.COMPLETED,
     });
     await expect(listUserWorkspaces(db, owner.user.id)).resolves.toEqual([]);
-    const ledger = await adminDb.dataDeletionRequest.findUniqueOrThrow({
-      where: { id: retry.requestId },
+    await expect(
+      readWorkspaceDataDeletionStatus(db, {
+        requestReference: deletion.requestReference,
+        viewerUserId: owner.user.id,
+      }),
+    ).resolves.toMatchObject({ state: "completed", failureCategory: null });
+    await expect(
+      adminDb.dataDeletionRequest.findUniqueOrThrow({ where: { id: deletion.requestId } }),
+    ).resolves.toMatchObject({ state: "COMPLETED", pendingObjectKeys: [] });
+    await expect(
+      failWorkspaceDataDeletion(workerDb, {
+        workspaceId: owner.workspace.id,
+        requestId: deletion.requestId,
+        correlationId: randomUUID(),
+        failureCategory: "stale_worker",
+        lifecycleClaim: guard,
+      }),
+    ).rejects.toThrow("lifecycle_claim_lost");
+  });
+
+  it("serializes account deletion against the successor Owner leaving", async () => {
+    const owner = await fixture("account-delete-owner-race");
+    const successor = await upsertIdentityUser(db, {
+      subject: `d6-account-successor-race-${randomUUID()}`,
+      email: `d6-account-successor-race-${randomUUID()}@example.test`,
+      name: "Account deletion successor race",
+      locale: "en",
     });
-    expect(ledger).toMatchObject({
-      requestReference: deletion.requestReference,
-      state: "COMPLETED",
-      requestedByUserId: null,
-      failureCategory: null,
+    const successorMembership = await adminDb.membership.create({
+      data: {
+        workspaceId: owner.workspace.id,
+        userId: successor.id,
+        role: "OWNER_ADMIN",
+        status: "ACTIVE",
+      },
+    });
+
+    const [deletionResult, removalResult] = await Promise.allSettled([
+      requestAccountDeletion(db, {
+        userId: owner.user.id,
+        confirmedEmail: owner.email,
+        correlationId: randomUUID(),
+      }),
+      removeMember(db, {
+        workspaceId: owner.workspace.id,
+        actorUserId: successor.id,
+        membershipId: successorMembership.id,
+        correlationId: randomUUID(),
+      }),
+    ]);
+
+    expect(
+      [deletionResult, removalResult].filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    const [ownerState, successorState] = await Promise.all([
+      adminDb.user.findUniqueOrThrow({
+        where: { id: owner.user.id },
+        select: { lifecycleState: true },
+      }),
+      adminDb.membership.findUniqueOrThrow({
+        where: { id: successorMembership.id },
+        select: { status: true },
+      }),
+    ]);
+    if (deletionResult.status === "fulfilled") {
+      expect(removalResult).toMatchObject({
+        status: "rejected",
+        reason: expect.objectContaining({ message: "last_owner" }),
+      });
+      expect(ownerState.lifecycleState).toBe("deletion_pending");
+      expect(successorState.status).toBe("ACTIVE");
+    } else {
+      expect(deletionResult.reason).toMatchObject({
+        message: expect.stringContaining("owner transfer or workspace deletion"),
+      });
+      expect(removalResult.status).toBe("fulfilled");
+      expect(ownerState.lifecycleState).toBe("active");
+      expect(successorState.status).toBe("REMOVED");
+    }
+  });
+
+  it("disconnects channels authorized by a deleted account before removing its identity", async () => {
+    const owner = await fixture("account-authorized-data-cleanup");
+    const successor = await upsertIdentityUser(db, {
+      subject: `d6-account-channel-successor-${randomUUID()}`,
+      email: `d6-account-channel-successor-${randomUUID()}@example.test`,
+      name: "Account channel cleanup successor",
+      locale: "en",
+    });
+    await adminDb.membership.create({
+      data: {
+        workspaceId: owner.workspace.id,
+        userId: successor.id,
+        role: "OWNER_ADMIN",
+        status: "ACTIVE",
+      },
+    });
+    const connected = await connectedChannel(owner, `account-delete-channel-${randomUUID()}`);
+    const accountCorrelationId = randomUUID();
+    const requested = await requestAccountDeletion(db, {
+      userId: owner.user.id,
+      confirmedEmail: owner.email,
+      correlationId: accountCorrelationId,
+    });
+    const guard = await forceClaim(requested.operationId, `account-channel-${randomUUID()}`);
+    const accountOperation = await adminDb.lifecycleOperation.findUniqueOrThrow({
+      where: { id: requested.operationId },
+      select: { deadlineAt: true },
+    });
+
+    await expect(listAccountAuthorizedChannelsForDeletion(db, guard)).rejects.toThrow(
+      /permission denied/u,
+    );
+    const channels = await listAccountAuthorizedChannelsForDeletion(workerDb, guard);
+    expect(channels).toEqual([
+      {
+        userId: owner.user.id,
+        workspaceId: owner.workspace.id,
+        channelId: connected.channel.id,
+      },
+    ]);
+    await prepareYouTubeDisconnect(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: connected.channel.id,
+      actorUserId: owner.user.id,
+      correlationId: accountCorrelationId,
+      deadlineAt: accountOperation.deadlineAt,
+    });
+    await expect(accountAuthorizedDataDeletionPending(workerDb, guard)).resolves.toBe(true);
+    await expect(adminDb.membership.count({ where: { userId: owner.user.id } })).resolves.toBe(1);
+
+    const disconnectOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        workspaceId: owner.workspace.id,
+        channelId: connected.channel.id,
+        kind: LifecycleOperationKind.CHANNEL_DISCONNECT,
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+    const disconnectGuard = await forceClaim(
+      disconnectOperation.id,
+      `account-channel-disconnect-${randomUUID()}`,
+    );
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: connected.channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectOperation.correlationId,
+        lifecycleClaim: disconnectGuard,
+      }),
+    ).resolves.toBe(false);
+    const retirementOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        channelId: connected.channel.id,
+        correlationId: disconnectOperation.correlationId,
+      },
+      select: { deadlineAt: true },
+    });
+    expect(retirementOperation.deadlineAt).toEqual(accountOperation.deadlineAt);
+    await completeTokenKeyRetirement({
+      workspaceId: owner.workspace.id,
+      channelId: connected.channel.id,
+      correlationId: disconnectOperation.correlationId,
+      keyReference: connected.envelope.keyReference,
+    });
+    await expect(accountAuthorizedDataDeletionPending(workerDb, guard)).resolves.toBe(true);
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: connected.channel.id,
+        actorUserId: owner.user.id,
+        correlationId: disconnectOperation.correlationId,
+        lifecycleClaim: disconnectGuard,
+      }),
+    ).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...disconnectGuard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+
+    await expect(accountAuthorizedDataDeletionPending(workerDb, guard)).resolves.toBe(false);
+    await expect(
+      adminDb.channel.findUniqueOrThrow({ where: { id: connected.channel.id } }),
+    ).resolves.toMatchObject({
+      state: "DISCONNECTED",
+      consentRecordId: null,
+      tokenEnvelopeCiphertext: null,
+      tokenCiphertextReference: null,
+    });
+    await expect(prepareAccountIdentityDeletion(workerDb, guard)).resolves.toMatchObject({
+      userId: owner.user.id,
+    });
+    await expect(adminDb.membership.count({ where: { userId: owner.user.id } })).resolves.toBe(0);
+    await expect(completeAccountDeletion(workerDb, guard)).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+  });
+
+  it("blocks last-owner account deletion and pseudonymizes an approved account request", async () => {
+    const owner = await fixture("account-delete-owner");
+    await expect(
+      requestAccountDeletion(db, {
+        userId: owner.user.id,
+        confirmedEmail: owner.email,
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toThrow("account deletion requires owner transfer or workspace deletion");
+
+    const successor = await upsertIdentityUser(db, {
+      subject: `d6-account-successor-${randomUUID()}`,
+      email: `d6-account-successor-${randomUUID()}@example.test`,
+      name: "Account deletion successor",
+      locale: "en",
+    });
+    const successorMembership = await adminDb.membership.create({
+      data: {
+        workspaceId: owner.workspace.id,
+        userId: successor.id,
+        role: "OWNER_ADMIN",
+        status: "ACTIVE",
+      },
     });
     await expect(
-      adminDb.membership.count({ where: { workspaceId: owner.workspace.id } }),
-    ).resolves.toBe(0);
-    const workspace = await adminDb.workspace.findUniqueOrThrow({
-      where: { id: owner.workspace.id },
+      requestAccountDeletion(db, {
+        userId: owner.user.id,
+        confirmedEmail: "wrong@example.test",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toThrow("account deletion confirmation mismatch");
+
+    const requested = await requestAccountDeletion(db, {
+      userId: owner.user.id,
+      confirmedEmail: owner.email,
+      correlationId: randomUUID(),
     });
-    expect(workspace.lifecycleState).toBe("DELETED");
+    await expect(adminDb.session.count({ where: { userId: owner.user.id } })).resolves.toBe(0);
     await expect(
-      adminDb.auditEvent.findMany({
-        where: { workspaceId: owner.workspace.id },
-        select: { action: true, actorUserId: true },
+      changeMemberRole(db, {
+        workspaceId: owner.workspace.id,
+        actorUserId: successor.id,
+        membershipId: successorMembership.id,
+        role: "editor",
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toThrow("last_owner");
+    await expect(
+      removeMember(db, {
+        workspaceId: owner.workspace.id,
+        actorUserId: successor.id,
+        membershipId: successorMembership.id,
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toThrow("last_owner");
+    const guard = await forceClaim(requested.operationId, `account-delete-${randomUUID()}`);
+    await expect(
+      prepareAccountIdentityDeletion(db, {
+        operationId: requested.operationId,
+        workerId: guard.workerId,
+        claimGeneration: guard.claimGeneration,
+      }),
+    ).rejects.toThrow(/permission denied/u);
+    await adminDb.membership.delete({
+      where: { workspaceId_userId: { workspaceId: owner.workspace.id, userId: successor.id } },
+    });
+    await expect(
+      prepareAccountIdentityDeletion(workerDb, {
+        operationId: requested.operationId,
+        workerId: guard.workerId,
+        claimGeneration: guard.claimGeneration,
+      }),
+    ).rejects.toThrow("account deletion requires owner transfer or workspace deletion");
+    await expect(adminDb.membership.count({ where: { userId: owner.user.id } })).resolves.toBe(1);
+    await adminDb.membership.create({
+      data: {
+        workspaceId: owner.workspace.id,
+        userId: successor.id,
+        role: "OWNER_ADMIN",
+        status: "ACTIVE",
+      },
+    });
+    const material = await prepareAccountIdentityDeletion(workerDb, {
+      operationId: requested.operationId,
+      workerId: guard.workerId,
+      claimGeneration: guard.claimGeneration,
+    });
+    expect(material).toMatchObject({ userId: owner.user.id, email: owner.email });
+    await expect(adminDb.membership.count({ where: { userId: owner.user.id } })).resolves.toBe(0);
+    await expect(
+      completeAccountDeletion(workerDb, {
+        operationId: requested.operationId,
+        workerId: guard.workerId,
+        claimGeneration: guard.claimGeneration,
+      }),
+    ).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+    await expect(
+      adminDb.user.findUniqueOrThrow({ where: { id: owner.user.id } }),
+    ).resolves.toMatchObject({
+      lifecycleState: "deleted",
+      name: "Deleted user",
+      lastWorkspaceId: null,
+    });
+    await expect(adminDb.membership.count({ where: { userId: owner.user.id } })).resolves.toBe(0);
+    const operation = await adminDb.lifecycleOperation.findUniqueOrThrow({
+      where: { id: requested.operationId },
+    });
+    const audit = await adminDb.accountAuditEvent.findMany({
+      where: { correlationId: operation.correlationId },
+      select: { action: true },
+      orderBy: { occurredAt: "asc" },
+    });
+    expect(audit.map((event) => event.action)).toEqual([
+      "account.deletion_requested",
+      "account.deletion_completed",
+    ]);
+    await expect(
+      completeAccountDeletion(workerDb, {
+        operationId: requested.operationId,
+        workerId: guard.workerId,
+        claimGeneration: guard.claimGeneration,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("allows only one worker claim generation and rejects stale completion", async () => {
+    const operation = await adminDb.lifecycleOperation.create({
+      data: {
+        kind: LifecycleOperationKind.RETENTION_PURGE,
+        dedupeKey: `claim-race-${randomUUID()}`,
+        requestReference: `RACE-${randomUUID().slice(0, 12)}`,
+        correlationId: randomUUID(),
+        requestedAt: new Date("1900-01-01T00:00:00.000Z"),
+        deadlineAt: new Date("2100-01-01T00:00:00.000Z"),
+        nextAttemptAt: new Date("1900-01-01T00:00:00.000Z"),
+        retentionExpiresAt: new Date("2100-01-01T00:00:00.000Z"),
+      },
+    });
+    const claimants = [`claim-a-${randomUUID()}`, `claim-b-${randomUUID()}`];
+    const claims = await Promise.all(
+      claimants.map(async (workerId) => ({
+        workerId,
+        claim: await claimLifecycleOperation(workerDb, workerId),
+      })),
+    );
+    const targetClaims = claims.filter((entry) => entry.claim?.id === operation.id);
+    expect(targetClaims).toHaveLength(1);
+    const first = targetClaims[0];
+    if (!first?.claim) throw new Error("race operation was not claimed");
+    for (const unrelated of claims.filter(
+      (entry) => entry.claim && entry.claim.id !== operation.id,
+    )) {
+      if (!unrelated.claim) continue;
+      await finishLifecycleOperation(workerDb, {
+        operationId: unrelated.claim.id,
+        workerId: unrelated.workerId,
+        claimGeneration: unrelated.claim.claimGeneration,
+        state: LifecycleOperationState.RETRY,
+        retryAfterSeconds: 3600,
+      }).catch(() => undefined);
+    }
+    await expect(
+      recordLifecycleStep(workerDb, {
+        operationId: first.claim.id,
+        workerId: "wrong-worker",
+        claimGeneration: first.claim.claimGeneration,
+        name: "purge",
+        ordinal: 10,
+        state: LifecycleStepState.COMPLETED,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      renewLifecycleOperationClaim(workerDb, {
+        operationId: first.claim.id,
+        workerId: first.workerId,
+        claimGeneration: first.claim.claimGeneration,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      lifecycleOperationDeadlineExceeded(workerDb, {
+        operationId: first.claim.id,
+        workerId: first.workerId,
+        claimGeneration: first.claim.claimGeneration,
+      }),
+    ).resolves.toBe(false);
+    await adminDb.lifecycleOperation.update({
+      where: { id: operation.id },
+      data: { deadlineAt: new Date("1900-01-01T00:00:00.000Z") },
+    });
+    await expect(
+      lifecycleOperationDeadlineExceeded(workerDb, {
+        operationId: first.claim.id,
+        workerId: first.workerId,
+        claimGeneration: first.claim.claimGeneration,
+      }),
+    ).resolves.toBe(true);
+    await adminDb.lifecycleOperation.update({
+      where: { id: operation.id },
+      data: { claimedUntil: new Date("1900-01-01T00:00:00.000Z") },
+    });
+    const reclaimWorker = `claim-c-${randomUUID()}`;
+    const reclaimed = await claimLifecycleOperation(workerDb, reclaimWorker);
+    expect(reclaimed?.id).toBe(operation.id);
+    if (!reclaimed) throw new Error("expired operation was not reclaimed");
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        operationId: first.claim.id,
+        workerId: first.workerId,
+        claimGeneration: first.claim.claimGeneration,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        operationId: reclaimed.id,
+        workerId: reclaimWorker,
+        claimGeneration: reclaimed.claimGeneration,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("purges terminated invitations within seven days without deleting active consent evidence", async () => {
+    const owner = await fixture("retention-purge");
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const invitation = async (
+      label: string,
+      status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED",
+      expiresAt: Date,
+      updatedAt: Date,
+    ) =>
+      adminDb.invitation.create({
+        data: {
+          workspaceId: owner.workspace.id,
+          email: `${label}-${randomUUID()}@example.test`,
+          tokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+          role: "VIEWER",
+          status,
+          invitedByUserId: owner.user.id,
+          expiresAt,
+          updatedAt,
+        },
+      });
+
+    const [acceptedOld, revokedOld, expiredOld, pendingExpiredOld] = await Promise.all([
+      invitation("accepted-old", "ACCEPTED", future, eightDaysAgo),
+      invitation("revoked-old", "REVOKED", future, eightDaysAgo),
+      invitation("expired-old", "EXPIRED", eightDaysAgo, eightDaysAgo),
+      invitation("pending-expired-old", "PENDING", eightDaysAgo, sixDaysAgo),
+    ]);
+    const [acceptedRecent, pendingExpiredRecent, pendingActive] = await Promise.all([
+      invitation("accepted-recent", "ACCEPTED", future, sixDaysAgo),
+      invitation("pending-expired-recent", "PENDING", sixDaysAgo, sixDaysAgo),
+      invitation("pending-active", "PENDING", future, eightDaysAgo),
+    ]);
+    await adminDb.consentRecord.update({
+      where: { id: owner.consent.id },
+      data: { acceptedAt: new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) },
+    });
+
+    const result = await purgeExpiredLifecycleRecords(workerDb);
+
+    expect(result).toMatchObject({ invitations: 4 });
+    await expect(
+      adminDb.invitation.findMany({
+        where: {
+          id: {
+            in: [
+              acceptedOld.id,
+              revokedOld.id,
+              expiredOld.id,
+              pendingExpiredOld.id,
+              acceptedRecent.id,
+              pendingExpiredRecent.id,
+              pendingActive.id,
+            ],
+          },
+        },
+        select: { id: true },
       }),
     ).resolves.toEqual(
-      expect.arrayContaining([{ action: "data.deletion_completed", actorUserId: null }]),
+      expect.arrayContaining([
+        { id: acceptedRecent.id },
+        { id: pendingExpiredRecent.id },
+        { id: pendingActive.id },
+      ]),
     );
+    await expect(
+      adminDb.consentRecord.findUnique({ where: { id: owner.consent.id } }),
+    ).resolves.not.toBeNull();
+  });
+
+  it("starts the consent evidence period at account deletion", async () => {
+    const expiredOwner = await fixture("expired-consent");
+    const recentOwner = await fixture("recent-consent");
+    await Promise.all([
+      adminDb.user.update({
+        where: { id: expiredOwner.user.id },
+        data: {
+          lifecycleState: "deleted",
+          deletedAt: new Date(Date.now() - 366 * 24 * 60 * 60 * 1000),
+        },
+      }),
+      adminDb.user.update({
+        where: { id: recentOwner.user.id },
+        data: {
+          lifecycleState: "deleted",
+          deletedAt: new Date(Date.now() - 364 * 24 * 60 * 60 * 1000),
+        },
+      }),
+    ]);
+
+    const result = await purgeExpiredLifecycleRecords(workerDb);
+
+    expect(result).toMatchObject({ consent_records: 1 });
+    await expect(
+      adminDb.consentRecord.findUnique({ where: { id: expiredOwner.consent.id } }),
+    ).resolves.toBeNull();
+    await expect(
+      adminDb.consentRecord.findUnique({ where: { id: recentOwner.consent.id } }),
+    ).resolves.not.toBeNull();
   });
 });

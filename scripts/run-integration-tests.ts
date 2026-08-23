@@ -1,3 +1,5 @@
+import { globSync } from "glob";
+
 import {
   deployMigrations,
   migrationEnvironment,
@@ -11,17 +13,26 @@ import {
   stopDisposableObjectStorage,
 } from "./lib/disposable-object-storage.js";
 
-const database = await startDisposablePostgres();
-const storage = await startDisposableObjectStorage();
-try {
-  deployMigrations(database);
-  runChecked("pnpm", ["vitest", "run", "--config", "tests/vitest.integration.config.ts"], {
-    ...migrationEnvironment(database),
-    ...objectStorageEnvironment(storage),
-  });
-} finally {
-  await Promise.all([
-    stopDisposablePostgres(database.name),
-    stopDisposableObjectStorage(storage.name),
-  ]);
+const testFiles = globSync("tests/integration/**/*.test.ts").sort();
+if (testFiles.length === 0) throw new Error("No integration test files were found");
+
+for (const testFile of testFiles) {
+  const database = await startDisposablePostgres();
+  const storage = await startDisposableObjectStorage();
+  try {
+    deployMigrations(database);
+    runChecked(
+      "pnpm",
+      ["vitest", "run", "--config", "tests/vitest.integration.config.ts", testFile],
+      {
+        ...migrationEnvironment(database),
+        ...objectStorageEnvironment(storage),
+      },
+    );
+  } finally {
+    await Promise.all([
+      stopDisposablePostgres(database.name),
+      stopDisposableObjectStorage(storage.name),
+    ]);
+  }
 }

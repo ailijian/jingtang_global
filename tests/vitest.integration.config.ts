@@ -14,6 +14,7 @@ export default defineConfig({
       "@jingtang/integrations": fileURLToPath(
         new URL("../packages/integrations/src/index.ts", import.meta.url),
       ),
+      "@jingtang/i18n": fileURLToPath(new URL("../packages/i18n/src/index.ts", import.meta.url)),
     },
   },
   test: {

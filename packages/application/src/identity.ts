@@ -26,4 +26,5 @@ export interface IdentityProvider {
     readonly code: string;
     readonly newPassword: string;
   }): Promise<void>;
+  deleteAccount(input: { readonly email: string; readonly subject: string }): Promise<void>;
 }

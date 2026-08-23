@@ -46,6 +46,11 @@ export class DeterministicYouTubeTestAdapter implements YouTubeOAuthProvider {
   }
 
   public revokeAuthorization(token: string): Promise<void> {
+    if (this.fault === "timeout") {
+      return Promise.reject(
+        new ApplicationError("service_unavailable", "Controlled revocation timeout", 503),
+      );
+    }
     return this.delegate.revokeAuthorization(token);
   }
 
@@ -57,6 +62,7 @@ export class DeterministicYouTubeTestAdapter implements YouTubeOAuthProvider {
     readonly mediaType: string;
     readonly byteSize: number;
     readonly body: ReadableStream<Uint8Array>;
+    readonly signal?: AbortSignal;
   }): Promise<YouTubeUploadResult> {
     if (this.fault === "timeout") {
       return Promise.reject(
@@ -85,10 +91,14 @@ export class DeterministicYouTubeTestAdapter implements YouTubeOAuthProvider {
     return this.delegate.uploadPrivateVideo(input);
   }
 
-  public readVideoStatus(accessToken: string, videoId: string): Promise<YouTubeVideoStatus> {
+  public readVideoStatus(
+    accessToken: string,
+    videoId: string,
+    signal?: AbortSignal,
+  ): Promise<YouTubeVideoStatus> {
     if (this.fault === "processing_failed" && videoId === controlledVideoId) {
       return Promise.resolve({ state: "failed", failureCategory: "controlled_test_fault" });
     }
-    return this.delegate.readVideoStatus(accessToken, videoId);
+    return this.delegate.readVideoStatus(accessToken, videoId, signal);
   }
 }

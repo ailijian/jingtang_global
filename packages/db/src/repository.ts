@@ -76,6 +76,17 @@ async function lockOwnerInvariant(tx: Transaction, workspaceId: string): Promise
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`;
 }
 
+async function countEligibleOwners(tx: Transaction, workspaceId: string): Promise<number> {
+  return tx.membership.count({
+    where: {
+      workspaceId,
+      role: DbRole.OWNER_ADMIN,
+      status: MembershipStatus.ACTIVE,
+      user: { lifecycleState: "active" },
+    },
+  });
+}
+
 export async function withTenant<T>(
   client: PrismaClient,
   workspaceId: string,
@@ -224,7 +235,12 @@ export async function beginYouTubeConnection(
     const current = await transaction.channel.findFirst({
       where: { workspaceId: input.workspaceId, platform: "youtube" },
       orderBy: { updatedAt: "desc" },
-      select: { id: true, state: true },
+      select: {
+        id: true,
+        state: true,
+        tokenEnvelopeCiphertext: true,
+        tokenCiphertextReference: true,
+      },
     });
     if (
       current &&
@@ -238,6 +254,9 @@ export async function beginYouTubeConnection(
           : "channel_already_connected",
       );
     }
+    if (current?.tokenEnvelopeCiphertext || current?.tokenCiphertextReference) {
+      throw new Error("channel_authorized_data_cleanup_required");
+    }
     const channel = current
       ? await transaction.channel.update({
           where: { id: current.id },
@@ -245,7 +264,6 @@ export async function beginYouTubeConnection(
             state: ChannelState.CONNECTING,
             consentRecordId: input.consentRecordId,
             deniedAt: null,
-            tokenEnvelopeCiphertext: null,
             grantedScopes: [],
           },
           select: { id: true },
@@ -283,6 +301,7 @@ export async function completeYouTubeConnection(
     readonly displayName: string;
     readonly grantedScopes: readonly string[];
     readonly tokenEnvelopeCiphertext: string;
+    readonly tokenCiphertextReference: string;
     readonly correlationId: string;
   },
 ): Promise<void> {
@@ -294,6 +313,8 @@ export async function completeYouTubeConnection(
         workspaceId: input.workspaceId,
         platform: "youtube",
         state: ChannelState.CONNECTING,
+        tokenEnvelopeCiphertext: null,
+        tokenCiphertextReference: null,
       },
       data: {
         externalAccountId: input.externalAccountId,
@@ -301,7 +322,7 @@ export async function completeYouTubeConnection(
         state: ChannelState.CONNECTED,
         grantedScopes: [...input.grantedScopes],
         tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
-        tokenCiphertextReference: null,
+        tokenCiphertextReference: input.tokenCiphertextReference,
         authorizedAt: now,
         refreshedAt: now,
         authorizedDataExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
@@ -368,9 +389,16 @@ export async function createSession(
 ): Promise<{ readonly id: string; readonly token: string; readonly expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + (input.lifetimeSeconds ?? 60 * 60 * 8) * 1000);
-  const session = await client.session.create({
-    data: { userId: input.userId, tokenHash: sessionHash(token, input.secret), expiresAt },
-    select: { id: true },
+  const session = await client.$transaction(async (transaction) => {
+    const user = await transaction.user.findUnique({
+      where: { id: input.userId },
+      select: { lifecycleState: true },
+    });
+    if (user?.lifecycleState !== "active") throw new Error("account_inactive");
+    return transaction.session.create({
+      data: { userId: input.userId, tokenHash: sessionHash(token, input.secret), expiresAt },
+      select: { id: true },
+    });
   });
   return { id: session.id, token, expiresAt };
 }
@@ -384,7 +412,8 @@ export async function readSession(
     where: { tokenHash: sessionHash(token, secret) },
     include: { user: true },
   });
-  if (!session || session.expiresAt <= new Date()) return null;
+  if (!session || session.expiresAt <= new Date() || session.user.lifecycleState !== "active")
+    return null;
   return {
     id: session.id,
     user: {
@@ -429,6 +458,8 @@ export async function createWorkspace(
 ): Promise<{ readonly id: string }> {
   const workspaceId = randomUUID();
   return withTenant(client, workspaceId, async (transaction) => {
+    await setUserContext(transaction, input.userId);
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.userId}, 8))`;
     const workspace = await transaction.workspace.create({
       data: { id: workspaceId, name: input.name.trim(), createdByUserId: input.userId },
       select: { id: true },
@@ -523,6 +554,11 @@ export async function getMembershipRole(
   userId: string,
 ): Promise<Role | undefined> {
   const membership = await withTenant(client, workspaceId, async (transaction) => {
+    const user = await transaction.user.findUnique({
+      where: { id: userId },
+      select: { lifecycleState: true },
+    });
+    if (user?.lifecycleState !== "active") return null;
     const workspace = await transaction.workspace.findUnique({
       where: { id: workspaceId },
       select: { lifecycleState: true },
@@ -750,13 +786,7 @@ export async function changeMemberRole(
     }
     if (membership.role === DbRole.OWNER_ADMIN && input.role !== "owner_admin") {
       await lockOwnerInvariant(transaction, input.workspaceId);
-      const ownerCount = await transaction.membership.count({
-        where: {
-          workspaceId: input.workspaceId,
-          role: DbRole.OWNER_ADMIN,
-          status: MembershipStatus.ACTIVE,
-        },
-      });
+      const ownerCount = await countEligibleOwners(transaction, input.workspaceId);
       if (ownerCount <= 1) throw new Error("last_owner");
     }
     await transaction.membership.update({
@@ -798,13 +828,7 @@ export async function removeMember(
     }
     if (membership.role === DbRole.OWNER_ADMIN) {
       await lockOwnerInvariant(transaction, input.workspaceId);
-      const ownerCount = await transaction.membership.count({
-        where: {
-          workspaceId: input.workspaceId,
-          role: DbRole.OWNER_ADMIN,
-          status: MembershipStatus.ACTIVE,
-        },
-      });
+      const ownerCount = await countEligibleOwners(transaction, input.workspaceId);
       if (ownerCount <= 1) throw new Error("last_owner");
     }
     await transaction.membership.update({
@@ -828,7 +852,7 @@ export async function removeMember(
     });
     await transaction.user.updateMany({
       where: { id: membership.userId, lastWorkspaceId: input.workspaceId },
-      data: { lastWorkspaceId: fallbackWorkspaceId },
+      data: { lastWorkspaceId: fallbackWorkspaceId ?? input.workspaceId },
     });
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
@@ -886,4 +910,55 @@ export async function recordAudit(
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, (transaction) => appendAudit(transaction, input));
+}
+
+export async function recordUserScopedAudit(
+  client: PrismaClient,
+  input: {
+    readonly userId: string;
+    readonly currentWorkspaceId?: string | null;
+    readonly action: Extract<AuditAction, "identity.login" | "identity.logout" | "locale.changed">;
+    readonly targetType: "session" | "user";
+    readonly targetId: string;
+    readonly result: AuditResult;
+    readonly correlationId: string;
+    readonly metadata?: Prisma.InputJsonObject;
+  },
+): Promise<void> {
+  await client.$transaction(async (transaction) => {
+    await setUserContext(transaction, input.userId);
+    await transaction.$executeRaw`
+      SELECT record_account_audit_event(
+        ${input.userId}::uuid,
+        ${input.action},
+        ${input.targetType},
+        ${input.targetId},
+        ${input.result},
+        ${input.correlationId}::uuid,
+        ${JSON.stringify(input.metadata ?? {})}::jsonb
+      )
+    `;
+  });
+}
+
+export async function recordAuthorizationDenied(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly userId: string;
+    readonly permission: string;
+    readonly reason: string;
+    readonly correlationId: string;
+  },
+): Promise<void> {
+  await recordAudit(client, {
+    workspaceId: input.workspaceId,
+    actorUserId: input.userId,
+    action: "authorization.denied",
+    targetType: "permission",
+    targetId: input.permission,
+    result: "denied",
+    correlationId: input.correlationId,
+    metadata: { permission: input.permission, reason: input.reason },
+  });
 }

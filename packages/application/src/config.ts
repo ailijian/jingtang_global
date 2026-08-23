@@ -33,6 +33,7 @@ const schema = z
     APP_BASE_URL: z.url(),
     DATABASE_URL: z.string().min(1),
     DATABASE_ADMIN_URL: z.string().min(1).optional(),
+    DATABASE_WORKER_URL: z.string().min(1).optional(),
     IDENTITY_PROVIDER: z.enum(["mock", "cognito", "ciam"]),
     ALLOW_TEST_IDENTITY: booleanString,
     LOCAL_IDENTITY_STORE_PATH: z.preprocess(
@@ -58,6 +59,12 @@ const schema = z
     OBJECT_STORAGE_FORCE_PATH_STYLE: booleanString,
     OBJECT_STORAGE_AUTO_CREATE_BUCKET: booleanString,
     OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION: booleanString,
+    OBJECT_STORAGE_REQUEST_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(15 * 60_000)
+      .default(120_000),
     MAX_SOURCE_ASSET_BYTES: z.coerce
       .number()
       .int()
@@ -73,6 +80,10 @@ const schema = z
       .default("none"),
     OAUTH_TOKEN_VAULT_PROVIDER: z.enum(["local", "tencent_kms"]).default("local"),
     OAUTH_TOKEN_ENCRYPTION_KEY: optionalEncryptionKey,
+    LOCAL_TOKEN_KEY_STORE_PATH: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.string().min(1).optional(),
+    ),
   })
   .superRefine((value, context) => {
     if (value.IDENTITY_PROVIDER === "cognito") {
@@ -176,6 +187,13 @@ const schema = z
           code: "custom",
           path: ["OAUTH_TOKEN_ENCRYPTION_KEY"],
           message: "Required for the local OAuth token vault",
+        });
+      }
+      if (value.OAUTH_TOKEN_VAULT_PROVIDER === "local" && !value.LOCAL_TOKEN_KEY_STORE_PATH) {
+        context.addIssue({
+          code: "custom",
+          path: ["LOCAL_TOKEN_KEY_STORE_PATH"],
+          message: "Required so the platform and worker share the local envelope-key store",
         });
       }
       if (

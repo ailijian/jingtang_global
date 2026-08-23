@@ -73,6 +73,7 @@ describe("environment isolation", () => {
         YOUTUBE_OAUTH_CLIENT_SECRET: "test-client-secret",
         YOUTUBE_OAUTH_STATE_SECRET: "a-separate-state-secret-with-32-characters",
         OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        LOCAL_TOKEN_KEY_STORE_PATH: "/tmp/jingtang-test-oauth-token-keys.json",
       }).YOUTUBE_OAUTH_ENABLED,
     ).toBe(true);
   });

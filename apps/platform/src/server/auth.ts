@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { ApplicationError } from "@jingtang/application";
-import { getMembershipRole, readSession, recordAudit, type SessionView } from "@jingtang/db";
+import {
+  getMembershipRole,
+  readSession,
+  recordAuthorizationDenied,
+  type SessionView,
+} from "@jingtang/db";
 import { permissionDecision, type Locale, type Permission, type Role } from "@jingtang/domain";
 import { cookies } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
@@ -72,15 +77,12 @@ export async function authorize(
   const role = await getMembershipRole(runtime.db, session.currentWorkspaceId, session.user.id);
   const decision = permissionDecision(role, permission);
   if (!decision.allowed) {
-    await recordAudit(runtime.db, {
+    await recordAuthorizationDenied(runtime.db, {
       workspaceId: session.currentWorkspaceId,
-      actorUserId: session.user.id,
-      action: "authorization.denied",
-      targetType: "permission",
-      targetId: permission,
-      result: "denied",
+      userId: session.user.id,
+      permission,
+      reason: decision.reason,
       correlationId: requestId,
-      metadata: { permission, reason: decision.reason },
     });
     throw new ApplicationError(
       "permission_denied",

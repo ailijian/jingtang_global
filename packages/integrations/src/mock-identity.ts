@@ -160,4 +160,14 @@ export class MockIdentityProvider implements IdentityProvider {
     this.persist();
     return Promise.resolve();
   }
+
+  public deleteAccount(input: { readonly email: string; readonly subject: string }): Promise<void> {
+    const email = input.email.trim().toLowerCase();
+    const record = this.records.get(email);
+    if (record && record.subject === input.subject) {
+      this.records.delete(email);
+      this.persist();
+    }
+    return Promise.resolve();
+  }
 }

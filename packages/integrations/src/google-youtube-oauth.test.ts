@@ -96,6 +96,7 @@ describe("Google YouTube OAuth provider", () => {
     });
     const [url, init] = fetchImplementation.mock.calls[0] ?? [];
     expect(url instanceof URL ? url.searchParams.get("mine") : undefined).toBe("true");
+    expect(url instanceof URL ? url.searchParams.has("id") : true).toBe(false);
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer access-token");
   });
 
@@ -230,6 +231,30 @@ describe("Google YouTube OAuth provider", () => {
     });
   });
 
+  it("applies a bounded timeout to provider requests", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockImplementation((_input, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new Error("provider request aborted", { cause: init.signal?.reason })),
+          { once: true },
+        );
+      });
+    });
+    const provider = new GoogleYouTubeOAuthProvider({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      fetchImplementation,
+      requestTimeoutMs: 5,
+    });
+    await expect(provider.readAuthorizedChannel("access-token")).rejects.toMatchObject({
+      code: "service_unavailable",
+    });
+    const [, init] = fetchImplementation.mock.calls[0] ?? [];
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(init?.signal?.aborted).toBe(true);
+  });
+
   it("requires reauthorization when Google rejects a refresh token", async () => {
     const provider = new GoogleYouTubeOAuthProvider({
       clientId: "client-id",
@@ -288,6 +313,19 @@ describe("Google YouTube OAuth provider", () => {
         ),
     });
     await expect(provider.revokeAuthorization("expired-token")).resolves.toBeUndefined();
+  });
+
+  it("does not treat an unclassified Google 400 revoke response as success", async () => {
+    const provider = new GoogleYouTubeOAuthProvider({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      fetchImplementation: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response("invalid token", { status: 400 })),
+    });
+    await expect(provider.revokeAuthorization("unknown-token-state")).rejects.toMatchObject({
+      code: "service_unavailable",
+    });
   });
 
   it("does not automatically retry an upload with an ambiguous transfer result", async () => {

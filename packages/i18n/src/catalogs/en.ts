@@ -144,10 +144,37 @@ export const en = {
     "This cannot be undone. Type the exact Workspace name, {workspace}, to continue.",
   "dataSettings.workspace.typeName": "Type {workspace} to confirm",
   "dataSettings.workspace.deleting": "Deleting…",
+  "dataSettings.result.pending":
+    "Workspace data deletion is in progress. Access is blocked and the durable request will continue automatically. Reference: {reference}.",
   "dataSettings.result.completed":
     "Workspace data deletion completed. Keep this request reference: {reference}.",
   "dataSettings.result.failed":
-    "The deletion did not finish. Platform access remains blocked and the request can be retried. Reference: {reference}.",
+    "The deletion did not finish. Platform access remains blocked and the durable request will retry automatically. Reference: {reference}.",
+  "dataSettings.account.title": "Delete your JINGTANG account",
+  "dataSettings.account.body":
+    "This deletes your identity and personal account data. Workspace deletion is a separate action.",
+  "dataSettings.account.effectAccess":
+    "You are signed out immediately and cannot use this JINGTANG identity again.",
+  "dataSettings.account.effectMembership":
+    "Your memberships are removed. Shared Workspace data remains available to its other members.",
+  "dataSettings.account.effectRevoke":
+    "Platform connections authorized by this account are disconnected, and their OAuth tokens and Authorized Data are deleted. Another active member must reconnect a channel to continue publishing.",
+  "dataSettings.account.effectOwnership":
+    "If you are the last Owner / Admin of an active Workspace, transfer ownership or delete that Workspace first.",
+  "dataSettings.account.effectThirdParty":
+    "Content already held by YouTube or another third party is not deleted.",
+  "dataSettings.account.action": "Delete my account",
+  "dataSettings.account.confirmTitle": "Permanently delete your JINGTANG account?",
+  "dataSettings.account.confirmBody":
+    "This cannot be undone. Confirm with the exact email address shown below.",
+  "dataSettings.account.typeEmail": "Type {email} to confirm",
+  "dataSettings.account.deleting": "Deleting account…",
+  "dataSettings.account.pending":
+    "Account deletion has started and your sessions are closed. Request reference: {reference}.",
+  "dataSettings.account.ownerTransferRequired":
+    "Account deletion is blocked because you are the last Owner / Admin of an active Workspace. Transfer ownership or delete that Workspace first.",
+  "dataSettings.account.failed":
+    "The account deletion request could not be started. Check the confirmation and try again.",
   "home.title": "Workspace home",
   "home.empty.title": "Your controlled publishing Workspace is ready.",
   "home.empty.description":
@@ -239,6 +266,18 @@ export const en = {
   "detail.publish.confirmation":
     "I confirm this exact video, title, description, channel, privacy, audience, preview, and Publish Now mode for a private YouTube upload.",
   "detail.publish.video": "Video",
+  "detail.publish.channel": "Channel at publish",
+  "detail.publish.channelDisconnected": "YouTube channel (authorization data cleared)",
+  "detail.publish.channelExpired": "YouTube channel (authorization expired)",
+  "detail.publish.currentChannel": "Current Workspace channel",
+  "detail.publish.currentChannelNone": "No YouTube channel is currently connected",
+  "detail.publish.currentChannelHistoryNote":
+    "The current connection does not change historical publishing records or cause another upload.",
+  "detail.publish.providerLinkCleared":
+    "The YouTube link was removed under the revocation and data-cleanup policy.",
+  "detail.publish.createRevisionForCurrentChannel": "Use current channel in a new revision",
+  "detail.publish.connectBeforeRevision":
+    "Connect a YouTube channel before creating a publishable revision.",
   "detail.publish.mode": "Publishing mode",
   "detail.publish.mode.now": "Publish Now",
   "detail.publish.action": "Confirm private upload",
@@ -293,7 +332,6 @@ export const en = {
   "activity.action.identity.registered": "Account registered",
   "activity.action.identity.login": "Signed in",
   "activity.action.identity.logout": "Signed out",
-  "activity.action.identity.password_reset_requested": "Password reset requested",
   "activity.action.consent.accepted": "Consent accepted",
   "activity.action.workspace.created": "Workspace created",
   "activity.action.workspace.selected": "Workspace selected",
@@ -695,7 +733,7 @@ export const en = {
     "Deleting data held by JINGTANG, disconnecting an authorized platform account, and deleting content held by a third-party platform are distinct actions.",
   "site.deletion.jingtang.title": "Delete JINGTANG-held data",
   "site.deletion.jingtang.body":
-    "D6 implements and locally verifies an in-product Workspace deletion request with exact-name confirmation and a durable reference. Until that flow is production-verified, send a request from your account email to the support address below. Identify the Workspace and requested scope without sending passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
+    "D6 implements and locally verifies separate in-product Account and Workspace deletion requests with explicit confirmation and durable references. Account deletion immediately disables access, removes the user's profile and memberships, and disconnects platform authorizations created by that account; shared Workspaces and their content remain available to eligible remaining members. Workspace deletion removes that Workspace, its memberships, source assets, content, publishing records, and applicable authorization data. Neither action deletes content already held by a third-party platform. Until these flows are production-verified in D7, send a request from your account email to the support address below without including passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
   "site.deletion.disconnect.title": "Disconnect and revoke platform access",
   "site.deletion.disconnect.body":
     "D6 implements and locally verifies an in-product disconnect that stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Public production connectivity remains unavailable pending D7 verification. Users may also revoke access through Google Security Settings.",

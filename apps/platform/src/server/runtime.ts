@@ -45,7 +45,10 @@ export function getRuntime(): Runtime {
       })
     : undefined;
   const tokenVault = config.YOUTUBE_OAUTH_ENABLED
-    ? new LocalEnvelopeTokenVault(config.OAUTH_TOKEN_ENCRYPTION_KEY ?? "")
+    ? new LocalEnvelopeTokenVault(
+        config.OAUTH_TOKEN_ENCRYPTION_KEY ?? "",
+        config.LOCAL_TOKEN_KEY_STORE_PATH,
+      )
     : undefined;
   const runtime: Runtime = {
     config,
@@ -87,6 +90,7 @@ export function getRuntime(): Runtime {
       forcePathStyle: config.OBJECT_STORAGE_FORCE_PATH_STYLE,
       autoCreateBucket: config.OBJECT_STORAGE_AUTO_CREATE_BUCKET,
       serverSideEncryption: config.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION,
+      requestTimeoutMs: config.OBJECT_STORAGE_REQUEST_TIMEOUT_MS,
     }),
     ...(youtubeOAuth ? { youtubeOAuth } : {}),
     ...(tokenVault ? { tokenVault } : {}),

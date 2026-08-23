@@ -1,4 +1,4 @@
-import { deleteSession, recordAudit } from "@jingtang/db";
+import { deleteSession, recordUserScopedAudit } from "@jingtang/db";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { clearSessionCookie, requestSession, sessionCookieName } from "../../../../../server/auth";
@@ -11,17 +11,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     requireSameOrigin(request);
     const session = await requestSession(request);
     const runtime = getRuntime();
-    if (session.currentWorkspaceId) {
-      await recordAudit(runtime.db, {
-        workspaceId: session.currentWorkspaceId,
-        actorUserId: session.user.id,
-        action: "identity.logout",
-        targetType: "session",
-        targetId: session.id,
-        result: "success",
-        correlationId: requestId,
-      });
-    }
+    await recordUserScopedAudit(runtime.db, {
+      userId: session.user.id,
+      currentWorkspaceId: session.currentWorkspaceId,
+      action: "identity.logout",
+      targetType: "session",
+      targetId: session.id,
+      result: "success",
+      correlationId: requestId,
+    });
     await deleteSession(
       runtime.db,
       request.cookies.get(sessionCookieName())?.value ?? "",

@@ -1,4 +1,8 @@
-import { ApplicationError, isApplicationError } from "@jingtang/application";
+import {
+  ApplicationError,
+  isApplicationError,
+  persistSealedTokenEnvelope,
+} from "@jingtang/application";
 import { completeYouTubeConnection, denyYouTubeConnection } from "@jingtang/db";
 import { safeLog } from "@jingtang/observability";
 import { NextResponse, type NextRequest } from "next/server";
@@ -67,23 +71,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     failureStage = "channel_lookup";
     const channel = await provider.readAuthorizedChannel(tokens.accessToken);
     failureStage = "token_seal";
-    const tokenEnvelopeCiphertext = await vault.seal({
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: tokens.expiresAt.toISOString(),
-      grantedScopes: [...tokens.grantedScopes],
-    });
-    failureStage = "persistence";
-    await completeYouTubeConnection(getRuntime().db, {
-      workspaceId: decoded.workspaceId,
-      channelId: decoded.channelId,
-      actorUserId: session.user.id,
-      externalAccountId: channel.id,
-      displayName: channel.displayName,
-      grantedScopes: tokens.grantedScopes,
-      tokenEnvelopeCiphertext,
-      correlationId: requestId,
-    });
+    await persistSealedTokenEnvelope(
+      vault,
+      {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt.toISOString(),
+        grantedScopes: [...tokens.grantedScopes],
+      },
+      async (tokenEnvelope) => {
+        failureStage = "persistence";
+        await completeYouTubeConnection(getRuntime().db, {
+          workspaceId: decoded.workspaceId,
+          channelId: decoded.channelId,
+          actorUserId: session.user.id,
+          externalAccountId: channel.id,
+          displayName: channel.displayName,
+          grantedScopes: tokens.grantedScopes,
+          tokenEnvelopeCiphertext: tokenEnvelope.ciphertext,
+          tokenCiphertextReference: tokenEnvelope.keyReference,
+          correlationId: requestId,
+        });
+      },
+    );
     const response = NextResponse.redirect(channelRedirect("connected"), 303);
     clearYouTubeOAuthCookie(response);
     return response;

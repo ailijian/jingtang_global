@@ -132,9 +132,30 @@ export const zhCN: Record<keyof typeof en, string> = {
     "此操作无法撤销。请输入工作空间的准确名称 {workspace} 以继续。",
   "dataSettings.workspace.typeName": "输入 {workspace} 以确认",
   "dataSettings.workspace.deleting": "正在删除…",
+  "dataSettings.result.pending":
+    "工作空间数据正在删除。访问已被阻止，持久化申请会自动继续。申请编号：{reference}。",
   "dataSettings.result.completed": "工作空间数据删除已完成。请保存申请编号：{reference}。",
   "dataSettings.result.failed":
-    "删除尚未完成。平台访问仍被阻止，可重试此申请。申请编号：{reference}。",
+    "删除尚未完成。平台访问仍被阻止，持久化申请将自动重试。申请编号：{reference}。",
+  "dataSettings.account.title": "删除你的 JINGTANG 账号",
+  "dataSettings.account.body": "这将删除你的身份和个人账号数据；删除工作空间是另一项独立操作。",
+  "dataSettings.account.effectAccess": "你会立即退出登录，并且不能再使用此 JINGTANG 身份。",
+  "dataSettings.account.effectMembership":
+    "你的成员关系会被移除；共享工作空间的数据仍供其他成员使用。",
+  "dataSettings.account.effectRevoke":
+    "由此账号授权的平台连接会被断开，其 OAuth 令牌和授权数据会被删除；如需继续发布，其他有效成员必须重新连接渠道。",
+  "dataSettings.account.effectOwnership":
+    "如果你是某个有效工作空间最后一位所有者 / 管理员，请先转移所有权或删除该工作空间。",
+  "dataSettings.account.effectThirdParty": "YouTube 或其他第三方已持有的内容不会被删除。",
+  "dataSettings.account.action": "删除我的账号",
+  "dataSettings.account.confirmTitle": "永久删除你的 JINGTANG 账号？",
+  "dataSettings.account.confirmBody": "此操作无法撤销。请输入下方显示的准确邮箱地址确认。",
+  "dataSettings.account.typeEmail": "输入 {email} 以确认",
+  "dataSettings.account.deleting": "正在删除账号…",
+  "dataSettings.account.pending": "账号删除已经开始，你的会话已关闭。申请编号：{reference}。",
+  "dataSettings.account.ownerTransferRequired":
+    "账号删除已被阻止，因为你是某个有效工作空间的最后一位所有者 / 管理员。请先转移所有权或删除该工作空间。",
+  "dataSettings.account.failed": "无法开始账号删除。请检查确认内容后重试。",
   "home.title": "工作空间首页",
   "home.empty.title": "你的可控发布工作空间已准备就绪。",
   "home.empty.description":
@@ -220,6 +241,15 @@ export const zhCN: Record<keyof typeof en, string> = {
   "detail.publish.confirmation":
     "我确认以此视频、标题、描述、渠道、隐私、受众、最终预览和立即发布模式，将准确版本私密上传至 YouTube。",
   "detail.publish.video": "视频",
+  "detail.publish.channel": "发布时渠道",
+  "detail.publish.channelDisconnected": "YouTube 渠道（授权数据已清除）",
+  "detail.publish.channelExpired": "YouTube 渠道（授权已过期）",
+  "detail.publish.currentChannel": "当前 Workspace 渠道",
+  "detail.publish.currentChannelNone": "当前未连接 YouTube 渠道",
+  "detail.publish.currentChannelHistoryNote": "当前连接不会修改历史发布记录，也不会触发重复上传。",
+  "detail.publish.providerLinkCleared": "YouTube 链接已按撤销与数据清理规则移除。",
+  "detail.publish.createRevisionForCurrentChannel": "使用当前渠道创建新修订",
+  "detail.publish.connectBeforeRevision": "请先连接 YouTube 渠道，再创建可发布的新修订。",
   "detail.publish.mode": "发布模式",
   "detail.publish.mode.now": "立即发布",
   "detail.publish.action": "确认私密上传",
@@ -268,7 +298,6 @@ export const zhCN: Record<keyof typeof en, string> = {
   "activity.action.identity.registered": "账号已注册",
   "activity.action.identity.login": "已登录",
   "activity.action.identity.logout": "已退出登录",
-  "activity.action.identity.password_reset_requested": "已申请重置密码",
   "activity.action.consent.accepted": "已同意当前政策",
   "activity.action.workspace.created": "已创建工作空间",
   "activity.action.workspace.selected": "已切换工作空间",
@@ -658,7 +687,7 @@ export const zhCN: Record<keyof typeof en, string> = {
     "删除 JINGTANG 保存的数据、断开授权平台账号，以及删除第三方平台保存的内容，是三个不同操作。",
   "site.deletion.jingtang.title": "删除 JINGTANG 保存的数据",
   "site.deletion.jingtang.body":
-    "D6 已实现并在本地验证产品内工作空间删除申请、精确名称确认和可追踪编号。在该流程完成生产验证前，请使用账号邮箱向下方支持地址发送请求。请说明工作空间和请求范围，不要发送密码、OAuth Token 或无关内容。JINGTANG 会验证权限、立即禁止受影响访问，并在 7 天内删除适用在线数据。",
+    "D6 已实现并在本地验证相互独立的产品内账号删除与工作空间删除申请，两者均要求明确确认并提供可追踪编号。账号删除会立即禁止该账号访问，删除用户资料与成员关系，并断开由该账号创建的平台授权；共享工作空间及其内容仍向符合条件的剩余成员保留。工作空间删除会删除该工作空间、成员关系、源素材、内容、发布记录及适用授权数据。两种操作都不会删除第三方平台已经保存的内容。在这些流程完成 D7 生产验证前，请使用账号邮箱向下方支持地址发送请求，不要发送密码、OAuth Token 或无关内容。JINGTANG 会验证权限、立即禁止受影响访问，并在 7 天内删除适用在线数据。",
   "site.deletion.disconnect.title": "断开并撤销平台访问",
   "site.deletion.disconnect.body":
     "D6 已实现并在本地验证产品内 Disconnect：停止新的 API 操作、尝试立即程序化吊销 Token、清除已保存 Token，并清理适用 Authorized Data。公开生产连接在 D7 验证前仍不可用。用户也可以通过 Google 安全设置撤销访问。",

@@ -29,7 +29,6 @@ export const auditActions = [
   "identity.registered",
   "identity.login",
   "identity.logout",
-  "identity.password_reset_requested",
   "consent.accepted",
   "workspace.created",
   "workspace.selected",

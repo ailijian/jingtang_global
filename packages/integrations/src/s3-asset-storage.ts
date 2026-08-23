@@ -13,6 +13,7 @@ export class S3AssetStorage implements AssetStorage {
   readonly #bucket: string;
   readonly #autoCreateBucket: boolean;
   readonly #serverSideEncryption: boolean;
+  readonly #requestTimeoutMs: number;
   #ready: Promise<void> | undefined;
 
   constructor(input: {
@@ -24,10 +25,12 @@ export class S3AssetStorage implements AssetStorage {
     readonly forcePathStyle: boolean;
     readonly autoCreateBucket: boolean;
     readonly serverSideEncryption: boolean;
+    readonly requestTimeoutMs?: number;
   }) {
     this.#bucket = input.bucket;
     this.#autoCreateBucket = input.autoCreateBucket;
     this.#serverSideEncryption = input.serverSideEncryption;
+    this.#requestTimeoutMs = input.requestTimeoutMs ?? 120_000;
     this.#client = new S3Client({
       ...(input.endpoint ? { endpoint: input.endpoint } : {}),
       region: input.region,
@@ -39,13 +42,27 @@ export class S3AssetStorage implements AssetStorage {
     });
   }
 
+  async #withTimeout<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.#requestTimeoutMs);
+    try {
+      return await operation(controller.signal);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async #ensureBucket(): Promise<void> {
     if (!this.#autoCreateBucket) return;
     this.#ready ??= (async () => {
       try {
-        await this.#client.send(new HeadBucketCommand({ Bucket: this.#bucket }));
+        await this.#withTimeout((abortSignal) =>
+          this.#client.send(new HeadBucketCommand({ Bucket: this.#bucket }), { abortSignal }),
+        );
       } catch {
-        await this.#client.send(new CreateBucketCommand({ Bucket: this.#bucket }));
+        await this.#withTimeout((abortSignal) =>
+          this.#client.send(new CreateBucketCommand({ Bucket: this.#bucket }), { abortSignal }),
+        );
       }
     })();
     await this.#ready;
@@ -58,20 +75,27 @@ export class S3AssetStorage implements AssetStorage {
     readonly sha256Base64: string;
   }): Promise<void> {
     await this.#ensureBucket();
-    await this.#client.send(
-      new PutObjectCommand({
-        Bucket: this.#bucket,
-        Key: input.key,
-        Body: input.body,
-        ContentType: input.contentType,
-        ChecksumSHA256: input.sha256Base64,
-        ...(this.#serverSideEncryption ? { ServerSideEncryption: "AES256" as const } : {}),
-      }),
+    await this.#withTimeout((abortSignal) =>
+      this.#client.send(
+        new PutObjectCommand({
+          Bucket: this.#bucket,
+          Key: input.key,
+          Body: input.body,
+          ContentType: input.contentType,
+          ChecksumSHA256: input.sha256Base64,
+          ...(this.#serverSideEncryption ? { ServerSideEncryption: "AES256" as const } : {}),
+        }),
+        { abortSignal },
+      ),
     );
   }
 
   async delete(key: string): Promise<void> {
-    await this.#client.send(new DeleteObjectCommand({ Bucket: this.#bucket, Key: key }));
+    await this.#withTimeout((abortSignal) =>
+      this.#client.send(new DeleteObjectCommand({ Bucket: this.#bucket, Key: key }), {
+        abortSignal,
+      }),
+    );
   }
 
   async open(key: string): Promise<{
@@ -79,8 +103,10 @@ export class S3AssetStorage implements AssetStorage {
     readonly contentType?: string;
     readonly contentLength?: number;
   }> {
-    const result = await this.#client.send(
-      new GetObjectCommand({ Bucket: this.#bucket, Key: key }),
+    const result = await this.#withTimeout((abortSignal) =>
+      this.#client.send(new GetObjectCommand({ Bucket: this.#bucket, Key: key }), {
+        abortSignal,
+      }),
     );
     if (!result.Body) throw new Error("source_asset_body_missing");
     return {

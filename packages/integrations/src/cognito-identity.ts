@@ -1,4 +1,5 @@
 import {
+  AdminDeleteUserCommand,
   CognitoIdentityProviderClient,
   ConfirmForgotPasswordCommand,
   ConfirmSignUpCommand,
@@ -131,6 +132,20 @@ export class CognitoIdentityProvider implements IdentityProvider {
         }),
       );
     } catch (error) {
+      throw this.mapError(error);
+    }
+  }
+
+  public async deleteAccount(input: { readonly email: string }): Promise<void> {
+    try {
+      await this.client.send(
+        new AdminDeleteUserCommand({
+          UserPoolId: this.userPoolId,
+          Username: input.email.trim().toLowerCase(),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === "UserNotFoundException") return;
       throw this.mapError(error);
     }
   }

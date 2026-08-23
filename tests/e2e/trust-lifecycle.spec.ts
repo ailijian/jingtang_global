@@ -34,9 +34,10 @@ test("disconnect is explicit, fail-closed, recoverable, and distinguishes third-
     ),
   ).toBeVisible();
   await dialog.getByRole("button", { name: "Disconnect YouTube" }).click();
-  await expect(page).toHaveURL(/youtube=disconnect_failed/);
+  await expect(page).toHaveURL(/youtube=disconnecting/);
   await expect(page.locator(".channel-notice[role='alert']")).toContainText(
     "Access is blocked in JINGTANG, but Google revocation did not finish",
+    { timeout: 30_000 },
   );
   await expect(page.getByText("Disconnecting", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry disconnect" })).toBeVisible();
@@ -63,8 +64,10 @@ test("Workspace data deletion requires exact confirmation and returns a durable 
   await expect(dialog).toBeVisible();
   await confirmation.fill(workspaceName);
   await dialog.getByRole("button", { name: "Delete Workspace data" }).click();
-  await expect(page).toHaveURL(/\/onboarding\?deletion=completed&reference=DEL-/);
-  await expect(page.getByRole("status")).toContainText("Workspace data deletion completed");
+  await expect(page).toHaveURL(/\/onboarding\?deletion=pending&reference=DEL-/);
+  await expect(page.getByRole("status")).toContainText("Workspace data deletion completed", {
+    timeout: 30_000,
+  });
   await expect(page.getByRole("status")).toContainText("DEL-");
 
   await page.setViewportSize({ width: 320, height: 780 });

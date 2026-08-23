@@ -12,6 +12,8 @@ const revocationEndpoint = "https://oauth2.googleapis.com/revoke";
 const channelEndpoint = "https://www.googleapis.com/youtube/v3/channels";
 const videosEndpoint = "https://www.googleapis.com/youtube/v3/videos";
 const videoUploadEndpoint = "https://www.googleapis.com/upload/youtube/v3/videos";
+const defaultRequestTimeoutMs = 30_000;
+const defaultUploadTimeoutMs = 15 * 60_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -48,15 +50,21 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
   readonly #clientId: string;
   readonly #clientSecret: string;
   readonly #fetch: typeof fetch;
+  readonly #requestTimeoutMs: number;
+  readonly #uploadTimeoutMs: number;
 
   public constructor(input: {
     readonly clientId: string;
     readonly clientSecret: string;
     readonly fetchImplementation?: typeof fetch;
+    readonly requestTimeoutMs?: number;
+    readonly uploadTimeoutMs?: number;
   }) {
     this.#clientId = input.clientId;
     this.#clientSecret = input.clientSecret;
     this.#fetch = input.fetchImplementation ?? globalThis.fetch;
+    this.#requestTimeoutMs = input.requestTimeoutMs ?? defaultRequestTimeoutMs;
+    this.#uploadTimeoutMs = input.uploadTimeoutMs ?? defaultUploadTimeoutMs;
   }
 
   public authorizationUrl(input: {
@@ -88,6 +96,7 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let response: Response;
     try {
       response = await this.#fetch(tokenEndpoint, {
+        signal: AbortSignal.timeout(this.#requestTimeoutMs),
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -155,6 +164,7 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let response: Response;
     try {
       response = await this.#fetch(url, {
+        signal: AbortSignal.timeout(this.#requestTimeoutMs),
         headers: { authorization: `Bearer ${accessToken}` },
       });
     } catch {
@@ -187,6 +197,7 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let response: Response;
     try {
       response = await this.#fetch(tokenEndpoint, {
+        signal: AbortSignal.timeout(this.#requestTimeoutMs),
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -238,6 +249,7 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let response: Response;
     try {
       response = await this.#fetch(revocationEndpoint, {
+        signal: AbortSignal.timeout(this.#requestTimeoutMs),
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ token }),
@@ -264,6 +276,7 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     readonly mediaType: string;
     readonly byteSize: number;
     readonly body: ReadableStream<Uint8Array>;
+    readonly signal?: AbortSignal;
   }): Promise<{ readonly videoId: string; readonly videoUrl: string }> {
     const url = new URL(videoUploadEndpoint);
     url.search = new URLSearchParams({
@@ -273,6 +286,9 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let initiation: Response;
     try {
       initiation = await this.#fetch(url, {
+        signal: input.signal
+          ? AbortSignal.any([input.signal, AbortSignal.timeout(this.#requestTimeoutMs)])
+          : AbortSignal.timeout(this.#requestTimeoutMs),
         method: "POST",
         headers: {
           authorization: `Bearer ${input.accessToken}`,
@@ -301,6 +317,9 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let upload: Response;
     try {
       const streamRequest: RequestInit & { duplex: "half" } = {
+        signal: input.signal
+          ? AbortSignal.any([input.signal, AbortSignal.timeout(this.#uploadTimeoutMs)])
+          : AbortSignal.timeout(this.#uploadTimeoutMs),
         method: "PUT",
         headers: {
           "content-length": String(input.byteSize),
@@ -329,7 +348,7 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     return { videoId, videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` };
   }
 
-  public async readVideoStatus(accessToken: string, videoId: string) {
+  public async readVideoStatus(accessToken: string, videoId: string, signal?: AbortSignal) {
     const url = new URL(videosEndpoint);
     url.search = new URLSearchParams({
       part: "status,processingDetails",
@@ -339,6 +358,9 @@ export class GoogleYouTubeOAuthProvider implements YouTubeOAuthProvider {
     let response: Response;
     try {
       response = await this.#fetch(url, {
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(this.#requestTimeoutMs)])
+          : AbortSignal.timeout(this.#requestTimeoutMs),
         headers: { authorization: `Bearer ${accessToken}` },
       });
     } catch {
