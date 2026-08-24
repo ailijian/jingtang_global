@@ -1,6 +1,0 @@
-{
-  "app": "node --enable-source-maps dist/app.js",
-  "context": {
-    "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true
-  }
-}

@@ -12,7 +12,11 @@ interface SiteConfig {
     readonly legal_entity: { readonly en: string; readonly "zh-CN": string };
     readonly freeze: { readonly status: string };
   };
-  readonly legal: { readonly approval_status: string; readonly policy_version: string };
+  readonly legal: {
+    readonly approval_status: string;
+    readonly policy_version: string;
+    readonly deployment_status: string;
+  };
   readonly production_readiness: Readonly<Record<string, string>>;
 }
 
@@ -62,31 +66,37 @@ if (productionCheck) {
   const required = {
     config_status: siteConfig.status,
     legal_approval: siteConfig.legal.approval_status,
+    legal_deployment: siteConfig.legal.deployment_status,
     domain_ownership: siteConfig.production_readiness.domain_ownership,
     dns: siteConfig.production_readiness.dns,
     tls: siteConfig.production_readiness.tls,
     legal_data_approval: siteConfig.production_readiness.legal_data_approval,
     rollout: siteConfig.production_readiness.production_rollout,
+    legal_policy_rollout: siteConfig.production_readiness.legal_policy_rollout,
   };
   const expected =
     siteConfig.status === "production"
       ? {
           config_status: "production",
           legal_approval: "approved",
+          legal_deployment: "deployed_verified",
           domain_ownership: "verified",
           dns: "deployed_verified",
           tls: "verified",
           legal_data_approval: "approved",
           rollout: "deployed_verified",
+          legal_policy_rollout: "deployed_verified",
         }
       : {
           config_status: "production_approved",
           legal_approval: "approved",
+          legal_deployment: "approved_pending_production_change_authorization",
           domain_ownership: "verified",
           dns: "authorized",
           tls: "pending_production_deployment_evidence",
           legal_data_approval: "approved",
           rollout: "authorized",
+          legal_policy_rollout: "pending_production_change_authorization",
         };
   const blocked = Object.entries(required).filter(
     ([key, value]) => value !== expected[key as keyof typeof expected],

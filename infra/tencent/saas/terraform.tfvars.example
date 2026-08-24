@@ -1,0 +1,20 @@
+availability_zone         = "ap-seoul-1"
+standby_availability_zone = "ap-seoul-2"
+
+# Query the current numeric Managed RabbitMQ zone IDs exposed to this account
+# immediately before plan/apply. The empty value intentionally fails validation.
+tdmq_zone_ids = []
+
+cvm_image_id      = "replace-with-current-approved-image-id"
+cvm_instance_type = "replace-with-current-available-instance-type"
+cvm_key_ids       = ["replace-with-production-ssh-key-id"]
+administrator_cidrs = [
+  "replace-with-human-controlled-cidr",
+]
+
+postgres_engine_version = "replace-with-current-offered-engine-version"
+
+# Supply these only through protected Terraform input. They are one-use bootstrap
+# credentials and must be rotated into a protected KMS-sealed COS bundle immediately after apply.
+postgres_root_password  = "replace-through-protected-input"
+tdmq_bootstrap_password = "replace-through-protected-input"

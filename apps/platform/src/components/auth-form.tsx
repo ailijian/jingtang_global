@@ -27,6 +27,7 @@ export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const [resetRequested, setResetRequested] = useState(false);
+  const [signupConfirmationRequired, setSignupConfirmationRequired] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,7 +38,13 @@ export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
     const email = typeof rawEmail === "string" ? rawEmail : "";
     const payload: Record<string, unknown> = { email };
     let endpoint = `/api/v1/auth/${mode}`;
-    if (mode === "signup") {
+    if (mode === "signup" && signupConfirmationRequired) {
+      endpoint = "/api/v1/auth/confirm";
+      Object.assign(payload, {
+        code: data.get("code"),
+        password: data.get("password"),
+      });
+    } else if (mode === "signup") {
       Object.assign(payload, {
         name: data.get("name"),
         password: data.get("password"),
@@ -74,7 +81,10 @@ export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
       return;
     }
     if (mode === "signup" && body.confirmation_required) {
-      router.push(`/confirm?email=${encodeURIComponent(email)}`);
+      setSignupConfirmationRequired(true);
+      setBusy(false);
+    } else if (mode === "signup" && signupConfirmationRequired) {
+      router.push(`/login?email=${encodeURIComponent(email)}`);
     } else if (mode === "confirm") {
       router.push(`/login?email=${encodeURIComponent(email)}`);
     } else if (mode === "reset" && !resetRequested) {
@@ -91,7 +101,9 @@ export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
 
   const action =
     mode === "signup"
-      ? t("auth.signUp.action")
+      ? signupConfirmationRequired
+        ? t("auth.confirm.action")
+        : t("auth.signUp.action")
       : mode === "login"
         ? t("auth.login.action")
         : mode === "confirm"
@@ -125,7 +137,7 @@ export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
           label={t("auth.password")}
         />
       ) : null}
-      {mode === "confirm" || (mode === "reset" && resetRequested) ? (
+      {mode === "confirm" || signupConfirmationRequired || (mode === "reset" && resetRequested) ? (
         <FormField
           id="code"
           name="code"

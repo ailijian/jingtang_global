@@ -21,7 +21,7 @@ const optionalEncryptionKey = z.preprocess(
 );
 
 const productionPolicy = {
-  version: "2026-08-22",
+  version: "2026-08-24",
   termsUrl: "https://jingtangai.com/en/terms/",
   privacyUrl: "https://jingtangai.com/en/privacy/",
 } as const;
@@ -31,9 +31,27 @@ const schema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     APP_ENV: z.enum(["local", "test", "staging", "production"]).default("local"),
     APP_BASE_URL: z.url(),
+    RUNTIME_SECRET_BUNDLE_ENABLED: booleanString,
+    RUNTIME_SECRET_BUNDLE_ROLE: z.enum(["platform", "dispatcher", "worker"]).default("platform"),
+    RUNTIME_SECRET_BUNDLE_BUCKET: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.string().min(3).max(63).optional(),
+    ),
+    RUNTIME_SECRET_BUNDLE_VERSION_ID: optionalSecret,
+    RUNTIME_SECRET_BUNDLE_REGION: z.string().min(1).default("ap-seoul"),
+    RUNTIME_SECRET_BUNDLE_ENDPOINT: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.url().optional(),
+    ),
     DATABASE_URL: z.string().min(1),
     DATABASE_ADMIN_URL: z.string().min(1).optional(),
     DATABASE_WORKER_URL: z.string().min(1).optional(),
+    ASYNC_TRANSPORT: z.enum(["local", "tdmq_rabbitmq"]).default("local"),
+    TDMQ_AMQP_URL: optionalSecret,
+    TDMQ_EXCHANGE: z.string().min(1).default("jingtang.commands.v1"),
+    TDMQ_QUEUE: z.string().min(1).default("jingtang.youtube.publish.v1"),
+    TDMQ_DEAD_LETTER_EXCHANGE: z.string().min(1).default("jingtang.dead-letter.v1"),
+    TDMQ_DEAD_LETTER_QUEUE: z.string().min(1).default("jingtang.youtube.publish.dlq.v1"),
     IDENTITY_PROVIDER: z.enum(["mock", "cognito", "ciam"]),
     ALLOW_TEST_IDENTITY: booleanString,
     LOCAL_IDENTITY_STORE_PATH: z.preprocess(
@@ -45,6 +63,9 @@ const schema = z
     COGNITO_CLIENT_ID: z.string().optional(),
     CIAM_ISSUER: z.preprocess((value) => (value === "" ? undefined : value), z.url().optional()),
     CIAM_CLIENT_ID: optionalSecret,
+    CIAM_CLIENT_SECRET: optionalSecret,
+    CIAM_PASSWORD_AUTH_SOURCE_ID: optionalSecret,
+    CIAM_USER_STORE_ID: optionalSecret,
     SESSION_COOKIE_SECRET: z.string().min(32),
     TERMS_VERSION: z.string().min(1),
     PRIVACY_VERSION: z.string().min(1),
@@ -52,13 +73,16 @@ const schema = z
     TERMS_URL: z.url(),
     PRIVACY_URL: z.url(),
     OBJECT_STORAGE_ENDPOINT: z.url().optional(),
-    OBJECT_STORAGE_REGION: z.string().min(1).default("ap-southeast-1"),
+    OBJECT_STORAGE_REGION: z.string().min(1).default("ap-seoul"),
     OBJECT_STORAGE_BUCKET: z.string().min(3).max(63),
-    OBJECT_STORAGE_ACCESS_KEY_ID: z.string().min(1),
-    OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(8),
+    OBJECT_STORAGE_ACCESS_KEY_ID: optionalSecret,
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: optionalSecret,
     OBJECT_STORAGE_FORCE_PATH_STYLE: booleanString,
     OBJECT_STORAGE_AUTO_CREATE_BUCKET: booleanString,
     OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION: booleanString,
+    OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: z
+      .enum(["aes256", "bucket_default"])
+      .default("aes256"),
     OBJECT_STORAGE_REQUEST_TIMEOUT_MS: z.coerce
       .number()
       .int()
@@ -84,8 +108,32 @@ const schema = z
       (value) => (value === "" ? undefined : value),
       z.string().min(1).optional(),
     ),
+    TENCENT_CREDENTIAL_PROVIDER: z.enum(["static", "cvm_role"]).default("static"),
+    TENCENT_CLOUD_SECRET_ID: optionalSecret,
+    TENCENT_CLOUD_SECRET_KEY: optionalSecret,
+    TENCENT_KMS_REGION: z.string().min(1).default("ap-seoul"),
+    TENCENT_KMS_KEY_ID: optionalSecret,
+    TENCENT_KMS_ENDPOINT: optionalSecret,
+    OAUTH_TOKEN_KEY_STORAGE_BUCKET: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.string().min(3).max(63).optional(),
+    ),
   })
   .superRefine((value, context) => {
+    if (value.TENCENT_CREDENTIAL_PROVIDER === "static") {
+      for (const key of [
+        "OBJECT_STORAGE_ACCESS_KEY_ID",
+        "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+      ] as const) {
+        if (!value[key]) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Required when static Tencent-compatible object-storage credentials are used",
+          });
+        }
+      }
+    }
     if (value.IDENTITY_PROVIDER === "cognito") {
       if (!value.COGNITO_USER_POOL_ID) {
         context.addIssue({
@@ -102,7 +150,7 @@ const schema = z
         });
       }
     }
-    if (value.IDENTITY_PROVIDER === "ciam") {
+    if (value.IDENTITY_PROVIDER === "ciam" && value.RUNTIME_SECRET_BUNDLE_ROLE === "platform") {
       if (!value.CIAM_ISSUER) {
         context.addIssue({
           code: "custom",
@@ -110,15 +158,73 @@ const schema = z
           message: "Required for Tencent Cloud CIAM",
         });
       }
-      if (!value.CIAM_CLIENT_ID) {
-        context.addIssue({
-          code: "custom",
-          path: ["CIAM_CLIENT_ID"],
-          message: "Required for Tencent Cloud CIAM",
-        });
+      for (const key of [
+        "CIAM_CLIENT_ID",
+        "CIAM_CLIENT_SECRET",
+        "CIAM_PASSWORD_AUTH_SOURCE_ID",
+        "CIAM_USER_STORE_ID",
+      ] as const) {
+        if (!value[key]) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Required for Tencent Cloud CIAM",
+          });
+        }
       }
     }
+    if (
+      value.IDENTITY_PROVIDER === "ciam" &&
+      value.RUNTIME_SECRET_BUNDLE_ROLE === "worker" &&
+      !value.CIAM_USER_STORE_ID
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["CIAM_USER_STORE_ID"],
+        message: "Required for Tencent Cloud CIAM account deletion",
+      });
+    }
     if (value.APP_ENV === "staging" || value.APP_ENV === "production") {
+      for (const key of [
+        "OBJECT_STORAGE_REGION",
+        "TENCENT_KMS_REGION",
+        "RUNTIME_SECRET_BUNDLE_REGION",
+      ] as const) {
+        if (value[key] !== "ap-seoul") {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Deployed Tencent resources are frozen to ap-seoul",
+          });
+        }
+      }
+      if (value.TENCENT_CREDENTIAL_PROVIDER !== "cvm_role") {
+        context.addIssue({
+          code: "custom",
+          path: ["TENCENT_CREDENTIAL_PROVIDER"],
+          message: "Deployed environments require temporary credentials from a bound CVM role",
+        });
+      }
+      if (!value.RUNTIME_SECRET_BUNDLE_ENABLED) {
+        context.addIssue({
+          code: "custom",
+          path: ["RUNTIME_SECRET_BUNDLE_ENABLED"],
+          message: "Deployed environments require the KMS-sealed COS runtime secret loader",
+        });
+      }
+      for (const key of [
+        "RUNTIME_SECRET_BUNDLE_BUCKET",
+        "RUNTIME_SECRET_BUNDLE_VERSION_ID",
+        "RUNTIME_SECRET_BUNDLE_ENDPOINT",
+      ] as const) {
+        if (!value[key]) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Required for the KMS-sealed COS runtime secret loader",
+          });
+        }
+      }
       if (value.IDENTITY_PROVIDER !== "ciam" || value.ALLOW_TEST_IDENTITY) {
         context.addIssue({
           code: "custom",
@@ -131,6 +237,30 @@ const schema = z
           code: "custom",
           path: ["OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION"],
           message: "Deployed environments require server-side object encryption",
+        });
+      }
+      if (value.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE !== "bucket_default") {
+        context.addIssue({
+          code: "custom",
+          path: ["OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE"],
+          message: "Deployed environments require the Terraform-managed COS KMS bucket default",
+        });
+      }
+      if (
+        value.ASYNC_TRANSPORT !== "tdmq_rabbitmq" ||
+        (value.RUNTIME_SECRET_BUNDLE_ROLE !== "platform" && !value.TDMQ_AMQP_URL)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["ASYNC_TRANSPORT"],
+          message: "Deployed environments require the Tencent TDMQ RabbitMQ transport",
+        });
+      }
+      if (value.RUNTIME_SECRET_BUNDLE_ROLE !== "platform" && !value.DATABASE_WORKER_URL) {
+        context.addIssue({
+          code: "custom",
+          path: ["DATABASE_WORKER_URL"],
+          message: "Deployed environments require a separate worker database role",
         });
       }
     }
@@ -169,11 +299,7 @@ const schema = z
       }
     }
     if (value.YOUTUBE_OAUTH_ENABLED) {
-      for (const key of [
-        "YOUTUBE_OAUTH_CLIENT_ID",
-        "YOUTUBE_OAUTH_CLIENT_SECRET",
-        "YOUTUBE_OAUTH_STATE_SECRET",
-      ] as const) {
+      for (const key of ["YOUTUBE_OAUTH_CLIENT_ID", "YOUTUBE_OAUTH_CLIENT_SECRET"] as const) {
         if (!value[key]) {
           context.addIssue({
             code: "custom",
@@ -181,6 +307,13 @@ const schema = z
             message: "Required when YouTube OAuth is enabled",
           });
         }
+      }
+      if (value.RUNTIME_SECRET_BUNDLE_ROLE === "platform" && !value.YOUTUBE_OAUTH_STATE_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["YOUTUBE_OAUTH_STATE_SECRET"],
+          message: "Required by the platform when YouTube OAuth is enabled",
+        });
       }
       if (value.OAUTH_TOKEN_VAULT_PROVIDER === "local" && !value.OAUTH_TOKEN_ENCRYPTION_KEY) {
         context.addIssue({
@@ -205,6 +338,35 @@ const schema = z
           path: ["OAUTH_TOKEN_VAULT_PROVIDER"],
           message: "Deployed YouTube OAuth requires the Tencent KMS token vault",
         });
+      }
+      if (value.OAUTH_TOKEN_VAULT_PROVIDER === "tencent_kms") {
+        for (const key of ["TENCENT_KMS_KEY_ID", "OAUTH_TOKEN_KEY_STORAGE_BUCKET"] as const) {
+          if (!value[key]) {
+            context.addIssue({
+              code: "custom",
+              path: [key],
+              message: "Required for the Tencent KMS OAuth token vault",
+            });
+          }
+        }
+        if (value.TENCENT_CREDENTIAL_PROVIDER === "static") {
+          for (const key of ["TENCENT_CLOUD_SECRET_ID", "TENCENT_CLOUD_SECRET_KEY"] as const) {
+            if (!value[key]) {
+              context.addIssue({
+                code: "custom",
+                path: [key],
+                message: "Required for static Tencent KMS credentials",
+              });
+            }
+          }
+        }
+        if (value.OAUTH_TOKEN_KEY_STORAGE_BUCKET === value.OBJECT_STORAGE_BUCKET) {
+          context.addIssue({
+            code: "custom",
+            path: ["OAUTH_TOKEN_KEY_STORAGE_BUCKET"],
+            message: "OAuth wrapped data keys require a bucket separate from source assets",
+          });
+        }
       }
       const secretValues = [
         value.SESSION_COOKIE_SECRET,

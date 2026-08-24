@@ -717,7 +717,7 @@ Stop Condition:
 - Status: Accepted for progression — checkpoint authorized by passing blocking CI、new Code Review and independent Acceptance Review
 - Policy Verification: 2026-08-21 已复核 Google OAuth production compliance、YouTube Developer Policies、YouTube Data API Discovery、scope catalog、`channels.list`、`videos.insert` 与 `videos.list` 当前官方资料。
 - Scope Decision: Human Owner 于 2026-08-21 明确批准最小 Scope 为 `youtube.upload` + `youtube.readonly`；前者只用于明确确认后的 `videos.insert`，后者只用于 `channels.list mine=true` 的目标 Channel 识别和对该次上传返回 video ID 的 owner-only `videos.list` 处理状态跟踪。任何额外 Scope 仍需新的明确批准。
-- Architecture Direction: Human Owner 同日批准将未实施的 SaaS/worker cloud target 从 AWS 修订为腾讯云；Architecture Revision 5 与 Security/Data Revision 5 已冻结腾讯云新加坡 SaaS target、CIAM、TencentDB、COS、TDMQ、Secrets Manager/KMS、CLS/Cloud Monitor 和 Terraform 边界。2026-08-22 最小修正授权形成 Architecture/Security Revision 6：D5 受保护本地 harness 允许 PostgreSQL outbox worker 作为 test-only adapter，D7 deployed environment 仍被 dispatcher → Tencent TDMQ → worker 阻塞。相关腾讯 SaaS 资源仍未声称已创建。
+- Architecture Direction: Human Owner 同日批准将未实施的 SaaS/worker cloud target 从 AWS 修订为腾讯云；Architecture Revision 5 与 Security/Data Revision 5 当时机械保留了 D0 的新加坡地域假设，并冻结 CIAM、TencentDB、COS、TDMQ、Secret/KMS、CLS/Cloud Monitor 和 Terraform 边界。2026-08-22 最小修正授权形成 Architecture/Security Revision 6：D5 受保护本地 harness 允许 PostgreSQL outbox worker 作为 test-only adapter，D7 deployed environment 仍被 dispatcher → Tencent TDMQ → worker 阻塞。2026-08-24 Human Owner 确认真正腾讯生产位置为首尔并正式授权 Architecture Revision 9 / Security/Data Revision 13：D7 目标改为 `ap-seoul`，官网与 SaaS 保持独立资源，且因官方国际站 SSM 地域清单不含首尔而改用 KMS-sealed COS secret bundle。相关腾讯 SaaS 资源仍未声称已创建。
 - External Readiness: Human Owner 于 2026-08-21 完成 `jingtangai.com` Search Console ownership；创建并分离 `Jingtang Global Test` 与 `Jingtang Global Production` Google Cloud projects；在两项目启用 YouTube Data API v3；配置相同的 `youtube.upload` + `youtube.readonly`；将 Test Audience 保持 Testing 并加入受保护测试用户；完成 OAuth branding、Homepage、Privacy、Terms 与 Authorized Domain 配置；按冻结 callback 创建 Test Web OAuth client，并将 Client ID/Secret 仅写入 Git-ignored 本地环境。Human Owner 随后使用 Test Audience 中的真实账号完成 OAuth、Scope grant、callback、Channel identity 和 Connected UI 验证；Node 服务端代理启动缺口已修复，callback 请求日志已禁止以避免授权码进入普通日志。Production User Support Email 暂由项目 Owner 的 Google Account 承担，`developer@jingtangai.com` 尚未成为可选 Google Account，必须在最终 production verification/review 前替换或完成正式支持账号治理。此记录不包含或证明任何 Secret、授权码或 Token 值。
 - Callback Contract: Test redirect 固定为 `http://localhost:3100/api/v1/channels/youtube/oauth/callback`；production candidate 为 `https://app.jingtangai.com/api/v1/channels/youtube/oauth/callback`，后者在 SaaS domain/DNS/TLS 和 production client 获准前不得配置或声称可用。实现使用 S256 PKCE、加密 HttpOnly SameSite cookie、Session/User/Workspace/locale binding、10 分钟过期、exact Scope validation 和 server-only envelope token boundary。
 - External Write Authorization: Human Owner 已亲自完成上述 Google Console configuration。真实 OAuth、真实 YouTube upload、腾讯 SaaS production deployment 和公开 capability rollout 仍需各自适用的明确授权与 Gate；本记录不扩张这些权限。
@@ -887,6 +887,13 @@ Dependencies:
 - Human Owner control of production environment, DNS/domain/email and Developer App configuration
 - Production Change Authorization before any external write or deployment
 
+Architecture Amendment Record:
+
+- Approved 2026-08-24 by the Human Owner after a region-drift review. D7 now targets Tencent Cloud Seoul (`ap-seoul`) for the dedicated SaaS compute and data plane. The already deployed D3 Lighthouse website remains a separate resource boundary in Seoul.
+- Current official regional documentation confirms `ap-seoul-1`/`ap-seoul-2` and the selected CVM, TencentDB for PostgreSQL, COS/KMS and TDMQ RabbitMQ paths. Exact account SKU capacity and TDMQ numeric zone IDs remain deployment-time evidence and must be queried before plan/apply.
+- Tencent Cloud International Secrets Manager is not an approved D7 dependency because its documented API region list currently excludes Seoul. D7 uses protected application-level KMS-sealed secret bundles in a dedicated private Seoul COS bucket. CIAM tenant processing location remains a required protected D7 evidence item before public production access.
+- This amendment revises repository authorities and the uncommitted D7 candidate only. It authorizes no Terraform plan/apply, cloud provisioning, deployment, DNS, Developer Console, review submission or public rollout.
+
 Risk:
 
 - Level: High
@@ -925,6 +932,15 @@ Required Gates:
 Stop Condition:
 
 - 全部 Stage 与 Gates 已通过；D3 双语生产官网持续公开可达，最终 full regression 阻塞通过；双语 SaaS production/reviewer environment 与至少一个真实生产配置渠道完成受当前政策允许的端到端闭环；AC-01～AC-18 均有可追溯证据；review bundle 达到正式提交条件；两种语言中的所有公开状态和声明与实际生产能力一致。第三方最终审批结果不影响 Delivery Acceptance，但会继续约束公开可用范围。
+
+### D7 Local Candidate Execution Record
+
+- Status: Production Change Authorized；production-candidate commit/push 与腾讯云首尔生产部署已获 Human Owner 明确批准，尚未执行生产部署、DNS/TLS、Developer Console、review submission、公开 rollout、Production Human E2E 或 Stage Acceptance。
+- Self Verification: PASS（2026-08-24，uncommitted production candidate）。最终候选通过 canonical `pnpm verify`：format、lint、type/static、build、Terraform validate/fmt、SaaS release configuration、105 unit tests、contract、602-key i18n、public site、clean/representative migration、integration、platform/site E2E、backup/restore、secret scan 与 production dependency audit 均阻塞通过。Production Change Authorization 前，`pnpm site:release-check` 曾按设计拒绝 Legal/Data rollout；Human Owner 明确授权后，候选才将 2026-08-24 双语 Legal/Data revision 切换为 production rollout 状态，且仍须以实际官网部署与 smoke 证明公开状态。
+- Release Artifact Evidence: `linux/amd64` application image `jingtang-saas:d7-review-final` 构建通过，OCI revision label、non-root `node` runtime 与 digest `sha256:32ad05684a96c0b9cb22419d3d06afbbf526ab2f77fd6dc8209b22bd47832455` 已核对；application 与 ingress image 的 Trivy High/Critical vulnerability scan 均为零，忽略本地未跟踪的 `node_modules`/historical `infra/cdk.out` 后，repository-owned Docker/Terraform configuration High/Critical finding 为零。
+- Code Review: PASS（2026-08-24，uncommitted production candidate）。正式审查覆盖 release configuration、Seoul region/environment and tenant isolation、role-versioned KMS-sealed runtime Secret、migration/rollback、public status generation、CI/production authorization safeguards、CIAM challenge/account deletion、PostgreSQL outbox → Tencent TDMQ → worker claim/fencing/retry，以及 OAuth wrapped-key exact-version deletion。无 P0/P1/P2 blocking finding。批准的单独 CVM 上分容器部署是 Architecture Authority 明确接受的计算信任边界；本记录不把它误述为抵抗同宿主机进程失陷的硬隔离，也不擅自扩张为多主机架构。
+- Production Change Authorization: APPROVED（2026-08-24）。Human Owner 明确批准创建并推送 production-candidate commit，以及在已批准的 `ap-seoul` 架构边界内执行腾讯云生产部署。该授权不包含 Google/YouTube 正式审核提交，也不扩张为未列明的第三方 Developer Console 写入；任何审核提交仍须单独授权。执行前仍必须以实时 plan、受保护 Secret/Environment 和精确资源目标验证实际写入范围，不得猜测账号参数或区域。
+- Human E2E / Stage Acceptance: Not executed。D4 延期 Human E2E、D7 production smoke、双语完整企业 journey、production actual-control/reviewer evidence 与 AC-01～AC-18 closure 仍为 blocking scope，不能由本地自动化或本记录替代。
 
 ## Acceptance Criteria Coverage
 

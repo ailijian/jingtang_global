@@ -50,7 +50,17 @@ export class CognitoIdentityProvider implements IdentityProvider {
         }),
       );
       if (!result.UserSub) throw new Error("Cognito did not return a subject");
-      return { subject: result.UserSub, confirmed: result.UserConfirmed === true };
+      const profile = {
+        subject: result.UserSub,
+        email: input.email.trim().toLowerCase(),
+        name: input.name.trim(),
+      };
+      return result.UserConfirmed === true
+        ? { confirmed: true, profile }
+        : {
+            confirmed: false,
+            challenge: Buffer.from(JSON.stringify(profile), "utf8").toString("base64url"),
+          };
     } catch (error) {
       throw this.mapError(error);
     }
@@ -59,7 +69,8 @@ export class CognitoIdentityProvider implements IdentityProvider {
   public async confirmSignUp(input: {
     readonly email: string;
     readonly code: string;
-  }): Promise<void> {
+    readonly challenge?: string;
+  }): Promise<IdentityProfile> {
     try {
       await this.client.send(
         new ConfirmSignUpCommand({
@@ -68,6 +79,19 @@ export class CognitoIdentityProvider implements IdentityProvider {
           ConfirmationCode: input.code,
         }),
       );
+      if (!input.challenge) throw new Error("identity_challenge_missing");
+      const profile = JSON.parse(Buffer.from(input.challenge, "base64url").toString("utf8")) as
+        Partial<IdentityProfile> | undefined;
+      if (
+        !profile ||
+        typeof profile.subject !== "string" ||
+        typeof profile.email !== "string" ||
+        typeof profile.name !== "string" ||
+        profile.email !== input.email.trim().toLowerCase()
+      ) {
+        throw new Error("identity_challenge_invalid");
+      }
+      return profile as IdentityProfile;
     } catch (error) {
       throw this.mapError(error);
     }
@@ -103,7 +127,7 @@ export class CognitoIdentityProvider implements IdentityProvider {
     }
   }
 
-  public async requestPasswordReset(email: string): Promise<void> {
+  public async requestPasswordReset(email: string): Promise<{ readonly challenge?: string }> {
     try {
       await this.client.send(
         new ForgotPasswordCommand({
@@ -111,9 +135,11 @@ export class CognitoIdentityProvider implements IdentityProvider {
           Username: email.trim().toLowerCase(),
         }),
       );
+      return {};
     } catch (error) {
       const mapped = this.mapError(error);
       if (mapped.code === "rate_limited" || mapped.code === "service_unavailable") throw mapped;
+      return {};
     }
   }
 

@@ -365,7 +365,7 @@ async function terminalizeDisconnectedYouTubeExecutions(
   await transaction.outboxMessage.updateMany({
     where: {
       platformExecutionId: { in: executions.map((entry) => entry.id) },
-      state: { in: [OutboxState.PENDING, OutboxState.CLAIMED] },
+      state: { notIn: [OutboxState.COMPLETED, OutboxState.DEAD] },
     },
     data: {
       state: OutboxState.DEAD,

@@ -1,0 +1,126 @@
+name: Deploy SaaS production candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_change_reference:
+        description: Approved production change record
+        required: true
+        type: string
+      confirmation:
+        description: Type DEPLOY-JINGTANG-SAAS-PRODUCTION
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-saas
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production-saas
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.13.3
+          terraform_wrapper: false
+      - name: Require explicit production authorization
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          CHANGE_REFERENCE: ${{ inputs.production_change_reference }}
+        run: |
+          test "$CONFIRMATION" = "DEPLOY-JINGTANG-SAAS-PRODUCTION"
+          [[ "$CHANGE_REFERENCE" =~ ^[A-Za-z0-9._:/-]{3,128}$ ]]
+      - name: Block unsafe cloud and container configuration
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          hide-progress: true
+          timeout: 10m
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm verify
+      - name: Require deployed public Legal and Data Disclosure revision
+        run: pnpm site:release-check
+      - name: Build immutable amd64 release archives
+        run: |
+          docker build --platform linux/amd64 --build-arg "VCS_REF=$GITHUB_SHA" --tag "jingtang-saas:$GITHUB_SHA" .
+          docker build --platform linux/amd64 \
+            --build-arg "VCS_REF=$GITHUB_SHA" \
+            --file infra/tencent/saas/Caddy.Dockerfile \
+            --tag "jingtang-caddy:$GITHUB_SHA" \
+            infra/tencent/saas
+          docker save "jingtang-saas:$GITHUB_SHA" | gzip -9 > jingtang-saas.tar.gz
+          docker save "jingtang-caddy:$GITHUB_SHA" | gzip -9 > jingtang-caddy.tar.gz
+          sha256sum jingtang-saas.tar.gz > jingtang-saas.tar.gz.sha256
+          sha256sum jingtang-caddy.tar.gz > jingtang-caddy.tar.gz.sha256
+      - name: Block unsafe production application image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: jingtang-saas:${{ github.sha }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          hide-progress: true
+          timeout: 15m
+      - name: Block unsafe production ingress image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: jingtang-caddy:${{ github.sha }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          hide-progress: true
+          timeout: 15m
+      - name: Prepare dedicated production SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.TENCENT_SAAS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ vars.TENCENT_SAAS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Transfer and activate release
+        env:
+          TARGET: ${{ vars.TENCENT_SAAS_USER }}@${{ vars.TENCENT_SAAS_HOST }}
+          CHANGE_REFERENCE: ${{ inputs.production_change_reference }}
+        run: |
+          release_root="/srv/jingtang/saas/releases/$GITHUB_SHA"
+          ssh -o BatchMode=yes -i "$HOME/.ssh/id_ed25519" "$TARGET" "install -d -m 0755 '$release_root' /srv/jingtang/saas"
+          rsync -a -e "ssh -o BatchMode=yes -i $HOME/.ssh/id_ed25519" \
+            jingtang-saas.tar.gz \
+            jingtang-caddy.tar.gz \
+            infra/tencent/saas/Caddyfile \
+            infra/tencent/saas/compose.yaml \
+            infra/tencent/saas/activate-release.sh \
+            "$TARGET:$release_root/"
+          archive_sha="$(cut -d' ' -f1 jingtang-saas.tar.gz.sha256)"
+          caddy_archive_sha="$(cut -d' ' -f1 jingtang-caddy.tar.gz.sha256)"
+          ssh -o BatchMode=yes -i "$HOME/.ssh/id_ed25519" "$TARGET" "bash '$release_root/activate-release.sh' '$GITHUB_SHA' '$archive_sha' '$caddy_archive_sha' '$CHANGE_REFERENCE'"
+      - name: Production readiness smoke
+        run: curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 https://app.jingtangai.com/api/v1/health

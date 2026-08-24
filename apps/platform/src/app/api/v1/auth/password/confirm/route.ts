@@ -8,6 +8,10 @@ import {
   requireSameOrigin,
 } from "../../../../../../server/http";
 import { getRuntime } from "../../../../../../server/runtime";
+import {
+  clearIdentityChallengeCookie,
+  readIdentityChallengeCookie,
+} from "../../../../../../server/identity-challenge";
 
 const schema = z.object({
   email: z.email(),
@@ -20,8 +24,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     requireSameOrigin(request);
     const input = await parseBody(request, schema);
-    await getRuntime().identity.confirmPasswordReset(input);
-    return NextResponse.json({ changed: true, request_id: requestId });
+    const runtime = getRuntime();
+    const production = runtime.config.APP_ENV === "production";
+    const challenge =
+      runtime.config.IDENTITY_PROVIDER === "ciam"
+        ? readIdentityChallengeCookie(
+            request,
+            "reset_password",
+            input.email,
+            runtime.config.SESSION_COOKIE_SECRET,
+            production,
+          )
+        : undefined;
+    await runtime.identity.confirmPasswordReset({
+      ...input,
+      ...(challenge ? { challenge: challenge.providerChallenge } : {}),
+    });
+    const response = NextResponse.json({ changed: true, request_id: requestId });
+    clearIdentityChallengeCookie(response, "reset_password", production);
+    return response;
   } catch (error) {
     return apiError(error, requestId);
   }

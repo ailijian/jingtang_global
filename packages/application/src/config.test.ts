@@ -10,9 +10,9 @@ const base = {
   IDENTITY_PROVIDER: "mock",
   ALLOW_TEST_IDENTITY: "true",
   SESSION_COOKIE_SECRET: "a-secure-test-secret-with-32-characters",
-  TERMS_VERSION: "2026-08-22",
-  PRIVACY_VERSION: "2026-08-22",
-  DATA_PURPOSE_VERSION: "2026-08-22",
+  TERMS_VERSION: "2026-08-24",
+  PRIVACY_VERSION: "2026-08-24",
+  DATA_PURPOSE_VERSION: "2026-08-24",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
   OBJECT_STORAGE_ENDPOINT: "http://localhost:9000",
@@ -25,6 +25,8 @@ const base = {
 describe("environment isolation", () => {
   it("allows explicit synthetic test configuration", () => {
     expect(parseAppConfig(base).APP_ENV).toBe("test");
+    expect(parseAppConfig(base).OBJECT_STORAGE_REGION).toBe("ap-seoul");
+    expect(parseAppConfig(base).TENCENT_KMS_REGION).toBe("ap-seoul");
   });
 
   it("rejects synthetic identity in production", () => {
@@ -48,10 +50,25 @@ describe("environment isolation", () => {
       NODE_ENV: "production",
       APP_ENV: "production",
       APP_BASE_URL: "https://app.jingtangai.com",
+      DATABASE_WORKER_URL: "postgresql://worker.example.invalid/production",
+      ASYNC_TRANSPORT: "tdmq_rabbitmq",
+      TDMQ_AMQP_URL: "amqps://queue.example.invalid/jingtang-production",
       IDENTITY_PROVIDER: "ciam",
       ALLOW_TEST_IDENTITY: "false",
       CIAM_ISSUER: "https://example.auth.tencentciam.com",
       CIAM_CLIENT_ID: "example-client",
+      CIAM_CLIENT_SECRET: "example-client-secret",
+      CIAM_PASSWORD_AUTH_SOURCE_ID: "password-source",
+      CIAM_USER_STORE_ID: "user-store",
+      RUNTIME_SECRET_BUNDLE_ENABLED: "true",
+      RUNTIME_SECRET_BUNDLE_ROLE: "platform",
+      RUNTIME_SECRET_BUNDLE_BUCKET: "jingtang-production-runtime-secrets",
+      RUNTIME_SECRET_BUNDLE_VERSION_ID: "immutable-version-id",
+      RUNTIME_SECRET_BUNDLE_ENDPOINT: "https://cos.ap-seoul.myqcloud.com",
+      TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+      OBJECT_STORAGE_ACCESS_KEY_ID: "",
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+      OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "bucket_default",
     };
     expect(parseAppConfig(production).TERMS_URL).toBe("https://jingtangai.com/en/terms/");
     expect(() =>
@@ -76,6 +93,118 @@ describe("environment isolation", () => {
         LOCAL_TOKEN_KEY_STORE_PATH: "/tmp/jingtang-test-oauth-token-keys.json",
       }).YOUTUBE_OAUTH_ENABLED,
     ).toBe(true);
+  });
+
+  it("does not require a browser-only OAuth state secret in the deployed worker", () => {
+    expect(
+      parseAppConfig({
+        ...base,
+        APP_ENV: "staging",
+        DATABASE_WORKER_URL: "postgresql://worker.example.invalid/staging",
+        ASYNC_TRANSPORT: "tdmq_rabbitmq",
+        TDMQ_AMQP_URL: "amqps://queue.example.invalid/jingtang-staging",
+        IDENTITY_PROVIDER: "ciam",
+        ALLOW_TEST_IDENTITY: "false",
+        CIAM_ISSUER: "https://example.auth.tencentciam.com",
+        CIAM_CLIENT_ID: "example-client",
+        CIAM_CLIENT_SECRET: "",
+        CIAM_PASSWORD_AUTH_SOURCE_ID: "",
+        CIAM_USER_STORE_ID: "user-store",
+        RUNTIME_SECRET_BUNDLE_ENABLED: "true",
+        RUNTIME_SECRET_BUNDLE_ROLE: "worker",
+        RUNTIME_SECRET_BUNDLE_BUCKET: "jingtang-staging-runtime-secrets",
+        RUNTIME_SECRET_BUNDLE_VERSION_ID: "immutable-version-id",
+        RUNTIME_SECRET_BUNDLE_ENDPOINT: "https://cos.ap-seoul.myqcloud.com",
+        TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+        OBJECT_STORAGE_ACCESS_KEY_ID: "",
+        OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+        OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "bucket_default",
+        YOUTUBE_OAUTH_ENABLED: "true",
+        YOUTUBE_OAUTH_CLIENT_ID: "worker-client.apps.googleusercontent.com",
+        YOUTUBE_OAUTH_CLIENT_SECRET: "worker-client-secret",
+        OAUTH_TOKEN_VAULT_PROVIDER: "tencent_kms",
+        TENCENT_KMS_KEY_ID: "kms-key",
+        OAUTH_TOKEN_KEY_STORAGE_BUCKET: "jingtang-token-keys",
+      }).RUNTIME_SECRET_BUNDLE_ROLE,
+    ).toBe("worker");
+  });
+
+  it("requires a separate wrapped-key bucket and complete Tencent KMS configuration", () => {
+    const kms = {
+      ...base,
+      YOUTUBE_OAUTH_ENABLED: "true",
+      YOUTUBE_OAUTH_CLIENT_ID: "test-client.apps.googleusercontent.com",
+      YOUTUBE_OAUTH_CLIENT_SECRET: "test-client-secret",
+      YOUTUBE_OAUTH_STATE_SECRET: "a-separate-state-secret-with-32-characters",
+      OAUTH_TOKEN_VAULT_PROVIDER: "tencent_kms",
+      TENCENT_CLOUD_SECRET_ID: "secret-id",
+      TENCENT_CLOUD_SECRET_KEY: "secret-key",
+      TENCENT_KMS_KEY_ID: "kms-key",
+      OAUTH_TOKEN_KEY_STORAGE_BUCKET: "jingtang-token-keys",
+    };
+    expect(parseAppConfig(kms).OAUTH_TOKEN_VAULT_PROVIDER).toBe("tencent_kms");
+    expect(() =>
+      parseAppConfig({ ...kms, OAUTH_TOKEN_KEY_STORAGE_BUCKET: base.OBJECT_STORAGE_BUCKET }),
+    ).toThrow();
+  });
+
+  it("requires CVM role credentials in deployed environments", () => {
+    const deployed = {
+      ...base,
+      APP_ENV: "staging",
+      DATABASE_WORKER_URL: "postgresql://worker.example.invalid/staging",
+      ASYNC_TRANSPORT: "tdmq_rabbitmq",
+      TDMQ_AMQP_URL: "amqps://queue.example.invalid/jingtang-staging",
+      IDENTITY_PROVIDER: "ciam",
+      ALLOW_TEST_IDENTITY: "false",
+      CIAM_ISSUER: "https://example.auth.tencentciam.com",
+      CIAM_CLIENT_ID: "example-client",
+      CIAM_CLIENT_SECRET: "example-client-secret",
+      CIAM_PASSWORD_AUTH_SOURCE_ID: "password-source",
+      CIAM_USER_STORE_ID: "user-store",
+      RUNTIME_SECRET_BUNDLE_ENABLED: "true",
+      RUNTIME_SECRET_BUNDLE_ROLE: "platform",
+      RUNTIME_SECRET_BUNDLE_BUCKET: "jingtang-staging-runtime-secrets",
+      RUNTIME_SECRET_BUNDLE_VERSION_ID: "immutable-version-id",
+      RUNTIME_SECRET_BUNDLE_ENDPOINT: "https://cos.ap-seoul.myqcloud.com",
+      OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "bucket_default",
+    };
+    expect(() => parseAppConfig(deployed)).toThrow();
+    expect(
+      parseAppConfig({
+        ...deployed,
+        TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+        OBJECT_STORAGE_ACCESS_KEY_ID: "",
+        OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+      }).TENCENT_CREDENTIAL_PROVIDER,
+    ).toBe("cvm_role");
+    expect(() =>
+      parseAppConfig({
+        ...deployed,
+        TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+        OBJECT_STORAGE_ACCESS_KEY_ID: "",
+        OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+        OBJECT_STORAGE_REGION: "ap-singapore",
+      }),
+    ).toThrow();
+    expect(() =>
+      parseAppConfig({
+        ...deployed,
+        TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+        OBJECT_STORAGE_ACCESS_KEY_ID: "",
+        OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+        OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "aes256",
+      }),
+    ).toThrow();
+    expect(() =>
+      parseAppConfig({
+        ...deployed,
+        TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+        OBJECT_STORAGE_ACCESS_KEY_ID: "",
+        OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+        TENCENT_KMS_REGION: "ap-singapore",
+      }),
+    ).toThrow();
   });
 
   it("rejects malformed local OAuth token encryption keys", () => {

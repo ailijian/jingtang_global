@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --use-env-proxy scripts/dev.mjs",
-    "start": "next start --port 3100",
+    "start": "node --use-env-proxy scripts/start.mjs",
     "build": "next build",
     "typecheck": "tsc --noEmit --pretty false"
   },

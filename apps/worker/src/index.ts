@@ -13,6 +13,7 @@ import {
 } from "@jingtang/application";
 import {
   accountAuthorizedDataDeletionPending,
+  claimQueuedOutboxMessage,
   claimLifecycleOperation,
   claimNextOutboxMessage,
   completeAuthorizedDataRetention,
@@ -53,27 +54,30 @@ import {
   resumeWorkspaceDataDeletion,
   updateChannelTokenEnvelope,
   type ClaimedLifecycleOperation,
+  type ClaimedOutboxMessage,
   type LifecycleClaimGuard,
 } from "@jingtang/db";
 import {
   CognitoIdentityProvider,
+  createTencentCiamIdentityDeletionProvider,
+  createObjectStorageCredentials,
+  createTokenEnvelopeVault,
   DeterministicYouTubeTestAdapter,
   GoogleYouTubeOAuthProvider,
-  LocalEnvelopeTokenVault,
+  loadRuntimeSecretBundle,
   MockIdentityProvider,
+  RabbitCommandConsumer,
   S3AssetStorage,
 } from "@jingtang/integrations";
 import { safeLog } from "@jingtang/observability";
 
+await loadRuntimeSecretBundle(process.env, "worker");
 const config = parseAppConfig(process.env);
 if (!config.DATABASE_WORKER_URL) throw new Error("worker_database_url_required");
 if (
   !config.YOUTUBE_OAUTH_ENABLED ||
   !config.YOUTUBE_OAUTH_CLIENT_ID ||
-  !config.YOUTUBE_OAUTH_CLIENT_SECRET ||
-  config.OAUTH_TOKEN_VAULT_PROVIDER !== "local" ||
-  !config.OAUTH_TOKEN_ENCRYPTION_KEY ||
-  !config.LOCAL_TOKEN_KEY_STORE_PATH
+  !config.YOUTUBE_OAUTH_CLIENT_SECRET
 ) {
   throw new Error("worker_youtube_configuration_required");
 }
@@ -88,33 +92,33 @@ const provider =
   config.YOUTUBE_TEST_FAULT === "none"
     ? googleProvider
     : new DeterministicYouTubeTestAdapter(googleProvider, config.YOUTUBE_TEST_FAULT);
-const vault = new LocalEnvelopeTokenVault(
-  config.OAUTH_TOKEN_ENCRYPTION_KEY,
-  config.LOCAL_TOKEN_KEY_STORE_PATH,
-);
-if (config.IDENTITY_PROVIDER === "ciam")
-  throw new Error("tencent_ciam_identity_provider_not_configured");
+const vault = createTokenEnvelopeVault(config);
 const identity =
-  config.IDENTITY_PROVIDER === "cognito"
-    ? new CognitoIdentityProvider(
-        config.COGNITO_REGION,
-        config.COGNITO_USER_POOL_ID ?? "",
-        config.COGNITO_CLIENT_ID ?? "",
-      )
-    : new MockIdentityProvider({
-        ...(config.APP_ENV === "local"
-          ? { storagePath: config.LOCAL_IDENTITY_STORE_PATH ?? "../../.local/mock-identity.json" }
-          : {}),
-      });
+  config.IDENTITY_PROVIDER === "ciam"
+    ? createTencentCiamIdentityDeletionProvider(config)
+    : config.IDENTITY_PROVIDER === "cognito"
+      ? new CognitoIdentityProvider(
+          config.COGNITO_REGION,
+          config.COGNITO_USER_POOL_ID ?? "",
+          config.COGNITO_CLIENT_ID ?? "",
+        )
+      : new MockIdentityProvider({
+          ...(config.APP_ENV === "local"
+            ? { storagePath: config.LOCAL_IDENTITY_STORE_PATH ?? "../../.local/mock-identity.json" }
+            : {}),
+        });
 const assets = new S3AssetStorage({
   ...(config.OBJECT_STORAGE_ENDPOINT ? { endpoint: config.OBJECT_STORAGE_ENDPOINT } : {}),
   region: config.OBJECT_STORAGE_REGION,
   bucket: config.OBJECT_STORAGE_BUCKET,
-  accessKeyId: config.OBJECT_STORAGE_ACCESS_KEY_ID,
-  secretAccessKey: config.OBJECT_STORAGE_SECRET_ACCESS_KEY,
+  credentials: createObjectStorageCredentials(config),
   forcePathStyle: config.OBJECT_STORAGE_FORCE_PATH_STYLE,
   autoCreateBucket: config.OBJECT_STORAGE_AUTO_CREATE_BUCKET,
-  serverSideEncryption: config.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION,
+  serverSideEncryption: config.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION
+    ? config.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE === "aes256"
+      ? "AES256"
+      : "bucket_default"
+    : false,
   requestTimeoutMs: config.OBJECT_STORAGE_REQUEST_TIMEOUT_MS,
 });
 
@@ -171,9 +175,7 @@ async function accessToken(
   return authorization.accessToken;
 }
 
-async function processNextPublish(): Promise<boolean> {
-  const message = await claimNextOutboxMessage(db, workerId);
-  if (!message) return false;
+async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ack" | "retry"> {
   let work: Awaited<ReturnType<typeof readYouTubeExecutionWorkItem>> | undefined;
   let providerReferencePersisted = false;
   let leaseLost = false;
@@ -245,7 +247,7 @@ async function processNextPublish(): Promise<boolean> {
         claimOwner: message.claimOwner,
         claimGeneration: message.claimGeneration,
       });
-      return true;
+      return "ack";
     }
     if (status.state === "failed") {
       const category = status.failureCategory ?? "provider_processing_failed";
@@ -261,7 +263,7 @@ async function processNextPublish(): Promise<boolean> {
         claimOwner: message.claimOwner,
         claimGeneration: message.claimGeneration,
       });
-      return true;
+      return "ack";
     }
     await finishOutboxMessage(db, {
       id: message.id,
@@ -270,6 +272,9 @@ async function processNextPublish(): Promise<boolean> {
       claimOwner: message.claimOwner,
       claimGeneration: message.claimGeneration,
     });
+    // The durable outbox now owns retry timing. Acknowledge this broker copy so
+    // RabbitMQ does not hot-requeue it in parallel with the scheduled retry.
+    return "ack";
   } catch (error) {
     const category = leaseLost ? "publish_lease_lost" : failureCategory(error);
     if (leaseLost || category === "publish_fence_lost" || category === "outbox_claim_lost") {
@@ -278,7 +283,7 @@ async function processNextPublish(): Promise<boolean> {
         executionId: message.platformExecutionId,
         failureCategory: category,
       });
-      return true;
+      return "retry";
     }
     const disposition = youtubeExecutionFailureDisposition(category, message.attempt);
     if (disposition.terminal) {
@@ -306,7 +311,7 @@ async function processNextPublish(): Promise<boolean> {
           needsAttention: disposition.needsAttention,
         });
       }
-      return true;
+      return "ack";
     }
     if (
       work &&
@@ -342,6 +347,13 @@ async function processNextPublish(): Promise<boolean> {
       ).catch(() => undefined);
     }
   }
+  return "ack";
+}
+
+async function processNextLocalPublish(): Promise<boolean> {
+  const message = await claimNextOutboxMessage(db, workerId);
+  if (!message) return false;
+  await processClaimedPublish(message);
   return true;
 }
 
@@ -906,11 +918,52 @@ async function runLoop(
 }
 
 async function run(): Promise<void> {
-  safeLog("info", "worker.lifecycle_control_plane_ready", { stage: "D6", workerId });
-  await Promise.all([
-    runLoop("youtube_publish", processNextPublish, 1_000),
-    runLoop("lifecycle_control", processLifecycleOperation, lifecycleIntervalMs),
-  ]);
+  safeLog("info", "worker.lifecycle_control_plane_ready", {
+    stage: "D7",
+    workerId,
+    asyncTransport: config.ASYNC_TRANSPORT,
+  });
+  if (config.ASYNC_TRANSPORT === "local") {
+    await Promise.all([
+      runLoop("youtube_publish", processNextLocalPublish, 1_000),
+      runLoop("lifecycle_control", processLifecycleOperation, lifecycleIntervalMs),
+    ]);
+    return;
+  }
+  if (!config.TDMQ_AMQP_URL) throw new Error("worker_tdmq_configuration_required");
+  const consumer = new RabbitCommandConsumer({
+    url: config.TDMQ_AMQP_URL,
+    exchange: config.TDMQ_EXCHANGE,
+    queue: config.TDMQ_QUEUE,
+    deadLetterExchange: config.TDMQ_DEAD_LETTER_EXCHANGE,
+    deadLetterQueue: config.TDMQ_DEAD_LETTER_QUEUE,
+  });
+  try {
+    await consumer.start(
+      async (command) => {
+        const claimed = await claimQueuedOutboxMessage(db, {
+          id: command.outboxMessageId,
+          workspaceId: command.workspaceId,
+          platformExecutionId: command.platformExecutionId,
+          workerId,
+        });
+        if (claimed.kind === "busy") return "retry";
+        if (claimed.kind !== "claimed") return "ack";
+        return processClaimedPublish(claimed.message);
+      },
+      () => {
+        if (stopping) return;
+        stopping = true;
+        process.exitCode = 1;
+        safeLog("error", "worker.tdmq_connection_closed", {
+          failureCategory: "tdmq_connection_closed",
+        });
+      },
+    );
+    await runLoop("lifecycle_control", processLifecycleOperation, lifecycleIntervalMs);
+  } finally {
+    await consumer.close();
+  }
 }
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

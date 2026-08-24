@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { setLocaleCookie, setSessionCookie } from "../../../../../server/auth";
 import { apiError, correlationId, parseBody, requireSameOrigin } from "../../../../../server/http";
+import { setIdentityChallengeCookie } from "../../../../../server/identity-challenge";
 import { getRuntime } from "../../../../../server/runtime";
 
 const schema = z.object({
@@ -22,10 +23,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const input = await parseBody(request, schema);
     const runtime = getRuntime();
     const signup = await runtime.identity.signUp(input);
+    if (!signup.confirmed) {
+      if (!signup.challenge) throw new Error("identity_signup_challenge_missing");
+      const response = NextResponse.json(
+        { confirmation_required: true, request_id: requestId },
+        { status: 202 },
+      );
+      setIdentityChallengeCookie(
+        response,
+        {
+          v: 1,
+          purpose: "signup",
+          email: input.email.trim().toLowerCase(),
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+          providerChallenge: signup.challenge,
+          name: input.name,
+          locale: input.locale,
+        },
+        runtime.config.SESSION_COOKIE_SECRET,
+        runtime.config.APP_ENV === "production",
+      );
+      return response;
+    }
+    if (!signup.profile) throw new Error("identity_signup_profile_missing");
     const user = await upsertIdentityUser(runtime.db, {
-      subject: signup.subject,
-      email: input.email,
-      name: input.name,
+      ...signup.profile,
       locale: input.locale,
     });
     await recordConsent(runtime.db, {
@@ -35,12 +57,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       dataPurposeVersion: runtime.config.DATA_PURPOSE_VERSION,
       displayedLocale: input.locale,
     });
-    if (!signup.confirmed) {
-      return NextResponse.json(
-        { confirmation_required: true, request_id: requestId },
-        { status: 202 },
-      );
-    }
     const session = await createSession(runtime.db, {
       userId: user.id,
       secret: runtime.config.SESSION_COOKIE_SECRET,

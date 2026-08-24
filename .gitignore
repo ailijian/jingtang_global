@@ -25,6 +25,16 @@ test-results/
 .turbo/
 cdk.out/
 *.tsbuildinfo
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+*.auto.tfvars
+crash.log
+runtime.env
+release.env
+*.tar.gz
 
 # Logs
 *.log

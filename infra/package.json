@@ -2,17 +2,9 @@
   "name": "@jingtang/infra",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "build": "tsc -b && cdk synth --quiet",
-    "typecheck": "tsc -b --pretty false",
-    "synth": "cdk synth"
-  },
-  "dependencies": {
-    "aws-cdk-lib": "2.266.0",
-    "constructs": "10.8.1"
-  },
-  "devDependencies": {
-    "aws-cdk": "2.1138.0"
+    "format": "terraform -chdir=tencent/saas fmt -recursive",
+    "format:check": "terraform -chdir=tencent/saas fmt -check -recursive",
+    "validate": "terraform -chdir=tencent/saas init -backend=false -input=false && terraform -chdir=tencent/saas validate && terraform -chdir=tencent/saas fmt -check -recursive"
   }
 }

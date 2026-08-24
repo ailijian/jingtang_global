@@ -29,8 +29,10 @@ const storage = new S3AssetStorage({
   endpoint: storageEndpoint,
   region: process.env.OBJECT_STORAGE_REGION ?? "ap-southeast-1",
   bucket: process.env.OBJECT_STORAGE_BUCKET ?? "jingtang-test-assets",
-  accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY_ID ?? "jingtang_test",
-  secretAccessKey: process.env.OBJECT_STORAGE_SECRET_ACCESS_KEY ?? "test_storage_only_change_me",
+  credentials: {
+    accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY_ID ?? "jingtang_test",
+    secretAccessKey: process.env.OBJECT_STORAGE_SECRET_ACCESS_KEY ?? "test_storage_only_change_me",
+  },
   forcePathStyle: true,
   autoCreateBucket: true,
   serverSideEncryption: false,

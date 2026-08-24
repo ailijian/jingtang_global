@@ -1,0 +1,138 @@
+name: jingtang-saas
+
+x-runtime: &runtime
+  image: ${JINGTANG_IMAGE:?JINGTANG_IMAGE must identify an immutable Git-SHA release}
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  networks:
+    - private
+
+x-common-environment: &common-environment
+  NODE_ENV: production
+  APP_ENV: production
+  APP_BASE_URL: https://app.jingtangai.com
+  RUNTIME_SECRET_BUNDLE_ENABLED: "true"
+  RUNTIME_SECRET_BUNDLE_BUCKET: ${RUNTIME_SECRET_BUNDLE_BUCKET:?required}
+  RUNTIME_SECRET_BUNDLE_REGION: ap-seoul
+  RUNTIME_SECRET_BUNDLE_ENDPOINT: ${RUNTIME_SECRET_BUNDLE_ENDPOINT:?required}
+  TENCENT_CREDENTIAL_PROVIDER: cvm_role
+  DATABASE_URL: unused-outside-platform
+  ASYNC_TRANSPORT: tdmq_rabbitmq
+  TDMQ_EXCHANGE: jingtang.commands.v1
+  TDMQ_QUEUE: jingtang.youtube.publish.v1
+  TDMQ_DEAD_LETTER_EXCHANGE: jingtang.dead-letter.v1
+  TDMQ_DEAD_LETTER_QUEUE: jingtang.youtube.publish.dlq.v1
+  IDENTITY_PROVIDER: ciam
+  ALLOW_TEST_IDENTITY: "false"
+  CIAM_ISSUER: ${CIAM_ISSUER:?required}
+  CIAM_CLIENT_ID: ${CIAM_CLIENT_ID:?required}
+  CIAM_PASSWORD_AUTH_SOURCE_ID: ${CIAM_PASSWORD_AUTH_SOURCE_ID:?required}
+  CIAM_USER_STORE_ID: ${CIAM_USER_STORE_ID:?required}
+  SESSION_COOKIE_SECRET: unused-outside-platform-000000000000
+  TERMS_VERSION: 2026-08-24
+  PRIVACY_VERSION: 2026-08-24
+  DATA_PURPOSE_VERSION: 2026-08-24
+  TERMS_URL: https://jingtangai.com/en/terms/
+  PRIVACY_URL: https://jingtangai.com/en/privacy/
+  OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com
+  OBJECT_STORAGE_REGION: ap-seoul
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:?required}
+  OBJECT_STORAGE_FORCE_PATH_STYLE: "false"
+  OBJECT_STORAGE_AUTO_CREATE_BUCKET: "false"
+  OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION: "true"
+  OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: bucket_default
+  OBJECT_STORAGE_REQUEST_TIMEOUT_MS: "120000"
+  YOUTUBE_TEST_FAULT: none
+  OAUTH_TOKEN_VAULT_PROVIDER: tencent_kms
+  TENCENT_KMS_REGION: ap-seoul
+  TENCENT_KMS_KEY_ID: ${TENCENT_KMS_KEY_ID:?required}
+  OAUTH_TOKEN_KEY_STORAGE_BUCKET: ${OAUTH_TOKEN_KEY_STORAGE_BUCKET:?required}
+
+services:
+  ingress:
+    image: ${JINGTANG_CADDY_IMAGE:?JINGTANG_CADDY_IMAGE must identify an immutable Git-SHA release}
+    restart: unless-stopped
+    depends_on:
+      platform:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - private
+
+  platform:
+    <<: *runtime
+    command: ["node", "--use-env-proxy", "apps/platform/scripts/start.mjs"]
+    environment:
+      <<: *common-environment
+      DATABASE_URL: ""
+      RUNTIME_SECRET_BUNDLE_ROLE: platform
+      RUNTIME_SECRET_BUNDLE_VERSION_ID: ${PLATFORM_SECRET_VERSION_ID:?required}
+      PORT: "3100"
+      SESSION_COOKIE_SECRET: ""
+      YOUTUBE_OAUTH_ENABLED: "true"
+      YOUTUBE_OAUTH_CLIENT_ID: ${YOUTUBE_OAUTH_CLIENT_ID:?required}
+      YOUTUBE_OAUTH_CLIENT_SECRET: ""
+      YOUTUBE_OAUTH_STATE_SECRET: ""
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  dispatcher:
+    <<: *runtime
+    command: ["node", "--use-env-proxy", "apps/dispatcher/dist/index.js"]
+    environment:
+      <<: *common-environment
+      RUNTIME_SECRET_BUNDLE_ROLE: dispatcher
+      RUNTIME_SECRET_BUNDLE_VERSION_ID: ${DISPATCHER_SECRET_VERSION_ID:?required}
+      YOUTUBE_OAUTH_ENABLED: "false"
+
+  worker:
+    <<: *runtime
+    command: ["node", "--use-env-proxy", "apps/worker/dist/index.js"]
+    environment:
+      <<: *common-environment
+      RUNTIME_SECRET_BUNDLE_ROLE: worker
+      RUNTIME_SECRET_BUNDLE_VERSION_ID: ${WORKER_SECRET_VERSION_ID:?required}
+      YOUTUBE_OAUTH_ENABLED: "true"
+      YOUTUBE_OAUTH_CLIENT_ID: ${YOUTUBE_OAUTH_CLIENT_ID:?required}
+      YOUTUBE_OAUTH_CLIENT_SECRET: ""
+
+networks:
+  private:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

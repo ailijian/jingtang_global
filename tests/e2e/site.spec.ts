@@ -188,7 +188,7 @@ test("keyboard focus, mobile navigation, public identity, and legal version are 
         ? "Jingtang (Shanghai) Intelligent Technology Co., Ltd."
         : "鲸汤（上海）智能科技有限公司",
     );
-    await expect(page.locator("body")).toContainText("2026-08-22");
+    await expect(page.locator("body")).toContainText("2026-08-24");
     await expect(page.getByRole("link", { name: "developer@jingtangai.com" })).toBeVisible();
   }
 });

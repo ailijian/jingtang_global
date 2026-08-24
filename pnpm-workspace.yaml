@@ -16,6 +16,9 @@ overrides:
 
 minimumReleaseAgeExclude:
   - "@aws-sdk/client-cognito-identity-provider@3.1114.0"
+  - "tencentcloud-sdk-nodejs-common@4.1.220"
+  - "tencentcloud-sdk-nodejs-ciam@4.1.233"
+  - "tencentcloud-sdk-nodejs-kms@4.1.286"
   - aws-cdk-lib@2.266.0
   - aws-cdk@2.1138.0
 
@@ -23,3 +26,7 @@ pmOnFail: error
 
 catalog:
   "@aws-sdk/client-s3": 3.1114.0
+  amqplib: 2.0.1
+  tencentcloud-sdk-nodejs-common: 4.1.220
+  tencentcloud-sdk-nodejs-ciam: 4.1.233
+  tencentcloud-sdk-nodejs-kms: 4.1.286

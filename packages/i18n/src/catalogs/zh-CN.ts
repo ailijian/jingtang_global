@@ -544,7 +544,7 @@ export const zhCN: Record<keyof typeof en, string> = {
     "可运行基础已执行租户边界、默认拒绝的角色权限、服务端会话、审计事件、Secret 扫描、Migration 检查与自动验证。D6 还在本地验证了 deny-first 断开、程序化撤销、删除账本、7/30 天保留控制、审计最小化和一次性恢复演练。这些控制本身不能证明生产部署状态。",
   "site.security.production.title": "SaaS 上线前必须验证的生产控制",
   "site.security.production.body":
-    "已批准的 SaaS 目标为腾讯云新加坡。TLS、TencentDB 与 COS 加密存储、Secrets Manager/KMS、OAuth Token 信封加密、环境隔离、备份、访问记录与监控、事件响应和漏洞管理，仍需在 D7 提供真实生产证据。",
+    "已批准的 SaaS 目标为腾讯云首尔。TLS、TencentDB 与 COS 加密存储、KMS 信封加密的私有运行时密钥配置包、OAuth Token 信封加密、环境隔离、备份、访问记录与监控、事件响应和漏洞管理，仍需在 D7 提供真实生产证据；CIAM tenant 的处理位置也必须在生产访问前完成验证。",
   "site.security.website.title": "公共网站边界",
   "site.security.website.body":
     "D3 官网按静态公共页面设计，不包含广告追踪、Analytics 处理方、账号数据、OAuth Token 或用户内容。只有访客明确打开邮件草稿后，联系信息才会离开浏览器。",
@@ -628,7 +628,7 @@ export const zhCN: Record<keyof typeof en, string> = {
     "我们使用数据提供用户请求的身份、工作空间、审批、发布、跟踪、支持、安全、审计、撤销与删除功能，保留用户选择，并履行适用的平台和法律义务。我们不会把授权平台数据静默用于无关广告或 AI 训练。",
   "site.privacy.processors.title": "4. 处理方、区域与跨境",
   "site.privacy.processors.body":
-    "已批准的生产架构计划将 SaaS 主要应用数据与计算置于腾讯云新加坡，并使用相互隔离的 TencentDB、COS、TDMQ、Secrets Manager/KMS 和日志资源；在 D7 提供真实部署证据前，这些 SaaS 路径继续阻断生产使用。公共网站的静态资源和有限安全/访问日志由 JINGTANG 控制的腾讯云首尔轻量应用服务器处理。GitHub 只处理源码和合成 CI 数据。Google/YouTube 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。",
+    "已批准的生产架构计划将 SaaS 主要应用数据与计算置于腾讯云首尔，并使用相互隔离的 TencentDB、COS、TDMQ、KMS 信封加密的私有运行时密钥配置包和日志资源；公共网站与 SaaS 在同一地域中保持独立资源边界。在 D7 提供真实部署证据（包括所选 CIAM tenant 的处理位置）前，这些 SaaS 路径继续阻断生产使用。公共网站的静态资源和有限安全/访问日志由 JINGTANG 控制的腾讯云首尔轻量应用服务器处理。GitHub 只处理源码和合成 CI 数据。Google/YouTube 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。",
   "site.privacy.youtube.title": "5. Google 与 YouTube 数据",
   "site.privacy.youtube.body":
     "受保护的 YouTube 实现通过官方 OAuth 使用 YouTube API Services，并只执行界面向用户明确说明的功能；公开生产访问目前仍不可用。相关使用同时受 YouTube 服务条款和 Google 隐私政策约束。Integration 启用时，用户可以在 JINGTANG 内断开，也可以在 Google 安全设置中撤销访问。",

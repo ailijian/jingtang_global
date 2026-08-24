@@ -36,7 +36,7 @@ describe("MockIdentityProvider persistence", () => {
         email: "owner@example.test",
         password: "durable-local-password",
       }),
-    ).resolves.toMatchObject({ subject: signedUp.subject, name: "Local Owner" });
+    ).resolves.toMatchObject({ subject: signedUp.profile?.subject, name: "Local Owner" });
     expect(readFileSync(storagePath, "utf8")).not.toContain("durable-local-password");
   });
 

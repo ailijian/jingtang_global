@@ -8,11 +8,13 @@ import {
 } from "@aws-sdk/client-s3";
 import type { AssetStorage } from "@jingtang/application";
 
+import type { S3Credentials } from "./tencent-cloud-credentials.js";
+
 export class S3AssetStorage implements AssetStorage {
   readonly #client: S3Client;
   readonly #bucket: string;
   readonly #autoCreateBucket: boolean;
-  readonly #serverSideEncryption: boolean;
+  readonly #serverSideEncryption: false | "AES256" | "bucket_default";
   readonly #requestTimeoutMs: number;
   #ready: Promise<void> | undefined;
 
@@ -20,11 +22,10 @@ export class S3AssetStorage implements AssetStorage {
     readonly endpoint?: string;
     readonly region: string;
     readonly bucket: string;
-    readonly accessKeyId: string;
-    readonly secretAccessKey: string;
+    readonly credentials: S3Credentials;
     readonly forcePathStyle: boolean;
     readonly autoCreateBucket: boolean;
-    readonly serverSideEncryption: boolean;
+    readonly serverSideEncryption: false | "AES256" | "bucket_default";
     readonly requestTimeoutMs?: number;
   }) {
     this.#bucket = input.bucket;
@@ -35,10 +36,7 @@ export class S3AssetStorage implements AssetStorage {
       ...(input.endpoint ? { endpoint: input.endpoint } : {}),
       region: input.region,
       forcePathStyle: input.forcePathStyle,
-      credentials: {
-        accessKeyId: input.accessKeyId,
-        secretAccessKey: input.secretAccessKey,
-      },
+      credentials: input.credentials,
     });
   }
 
@@ -83,7 +81,9 @@ export class S3AssetStorage implements AssetStorage {
           Body: input.body,
           ContentType: input.contentType,
           ChecksumSHA256: input.sha256Base64,
-          ...(this.#serverSideEncryption ? { ServerSideEncryption: "AES256" as const } : {}),
+          ...(this.#serverSideEncryption === "AES256"
+            ? { ServerSideEncryption: "AES256" as const }
+            : {}),
         }),
         { abortSignal },
       ),

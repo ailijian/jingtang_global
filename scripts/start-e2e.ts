@@ -45,9 +45,9 @@ const environment: NodeJS.ProcessEnv = {
   OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   LOCAL_TOKEN_KEY_STORE_PATH: join(tokenKeyStoreDirectory, "keys.json"),
   SESSION_COOKIE_SECRET: "e2e-session-cookie-secret-at-least-32-bytes",
-  TERMS_VERSION: "2026-08-22",
-  PRIVACY_VERSION: "2026-08-22",
-  DATA_PURPOSE_VERSION: "2026-08-22",
+  TERMS_VERSION: "2026-08-24",
+  PRIVACY_VERSION: "2026-08-24",
+  DATA_PURPOSE_VERSION: "2026-08-24",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
 };

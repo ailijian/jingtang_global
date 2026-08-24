@@ -103,11 +103,16 @@ export class MockIdentityProvider implements IdentityProvider {
       resetRequested: false,
     });
     this.persist();
-    return Promise.resolve({ subject, confirmed: true });
+    return Promise.resolve({
+      confirmed: true,
+      profile: { subject, email, name: input.name.trim() },
+    });
   }
 
-  public confirmSignUp(): Promise<void> {
-    return Promise.resolve();
+  public confirmSignUp(input: { readonly email: string }): Promise<IdentityProfile> {
+    const record = this.records.get(input.email.trim().toLowerCase());
+    if (!record) throw new ApplicationError("not_found", "Identity was not found", 404);
+    return Promise.resolve({ subject: record.subject, email: record.email, name: record.name });
   }
 
   public authenticate(input: {
@@ -123,7 +128,7 @@ export class MockIdentityProvider implements IdentityProvider {
     return Promise.resolve({ subject: record.subject, email: record.email, name: record.name });
   }
 
-  public async requestPasswordReset(email: string): Promise<void> {
+  public async requestPasswordReset(email: string): Promise<{ readonly challenge?: string }> {
     const normalizedEmail = email.trim().toLowerCase();
     let record = this.records.get(normalizedEmail);
     if (!record && this.resolveExistingProfile) {
@@ -144,6 +149,7 @@ export class MockIdentityProvider implements IdentityProvider {
       record.resetRequested = true;
       this.persist();
     }
+    return {};
   }
 
   public confirmPasswordReset(input: {

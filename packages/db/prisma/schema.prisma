@@ -126,10 +126,12 @@ enum PlatformExecutionState {
 }
 
 enum OutboxState {
-  PENDING   @map("pending")
-  CLAIMED   @map("claimed")
-  COMPLETED @map("completed")
-  DEAD      @map("dead")
+  PENDING     @map("pending")
+  DISPATCHING @map("dispatching")
+  DISPATCHED  @map("dispatched")
+  CLAIMED     @map("claimed")
+  COMPLETED   @map("completed")
+  DEAD        @map("dead")
 
   @@map("outbox_state")
 }

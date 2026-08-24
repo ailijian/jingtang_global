@@ -238,6 +238,190 @@ export interface ClaimedOutboxMessage {
   readonly claimGeneration: bigint;
 }
 
+export interface ClaimedOutboxDispatch {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly platformExecutionId: string;
+  readonly topic: string;
+  readonly dispatchOwner: string;
+  readonly dispatchGeneration: bigint;
+}
+
+export async function claimNextOutboxForDispatch(
+  workerClient: PrismaClient,
+  dispatcherId: string,
+): Promise<ClaimedOutboxDispatch | null> {
+  const rows = await workerClient.$queryRaw<
+    {
+      id: string;
+      workspace_id: string;
+      platform_execution_id: string;
+      topic: string;
+      claim_owner: string;
+      claim_generation: bigint;
+    }[]
+  >`
+    UPDATE "outbox_messages"
+    SET
+      "state" = 'dispatching'::"outbox_state",
+      "claimed_at" = CURRENT_TIMESTAMP,
+      "claim_owner" = ${dispatcherId},
+      "claim_until" = CURRENT_TIMESTAMP + INTERVAL '1 minute',
+      "claim_generation" = "claim_generation" + 1,
+      "updated_at" = CURRENT_TIMESTAMP
+    WHERE "id" = (
+      SELECT "id"
+      FROM "outbox_messages"
+      WHERE
+        (
+          "state" = 'pending'::"outbox_state"
+          OR ("state" = 'dispatching'::"outbox_state" AND "claim_until" <= CURRENT_TIMESTAMP)
+        )
+        AND "available_at" <= CURRENT_TIMESTAMP
+      ORDER BY "available_at", "created_at"
+      FOR UPDATE SKIP LOCKED
+      LIMIT 1
+    )
+    RETURNING "id", "workspace_id", "platform_execution_id", "topic", "claim_owner", "claim_generation"
+  `;
+  const row = rows[0];
+  return row
+    ? {
+        id: row.id,
+        workspaceId: row.workspace_id,
+        platformExecutionId: row.platform_execution_id,
+        topic: row.topic,
+        dispatchOwner: row.claim_owner,
+        dispatchGeneration: row.claim_generation,
+      }
+    : null;
+}
+
+export async function completeOutboxDispatch(
+  workerClient: PrismaClient,
+  input: {
+    readonly id: string;
+    readonly dispatchOwner: string;
+    readonly dispatchGeneration: bigint;
+  },
+): Promise<void> {
+  const changed = await workerClient.$executeRaw`
+    UPDATE "outbox_messages"
+    SET "state" = 'dispatched'::"outbox_state",
+        "claimed_at" = NULL,
+        "claim_owner" = NULL,
+        "claim_until" = NULL,
+        "failure_category" = NULL,
+        "updated_at" = CURRENT_TIMESTAMP
+    WHERE "id" = ${input.id}::uuid
+      AND "state" = 'dispatching'::"outbox_state"
+      AND "claim_owner" = ${input.dispatchOwner}
+      AND "claim_generation" = ${input.dispatchGeneration}
+      AND "claim_until" > CURRENT_TIMESTAMP
+  `;
+  if (changed === 1) return;
+  const state = await workerClient.outboxMessage.findUnique({
+    where: { id: input.id },
+    select: { state: true },
+  });
+  if (state && ["CLAIMED", "COMPLETED", "DEAD"].includes(state.state)) return;
+  throw new Error("outbox_dispatch_claim_lost");
+}
+
+export async function releaseOutboxDispatch(
+  workerClient: PrismaClient,
+  input: {
+    readonly id: string;
+    readonly dispatchOwner: string;
+    readonly dispatchGeneration: bigint;
+    readonly retryAfterSeconds: number;
+    readonly failureCategory: string;
+  },
+): Promise<void> {
+  const changed = await workerClient.$executeRaw`
+    UPDATE "outbox_messages"
+    SET "state" = 'pending'::"outbox_state",
+        "claimed_at" = NULL,
+        "claim_owner" = NULL,
+        "claim_until" = NULL,
+        "failure_category" = ${input.failureCategory},
+        "available_at" = CURRENT_TIMESTAMP + (${input.retryAfterSeconds} * INTERVAL '1 second'),
+        "updated_at" = CURRENT_TIMESTAMP
+    WHERE "id" = ${input.id}::uuid
+      AND "state" = 'dispatching'::"outbox_state"
+      AND "claim_owner" = ${input.dispatchOwner}
+      AND "claim_generation" = ${input.dispatchGeneration}
+  `;
+  if (changed !== 1) throw new Error("outbox_dispatch_claim_lost");
+}
+
+export type QueuedOutboxClaimResult =
+  | { readonly kind: "claimed"; readonly message: ClaimedOutboxMessage }
+  | { readonly kind: "busy" | "terminal" | "missing" };
+
+export async function claimQueuedOutboxMessage(
+  workerClient: PrismaClient,
+  input: {
+    readonly id: string;
+    readonly workspaceId: string;
+    readonly platformExecutionId: string;
+    readonly workerId: string;
+  },
+): Promise<QueuedOutboxClaimResult> {
+  const rows = await workerClient.$queryRaw<
+    {
+      id: string;
+      workspace_id: string;
+      platform_execution_id: string;
+      attempt: number;
+      claim_owner: string;
+      claim_generation: bigint;
+    }[]
+  >`
+    UPDATE "outbox_messages"
+    SET "state" = 'claimed'::"outbox_state",
+        "claimed_at" = CURRENT_TIMESTAMP,
+        "claim_owner" = ${input.workerId},
+        "claim_until" = CURRENT_TIMESTAMP + INTERVAL '2 minutes',
+        "claim_generation" = "claim_generation" + 1,
+        "updated_at" = CURRENT_TIMESTAMP
+    WHERE "id" = ${input.id}::uuid
+      AND "workspace_id" = ${input.workspaceId}::uuid
+      AND "platform_execution_id" = ${input.platformExecutionId}::uuid
+      AND (
+        "state" IN ('dispatching'::"outbox_state", 'dispatched'::"outbox_state")
+        OR ("state" = 'claimed'::"outbox_state" AND "claim_until" <= CURRENT_TIMESTAMP)
+      )
+    RETURNING "id", "workspace_id", "platform_execution_id", "attempt", "claim_owner", "claim_generation"
+  `;
+  const row = rows[0];
+  if (row) {
+    return {
+      kind: "claimed",
+      message: {
+        id: row.id,
+        workspaceId: row.workspace_id,
+        platformExecutionId: row.platform_execution_id,
+        attempt: row.attempt,
+        claimOwner: row.claim_owner,
+        claimGeneration: row.claim_generation,
+      },
+    };
+  }
+  const existing = await workerClient.outboxMessage.findUnique({
+    where: { id: input.id },
+    select: { workspaceId: true, platformExecutionId: true, state: true },
+  });
+  if (!existing) return { kind: "missing" };
+  if (
+    existing.workspaceId !== input.workspaceId ||
+    existing.platformExecutionId !== input.platformExecutionId
+  ) {
+    return { kind: "missing" };
+  }
+  return ["COMPLETED", "DEAD"].includes(existing.state) ? { kind: "terminal" } : { kind: "busy" };
+}
+
 export async function claimNextOutboxMessage(
   workerClient: PrismaClient,
   workerId: string,

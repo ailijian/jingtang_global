@@ -5,26 +5,37 @@ export interface IdentityProfile {
 }
 
 export interface SignUpResult {
-  readonly subject: string;
   readonly confirmed: boolean;
+  readonly profile?: IdentityProfile;
+  readonly challenge?: string;
 }
 
-export interface IdentityProvider {
+export interface IdentityDeletionProvider {
+  deleteAccount(input: { readonly email: string; readonly subject: string }): Promise<void>;
+}
+
+export interface IdentityProvider extends IdentityDeletionProvider {
   signUp(input: {
     readonly email: string;
     readonly password: string;
     readonly name: string;
   }): Promise<SignUpResult>;
-  confirmSignUp(input: { readonly email: string; readonly code: string }): Promise<void>;
+  confirmSignUp(input: {
+    readonly email: string;
+    readonly code: string;
+    readonly password?: string;
+    readonly name?: string;
+    readonly challenge?: string;
+  }): Promise<IdentityProfile>;
   authenticate(input: {
     readonly email: string;
     readonly password: string;
   }): Promise<IdentityProfile>;
-  requestPasswordReset(email: string): Promise<void>;
+  requestPasswordReset(email: string): Promise<{ readonly challenge?: string }>;
   confirmPasswordReset(input: {
     readonly email: string;
     readonly code: string;
     readonly newPassword: string;
+    readonly challenge?: string;
   }): Promise<void>;
-  deleteAccount(input: { readonly email: string; readonly subject: string }): Promise<void>;
 }

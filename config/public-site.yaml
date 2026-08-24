@@ -1,7 +1,7 @@
 schema_version: 1
-revision: 6
+revision: 7
 status: production
-effective_date: "2026-08-22"
+effective_date: "2026-08-24"
 owner: JINGTANG Human Owner
 
 identity:
@@ -18,10 +18,11 @@ identity:
     approval_provenance: Human Owner supplied and confirmed the exact values for D3 implementation
 
 legal:
-  policy_version: "2026-08-22"
-  effective_date: "2026-08-22"
+  policy_version: "2026-08-24"
+  effective_date: "2026-08-24"
   approval_status: approved
-  approval_provenance: Human Owner explicitly approved the D6 bilingual Legal, Security, Data Deletion, and Integration disclosure update on 2026-08-22
+  approval_provenance: Human Owner explicitly authorized the formal Seoul regional correction and corresponding bilingual Legal, Security, Data Deletion, and Integration disclosure revision on 2026-08-24
+  deployment_status: deployed_verified
   routes:
     en:
       privacy: /en/privacy/
@@ -51,3 +52,4 @@ production_readiness:
   tls: verified
   legal_data_approval: approved
   production_rollout: deployed_verified
+  legal_policy_rollout: deployed_verified

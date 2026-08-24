@@ -17,6 +17,10 @@
     "@aws-sdk/client-cognito-identity-provider": "3.1114.0",
     "@aws-sdk/client-s3": "catalog:",
     "@jingtang/application": "workspace:*",
-    "aws-jwt-verify": "5.2.1"
+    "amqplib": "catalog:",
+    "aws-jwt-verify": "5.2.1",
+    "tencentcloud-sdk-nodejs-ciam": "catalog:",
+    "tencentcloud-sdk-nodejs-common": "catalog:",
+    "tencentcloud-sdk-nodejs-kms": "catalog:"
   }
 }

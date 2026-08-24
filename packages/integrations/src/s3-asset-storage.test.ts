@@ -1,12 +1,15 @@
 import { createServer } from "node:http";
 
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { afterEach, describe, expect, it } from "vitest";
+import { vi } from "vitest";
 
 import { S3AssetStorage } from "./s3-asset-storage.js";
 
 const servers: ReturnType<typeof createServer>[] = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(
     servers.splice(0).map(
       (server) =>
@@ -19,6 +22,33 @@ afterEach(async () => {
 });
 
 describe("S3AssetStorage", () => {
+  it("defers to the COS KMS bucket default without an object-level AES override", async () => {
+    const send = vi.spyOn(S3Client.prototype, "send").mockResolvedValue({} as never);
+    const storage = new S3AssetStorage({
+      endpoint: "https://cos.ap-seoul.myqcloud.com",
+      region: "ap-seoul",
+      bucket: "kms-default-test",
+      credentials: {
+        accessKeyId: "test-access-key",
+        secretAccessKey: "test-secret-key",
+      },
+      forcePathStyle: false,
+      autoCreateBucket: false,
+      serverSideEncryption: "bucket_default",
+    });
+
+    await storage.put({
+      key: "opaque-source-id",
+      body: new Uint8Array([1]),
+      contentType: "application/octet-stream",
+      sha256Base64: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    });
+
+    const command = send.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(PutObjectCommand);
+    expect((command as PutObjectCommand).input.ServerSideEncryption).toBeUndefined();
+  });
+
   it("aborts a storage request that does not return", async () => {
     const server = createServer(() => undefined);
     servers.push(server);
@@ -29,8 +59,10 @@ describe("S3AssetStorage", () => {
       endpoint: `http://127.0.0.1:${address.port}`,
       region: "ap-southeast-1",
       bucket: "timeout-test",
-      accessKeyId: "test-access-key",
-      secretAccessKey: "test-secret-key",
+      credentials: {
+        accessKeyId: "test-access-key",
+        secretAccessKey: "test-secret-key",
+      },
       forcePathStyle: true,
       autoCreateBucket: false,
       serverSideEncryption: false,

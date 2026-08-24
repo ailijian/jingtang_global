@@ -18,6 +18,8 @@ interface PublicSiteConfig {
     readonly policy_version: string;
     readonly effective_date: string;
     readonly approval_status: "pending_human_legal_data_disclosure_approval" | "approved";
+    readonly deployment_status:
+      "approved_pending_production_change_authorization" | "deployed_verified";
   };
   readonly contact: {
     readonly method: "email_handoff";
@@ -34,6 +36,7 @@ interface PublicSiteConfig {
     readonly tls: string;
     readonly legal_data_approval: string;
     readonly production_rollout: "blocked" | "authorized" | "deployed_verified";
+    readonly legal_policy_rollout: "pending_production_change_authorization" | "deployed_verified";
   };
 }
 
@@ -53,8 +56,14 @@ function assertConfig(value: unknown): asserts value is PublicSiteConfig {
       "Jingtang (Shanghai) Intelligent Technology Co., Ltd." ||
     candidate.identity.legal_entity?.["zh-CN"] !== "鲸汤（上海）智能科技有限公司" ||
     candidate.identity.freeze?.status !== "approved" ||
-    candidate.legal?.policy_version !== "2026-08-22" ||
-    candidate.legal.effective_date !== "2026-08-22" ||
+    candidate.legal?.policy_version !== "2026-08-24" ||
+    candidate.legal.effective_date !== "2026-08-24" ||
+    !["approved_pending_production_change_authorization", "deployed_verified"].includes(
+      candidate.legal.deployment_status ?? "",
+    ) ||
+    !["pending_production_change_authorization", "deployed_verified"].includes(
+      candidate.production_readiness?.legal_policy_rollout ?? "",
+    ) ||
     candidate.contact?.method !== "email_handoff" ||
     candidate.contact.destination !== candidate.identity.support_email ||
     candidate.product_access?.public_status !== "private_beta_prelaunch"

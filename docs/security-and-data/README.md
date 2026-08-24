@@ -1,8 +1,8 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 12
-- Effective Date: 2026-08-23
+- Security/Data Revision: 16
+- Effective Date: 2026-08-24
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
 - Architecture dependency: [`docs/architecture/README.md`](../architecture/README.md)
@@ -21,7 +21,7 @@ It does not own Delivery requirements, UX semantics, legal text, public security
 | Public | Website copy, published legal pages, public integration status | Integrity-controlled; may be globally cached |
 | Internal | Source code, non-secret configuration, synthetic test fixtures | Authenticated team access; no production data |
 | Confidential | User profile, business email, Workspace/member data, content metadata, audit records, support messages | Tenant-bound access, TLS, KMS at rest, redacted logs |
-| Restricted | OAuth tokens/codes, session secrets, password-reset artifacts, user-owned source assets, private/unpublished platform data, production secrets | Least privilege, private network/storage, envelope encryption where specified, never ordinary logs |
+| Restricted | OAuth tokens/codes, session secrets, password-reset artifacts, user-owned source assets, private/unpublished platform data, production secrets, protected infrastructure state containing one-use bootstrap credentials | Least privilege, private network/storage, encryption at rest, envelope encryption where specified, never ordinary logs |
 
 Production data is prohibited in local development, CI fixtures, screenshots, demo recordings, or reviewer evidence unless explicitly minimized, authorized, and stored in the protected reviewer environment.
 
@@ -29,7 +29,8 @@ Production data is prohibited in local development, CI fixtures, screenshots, de
 
 | Processor/system | Purpose | Data/region decision |
 | --- | --- | --- |
-| Tencent Cloud Singapore | SaaS compute, CIAM identity, TencentDB for PostgreSQL, COS, TDMQ, KMS, Secrets Manager, SES, CLS/Cloud Monitor, backups | Primary production application data remains in Singapore; integration and production use separate logical resource and credential boundaries |
+| Tencent Cloud Seoul (`ap-seoul`) | SaaS compute, TencentDB for PostgreSQL, private COS data and KMS-sealed secret buckets, TDMQ, KMS, SES, CLS/Cloud Monitor, backups | Primary production application data and compute remain in Seoul; the D3 public website and D7 SaaS data plane are separate resources, and integration/production use separate logical resources and credentials |
+| Tencent Cloud CIAM | Sign-up, login, logout, password reset and credential policy | The production tenant is not yet provisioned. D7 must capture the selected tenant's contractual processing location and console configuration as protected evidence, and public disclosure must match that evidence before production access |
 | Tencent Cloud Lighthouse (Seoul), GoDaddy DNS, and Let's Encrypt ACME | D3 public website static delivery, DNS, TLS certificate issuance/renewal, and bounded security/access logs | Public website assets plus limited request/security metadata only; no authenticated API data, user content, OAuth token, or application secret is processed on this host |
 | Google/YouTube | User-directed OAuth, channel identification, video upload, status tracking, revocation | Google processes data under its platform terms and global infrastructure after explicit user action |
 | GitHub | Source repository and Actions CI | Source code and synthetic fixtures only; no production data or long-lived cloud key |
@@ -79,15 +80,15 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 ## Encryption and Key Management
 
 - TLS 1.2 or newer is required for browser, API, internal service, database, queue, email API, and provider traffic.
-- TencentDB, COS, TDMQ, CLS, backups, and Secrets Manager use customer-managed or service KMS encryption appropriate to the service, with separate production/integration keys.
-- OAuth tokens use application-level envelope encryption in addition to database encryption. A unique data key is generated per connection; the OAuth callback may seal a new envelope, while only the lifecycle/publishing worker may open persisted token envelopes. Replacing or clearing an envelope atomically persists a lifecycle retirement operation for its old key reference; the worker's idempotent destruction cryptographically erases live and backup token ciphertext even across a post-commit crash.
+- TencentDB, COS, TDMQ, CLS, and backups use customer-managed or service KMS encryption appropriate to the service, with separate production/integration keys. Private COS writers inherit the infrastructure-owned KMS bucket default and do not override it with object-level AES256.
+- OAuth tokens use application-level envelope encryption in addition to database encryption. A unique data key is generated per connection; its wrapped form is bound to an exact versioned COS object reference, while only the lifecycle/publishing worker may open persisted token envelopes. Replacing or clearing an envelope atomically persists a lifecycle retirement operation for its old key reference; the worker's idempotent exact-version destruction cryptographically erases live and backup token ciphertext without leaving a recoverable wrapped-key version behind a delete marker, including across a post-commit crash.
 - Source assets use private COS objects and short-lived signed requests. Object keys are opaque and contain no email, Workspace name, or original filename.
-- Secrets rotate through Tencent Cloud Secrets Manager; GitHub uses short-lived federation where supported. A secret must never enter source control, CI artifact, browser configuration, log, trace, audit metadata, error message, screenshot, or demo video.
+- Runtime secrets rotate as application-level KMS-sealed bundles in a dedicated private, versioned COS secret bucket in Seoul. Protected operators may write immutable bundle versions; runtime roles may read only the named objects and use only the dedicated decrypt key. GitHub uses short-lived federation where supported. Active runtime secrets must never enter Terraform state, source control, CI artifact, browser configuration, container image, ordinary environment artifact, log, trace, audit metadata, error message, screenshot, or demo video. TencentDB and TDMQ resource creation require one-use bootstrap passwords; those values are the sole Terraform-state exception, remain only in encrypted/private least-privilege remote state or an explicitly authorized ephemeral plan, and are invalidated immediately after provisioning before active credentials are sealed into role-specific runtime bundles.
 - Key administration, application decryption, and security audit permissions are separate IAM roles. Production humans have no standing token-decryption permission.
 
 ## Backup, Restore, and Deletion Safety
 
-- TencentDB for PostgreSQL uses the selected high-availability mode, point-in-time recovery, and encrypted automated backups retained for 35 days in Singapore.
+- TencentDB for PostgreSQL uses the selected high-availability mode, point-in-time recovery, and encrypted automated backups retained for 35 days in Seoul.
 - COS uses versioning and lifecycle expiry. Database and object-store recovery points are reconciled by object hash and deletion ledger.
 - A quarterly restore exercise begins in D6. Restores occur into an isolated environment, import protected deletion/lifecycle records from after the selected recovery point through current time, replay them before application access, validate tenant/RLS policy, and only then may replace service state.
 - Deletion-ledger rows are retained records: the runtime database role cannot delete them, completed rows and core request facts are database-enforced immutable, and lifecycle transitions are checked against the Workspace deletion state. Recovery replay uses separate administrator-only functions that are not executable by the application role.
@@ -115,18 +116,22 @@ Official policies are external state. The YouTube Integration Owner must re-veri
 
 ## Evidence Boundary
 
-D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant controls, secret/log checks, and the disposable restore procedure in repository-controlled environments. [`docs/OPERATIONS.md`](../OPERATIONS.md) owns the procedures and evidence routing. Tencent IAM, KMS, Secrets Manager, TencentDB/COS backups, CLS/Cloud Monitor alert routing, production access records, and an isolated production restore exercise remain D7 deployed-environment evidence; public claims must continue to describe them as launch requirements until verified.
+D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant controls, secret/log checks, and the disposable restore procedure in repository-controlled environments. [`docs/OPERATIONS.md`](../OPERATIONS.md) owns the procedures and evidence routing. Tencent IAM, KMS-sealed COS secret bundles, TencentDB/COS backups, CLS/Cloud Monitor alert routing, production access records, CIAM tenant/processing-location evidence, and an isolated production restore exercise remain D7 deployed-environment evidence; public claims must continue to describe them as launch requirements until verified.
 
 ## Revision Record
 
 - Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 locale preference 与 Consent displayed locale 数据字段；未增加处理方、区域、数据用途或更长保留期，Revision 1 的安全与删除边界保持不变。
 - Revision 3 — 2026-08-21：D3 选择域名邮箱作为官网 Contact/Demo 的明确联系路径。表单只在浏览器内准备邮件内容，访客明确打开邮件草稿后由其邮件提供商发送至 `developer@jingtangai.com`；不新增网站数据库、Analytics、CRM、处理方、数据用途或更长保留期。
 - Revision 4 — 2026-08-21：Human Owner 将 D3 公共官网生产目标明确为腾讯云首尔轻量应用服务器；增加腾讯云、GoDaddy DNS 与 Let's Encrypt ACME 的公开静态资源、TLS 和有限安全/访问日志处理边界。官网仍不处理账号数据、用户内容、OAuth Token 或应用 Secret；Human Owner 已明确批准更新后的中英双语 Legal/Data Disclosure，并授权 production-candidate commit 与公开 rollout。
-- Revision 5 — 2026-08-21：Human Owner 在 D5 前明确批准把尚未实施的 SaaS/worker AWS 架构修订为腾讯云，并选择不单独准备测试服务器。SaaS 生产处理方、主区域与服务边界相应改为腾讯云新加坡；Test/Integration 必须保持独立数据库、COS Bucket、TDMQ Queue、KMS Key、Secret、Log 与 Google Cloud Test Project，即使复用同一物理主机也不得复用生产数据或凭据。本修订不声称这些腾讯 SaaS 资源已经创建，也不改变已验收的腾讯云首尔静态官网边界。
-- Revision 6 — 2026-08-22：Human Owner 授权按 D5 re-review 的最小修正实施治理。受保护本地 D5 harness 可使用 Google Cloud Test Project、allow-listed Human account 与用户自有测试素材证明真实 OAuth/私密上传；其数据库、对象存储、本地 envelope key 和 PostgreSQL outbox 仅是 test evidence，不得复用 production credential、不得标记 Available，也不替代 D7 的腾讯云新加坡 CIAM、TencentDB、COS、TDMQ、Secrets Manager/KMS、CLS/Cloud Monitor 和生产访问控制证据。
+- Revision 5 — 2026-08-21：Human Owner 在 D5 前明确批准把尚未实施的 SaaS/worker AWS 架构修订为腾讯云，并选择不单独准备测试服务器。当时的文档机械保留了 D0 的腾讯云新加坡假设；该地域推断已由 Revision 13 正式纠正并取代。Test/Integration 的数据库、COS Bucket、TDMQ Queue、KMS Key、Secret、Log 与 Google Cloud Test Project 隔离要求继续有效。本修订未创建任何腾讯 SaaS 资源，也未改变已验收的腾讯云首尔静态官网边界。
+- Revision 6 — 2026-08-22：Human Owner 授权按 D5 re-review 的最小修正实施治理。受保护本地 D5 harness 可使用 Google Cloud Test Project、allow-listed Human account 与用户自有测试素材证明真实 OAuth/私密上传；其数据库、对象存储、本地 envelope key 和 PostgreSQL outbox 仅是 test evidence，不得复用 production credential、不得标记 Available，也不替代 D7 的腾讯云 deployed CIAM、TencentDB、COS、TDMQ、KMS/secret storage、CLS/Cloud Monitor 和生产访问控制证据。Revision 13 取代了本记录中继承的新加坡地域假设。
 - Revision 7 — 2026-08-22：D6 实现并以受控测试验证 Disconnect deny-first、Google programmatic revoke、Token/Authorized Data 清理、Workspace 删除申请台账、7/30 天 retention clock、审计载荷匿名化与 restore drill；生产腾讯云控制证据仍明确归 D7，未新增处理方、区域、用途或更长保留期。
 - Revision 8 — 2026-08-22：Human Owner 同意 D6 Acceptance Review 的最小修正。Disconnect 改为持久化重试并在第七天强制清除 JINGTANG 保存的 Token/Authorized Data；Workspace 删除失败保持 `deletion_pending`、普通访问持续阻断并由幂等 worker 自动重试，不再恢复为 Active。本修订不改变处理方、区域、用途或保留期。
 - Revision 9 — 2026-08-22：D6 Code Review 修正确保断开、授权失效与 30 天过期路径同步清除发布快照中的频道标识；Workspace 删除到达第七天时，本地数据库、会话、Token 与 Authorized Data 清理不再受临时 COS 故障阻塞，未删除对象仅以不含用户内容的 opaque key 留在删除台账并持续重试。本修订未扩大处理方、区域、用途或保留期。
 - Revision 10 — 2026-08-22：D6 收口修复为尚无 Workspace 的身份事件增加用户隔离的不可改写待归属记录，并在首个真实 Workspace 创建时保留原始时间与关联 ID 原子回放；曾属于 Workspace 的用户继续以最后一个真实 Workspace 作为最小历史审计范围。补充 Google 撤销成功判定、COS 请求超时与独立 lifecycle loop 控制；未新增处理方、区域、用途或更长保留期。
 - Revision 11 — 2026-08-23：D6 正式 Code Review 将删除台账的 365 天留存边界下沉为数据库约束：运行角色不得删除台账、不得改写已完成记录或核心请求事实，状态转换必须匹配 Workspace 删除生命周期；灾备恢复改用不授予应用角色的独立管理员函数，历史完成记录不再能授权在线应用清理或审计伪匿名化。本修订未新增处理方、区域、用途或更长保留期。
 - Revision 12 — 2026-08-23：D6 收口统一为数据库驱动的 lifecycle control plane：BFF 只持久化 deny/request，worker 通过数据库时间、租约与递增 generation 执行并防止 stale worker 写入；合规 SLA 超期只触发升级而不会放弃清理。账号级事件迁移到独立全局 append-only audit，不再归属任一 Workspace；恢复演练明确导入并回放恢复点之后至当前的受保护删除台账。本修订未新增处理方、区域、用途或更长保留期。
+- Revision 13 — 2026-08-24：Human Owner 确认真实腾讯生产位置为首尔并正式授权纠正。SaaS 主要应用数据与计算的目标区域改为 `ap-seoul`；D3 官网与 D7 SaaS 数据面位于同一区域但保持独立资源边界。官方区域资料确认 CVM/AZ、TencentDB、COS/KMS 与 TDMQ RabbitMQ 的首尔路径，而腾讯云国际站 Secrets Manager 当前 API 地域清单不含首尔，因此运行时 Secret 改为首尔私有 COS 中的 KMS 信封加密、版本化 sealed bundle；CIAM 的具体处理位置须由 D7 生产 tenant/合同证据确认后再公开。本修订未执行外部写入、未声称 D7 资源已创建，也未扩大用途或保留期。
+- Revision 14 — 2026-08-24：D7 生产候选将 YouTube OAuth callback 从 Caddy access log 中明确排除，避免 query 中的单次 authorization code 与 state 进入普通日志；部署工作流增加公开 Legal/Data 生产状态门禁、D7 schema readiness 与整套 release configuration rollback。该修订仅收紧既有 Restricted 数据和发布控制，未执行生产写入、未新增处理方/用途/区域或延长保留期。
+- Revision 15 — 2026-08-24：D7 生产候选统一继承 Terraform 管理的 COS KMS Bucket 默认加密，禁止对象写入以 AES256 覆盖 KMS；OAuth 每连接包裹密钥绑定并精确删除其 COS VersionId，避免版本化 Bucket 的普通删除标记保留可恢复密钥。该修订落实既有密码学擦除义务，未执行生产写入、未新增处理方/用途/区域或延长保留期。
+- Revision 16 — 2026-08-24：纠正 Terraform state 的安全声明。TencentDB/TDMQ provider 在创建资源时要求一次性 bootstrap password，因此这些失效前的初始值会进入敏感 Terraform state；D7 配置强制 COS backend 私有 ACL 与服务端加密，并要求专用、版本化、最小权限远程 state、受控临时 plan 和创建后立即轮换。活动运行时 Secret 仍禁止进入 Terraform、Git、镜像、日志或普通部署产物。本修订未执行生产写入，也未新增用途、处理方、区域或保留期。

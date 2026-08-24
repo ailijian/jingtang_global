@@ -8,6 +8,6 @@
     { "path": "packages/integrations" },
     { "path": "packages/db" },
     { "path": "apps/worker" },
-    { "path": "infra" }
+    { "path": "apps/dispatcher" }
   ]
 }
