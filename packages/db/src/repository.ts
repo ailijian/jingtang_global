@@ -76,6 +76,14 @@ async function lockOwnerInvariant(tx: Transaction, workspaceId: string): Promise
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${workspaceId}, 0))`;
 }
 
+async function lockChannelConnectionInvariant(
+  tx: Transaction,
+  workspaceId: string,
+  platform: string,
+): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${workspaceId}:${platform}:connection`}, 0))`;
+}
+
 async function countEligibleOwners(tx: Transaction, workspaceId: string): Promise<number> {
   return tx.membership.count({
     where: {
@@ -178,6 +186,8 @@ const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> =
   DISCONNECTED: "disconnected",
 };
 
+export const YOUTUBE_CONNECTION_ATTEMPT_TTL_MS = 10 * 60_000;
+
 function channelView(channel: {
   readonly id: string;
   readonly workspaceId: string;
@@ -232,21 +242,27 @@ export async function beginYouTubeConnection(
   },
 ): Promise<{ readonly id: string }> {
   return withTenant(client, input.workspaceId, async (transaction) => {
+    await lockChannelConnectionInvariant(transaction, input.workspaceId, "youtube");
     const current = await transaction.channel.findFirst({
       where: { workspaceId: input.workspaceId, platform: "youtube" },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
         state: true,
+        updatedAt: true,
         tokenEnvelopeCiphertext: true,
         tokenCiphertextReference: true,
       },
     });
+    const staleConnection =
+      current?.state === ChannelState.CONNECTING &&
+      current.updatedAt.getTime() <= Date.now() - YOUTUBE_CONNECTION_ATTEMPT_TTL_MS;
     if (
       current &&
       current.state !== ChannelState.NOT_CONNECTED &&
       current.state !== ChannelState.DISCONNECTED &&
-      current.state !== ChannelState.REAUTHORIZATION_REQUIRED
+      current.state !== ChannelState.REAUTHORIZATION_REQUIRED &&
+      !staleConnection
     ) {
       throw new Error(
         current.state === ChannelState.CONNECTING
@@ -285,7 +301,7 @@ export async function beginYouTubeConnection(
       targetId: channel.id,
       result: "success",
       correlationId: input.correlationId,
-      metadata: { platform: "youtube" },
+      metadata: { platform: "youtube", recoveredStaleAttempt: staleConnection },
     });
     return channel;
   });
@@ -296,6 +312,7 @@ export async function completeYouTubeConnection(
   input: {
     readonly workspaceId: string;
     readonly channelId: string;
+    readonly consentRecordId: string;
     readonly actorUserId: string;
     readonly externalAccountId: string;
     readonly displayName: string;
@@ -313,6 +330,7 @@ export async function completeYouTubeConnection(
         workspaceId: input.workspaceId,
         platform: "youtube",
         state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
         tokenEnvelopeCiphertext: null,
         tokenCiphertextReference: null,
       },
@@ -354,9 +372,11 @@ export async function denyYouTubeConnection(
   input: {
     readonly workspaceId: string;
     readonly channelId: string;
+    readonly consentRecordId: string;
     readonly actorUserId: string;
     readonly correlationId: string;
-    readonly reason: "provider_denied" | "invalid_callback" | "exchange_failed";
+    readonly reason:
+      "provider_denied" | "invalid_callback" | "exchange_failed" | "initiation_failed";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -366,6 +386,7 @@ export async function denyYouTubeConnection(
         workspaceId: input.workspaceId,
         platform: "youtube",
         state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
       },
       data: { state: ChannelState.NOT_CONNECTED, deniedAt: new Date() },
     });

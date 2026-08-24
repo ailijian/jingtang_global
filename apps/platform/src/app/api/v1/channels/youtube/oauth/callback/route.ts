@@ -33,6 +33,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     | {
         readonly workspaceId: string;
         readonly channelId: string;
+        readonly consentRecordId: string;
         readonly userId: string;
       }
     | undefined;
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       await denyYouTubeConnection(getRuntime().db, {
         workspaceId: decoded.workspaceId,
         channelId: decoded.channelId,
+        consentRecordId: decoded.consentRecordId,
         actorUserId: session.user.id,
         correlationId: requestId,
         reason: "provider_denied",
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         await completeYouTubeConnection(getRuntime().db, {
           workspaceId: decoded.workspaceId,
           channelId: decoded.channelId,
+          consentRecordId: decoded.consentRecordId,
           actorUserId: session.user.id,
           externalAccountId: channel.id,
           displayName: channel.displayName,
@@ -109,6 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         await denyYouTubeConnection(getRuntime().db, {
           workspaceId: context.workspaceId,
           channelId: context.channelId,
+          consentRecordId: context.consentRecordId,
           actorUserId: context.userId,
           correlationId: requestId,
           reason: "exchange_failed",

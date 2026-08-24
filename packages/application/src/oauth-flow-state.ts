@@ -20,6 +20,7 @@ export interface YouTubeOAuthFlowContext {
   readonly userId: string;
   readonly workspaceId: string;
   readonly channelId: string;
+  readonly consentRecordId: string;
   readonly locale: Locale;
   readonly expiresAt: number;
 }
@@ -42,6 +43,7 @@ function isContext(value: unknown): value is YouTubeOAuthFlowContext {
     typeof candidate.userId === "string" &&
     typeof candidate.workspaceId === "string" &&
     typeof candidate.channelId === "string" &&
+    typeof candidate.consentRecordId === "string" &&
     (candidate.locale === "en" || candidate.locale === "zh-CN") &&
     typeof candidate.expiresAt === "number" &&
     Number.isSafeInteger(candidate.expiresAt)

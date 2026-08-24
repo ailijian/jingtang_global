@@ -1,5 +1,10 @@
 import { ApplicationError, createOAuthPkce } from "@jingtang/application";
-import { beginYouTubeConnection, recordConsent } from "@jingtang/db";
+import {
+  beginYouTubeConnection,
+  denyYouTubeConnection,
+  recordConsent,
+  YOUTUBE_CONNECTION_ATTEMPT_TTL_MS,
+} from "@jingtang/db";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { authorize, requestSession } from "../../../../../../server/auth";
@@ -18,6 +23,14 @@ import {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const requestId = correlationId(request);
+  let initiated:
+    | {
+        readonly workspaceId: string;
+        readonly channelId: string;
+        readonly consentRecordId: string;
+        readonly actorUserId: string;
+      }
+    | undefined;
   try {
     requireSameOrigin(request);
     enforceReviewRateLimit(request, {
@@ -58,8 +71,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       actorUserId: session.user.id,
       correlationId: requestId,
     });
+    initiated = {
+      workspaceId,
+      channelId: channel.id,
+      consentRecordId: consent.id,
+      actorUserId: session.user.id,
+    };
     const flow = createOAuthPkce();
-    const expiresAt = Date.now() + 600_000;
+    const expiresAt = Date.now() + YOUTUBE_CONNECTION_ATTEMPT_TTL_MS;
     const sealed = codec.seal({
       state: flow.state,
       codeVerifier: flow.codeVerifier,
@@ -67,6 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       userId: session.user.id,
       workspaceId,
       channelId: channel.id,
+      consentRecordId: consent.id,
       locale: session.user.locale,
       expiresAt,
     });
@@ -79,6 +99,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     setYouTubeOAuthCookie(response, sealed);
     return response;
   } catch (error) {
+    if (initiated) {
+      try {
+        await denyYouTubeConnection(getRuntime().db, {
+          workspaceId: initiated.workspaceId,
+          channelId: initiated.channelId,
+          consentRecordId: initiated.consentRecordId,
+          actorUserId: initiated.actorUserId,
+          correlationId: requestId,
+          reason: "initiation_failed",
+        });
+      } catch {
+        // Preserve the primary safe API error; the bounded connection lease remains recoverable.
+      }
+    }
     return apiError(error, requestId);
   }
 }

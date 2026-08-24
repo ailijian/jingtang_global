@@ -16,6 +16,7 @@ function context(expiresAt: number = Date.now() + 600_000) {
     userId: "user-id",
     workspaceId: "workspace-id",
     channelId: "channel-id",
+    consentRecordId: "consent-record-id",
     locale: "en" as const,
     expiresAt,
   };
@@ -37,6 +38,7 @@ describe("YouTube OAuth flow state", () => {
       sessionId: "session-id",
       userId: "user-id",
       workspaceId: "workspace-id",
+      consentRecordId: "consent-record-id",
     });
   });
 

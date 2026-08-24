@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     await completeYouTubeConnection(runtime.db, {
       workspaceId,
       channelId: channel.id,
+      consentRecordId: consent.id,
       actorUserId: session.user.id,
       externalAccountId: `UC_E2E_${workspaceId.replaceAll("-", "")}`,
       displayName: "E2E Private YouTube Channel",

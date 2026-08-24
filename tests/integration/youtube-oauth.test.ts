@@ -90,6 +90,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
     await completeYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: owner.consent.id,
       actorUserId: owner.user.id,
       externalAccountId: "UC_TEST_OWNER",
       displayName: "JINGTANG Test Channel",
@@ -153,6 +154,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       completeYouTubeConnection(db, {
         workspaceId: other.workspace.id,
         channelId: channel.id,
+        consentRecordId: owner.consent.id,
         actorUserId: other.user.id,
         externalAccountId: "UC_CROSS_TENANT",
         displayName: "Cross tenant",
@@ -162,6 +164,85 @@ describe("D5 YouTube OAuth persistence boundary", () => {
         correlationId: randomUUID(),
       }),
     ).rejects.toThrow("channel_not_found");
+  });
+
+  it("recovers an expired connection attempt without allowing the old callback to mutate it", async () => {
+    const owner = await fixture("expired-attempt-owner");
+    const original = await beginYouTubeConnection(db, {
+      workspaceId: owner.workspace.id,
+      consentRecordId: owner.consent.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+    });
+    await withTenant(db, owner.workspace.id, (transaction) =>
+      transaction.channel.update({
+        where: { id: original.id },
+        data: { updatedAt: new Date(Date.now() - 11 * 60_000) },
+      }),
+    );
+    const replacementConsent = await recordConsent(db, {
+      userId: owner.user.id,
+      termsVersion: "d5-terms-v1",
+      privacyVersion: "d5-privacy-v1",
+      dataPurposeVersion: "d5-youtube-purpose-v1",
+      displayedLocale: "en",
+      acceptanceMethod: "youtube_connection_checkbox",
+    });
+    const replacement = await beginYouTubeConnection(db, {
+      workspaceId: owner.workspace.id,
+      consentRecordId: replacementConsent.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+    });
+    expect(replacement.id).toBe(original.id);
+
+    const staleEnvelope = await vault.seal({ refreshToken: "stale-callback-token" });
+    await expect(
+      completeYouTubeConnection(db, {
+        workspaceId: owner.workspace.id,
+        channelId: original.id,
+        consentRecordId: owner.consent.id,
+        actorUserId: owner.user.id,
+        externalAccountId: "UC_STALE_CALLBACK",
+        displayName: "Stale callback",
+        grantedScopes: youtubeOAuthScopes,
+        tokenEnvelopeCiphertext: staleEnvelope.ciphertext,
+        tokenCiphertextReference: staleEnvelope.keyReference,
+        correlationId: randomUUID(),
+      }),
+    ).rejects.toThrow("channel_not_found");
+    await denyYouTubeConnection(db, {
+      workspaceId: owner.workspace.id,
+      channelId: original.id,
+      consentRecordId: owner.consent.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+      reason: "exchange_failed",
+    });
+    await expect(listYouTubeChannels(db, owner.workspace.id)).resolves.toMatchObject([
+      { id: original.id, state: "connecting" },
+    ]);
+
+    const currentEnvelope = await vault.seal({ refreshToken: "current-callback-token" });
+    await completeYouTubeConnection(db, {
+      workspaceId: owner.workspace.id,
+      channelId: replacement.id,
+      consentRecordId: replacementConsent.id,
+      actorUserId: owner.user.id,
+      externalAccountId: "UC_CURRENT_CALLBACK",
+      displayName: "Current callback",
+      grantedScopes: youtubeOAuthScopes,
+      tokenEnvelopeCiphertext: currentEnvelope.ciphertext,
+      tokenCiphertextReference: currentEnvelope.keyReference,
+      correlationId: randomUUID(),
+    });
+    await expect(listYouTubeChannels(db, owner.workspace.id)).resolves.toMatchObject([
+      {
+        id: original.id,
+        state: "connected",
+        externalAccountId: "UC_CURRENT_CALLBACK",
+      },
+    ]);
   });
 
   it("does not let a failed or replayed callback reset an established connection", async () => {
@@ -176,6 +257,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
     const connection = {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: owner.consent.id,
       actorUserId: owner.user.id,
       externalAccountId: "UC_REPLAY_PROTECTED",
       displayName: "Replay protected",
@@ -190,6 +272,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
     await denyYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: owner.consent.id,
       actorUserId: owner.user.id,
       correlationId: randomUUID(),
       reason: "exchange_failed",
@@ -221,6 +304,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
     await completeYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: owner.consent.id,
       actorUserId: owner.user.id,
       externalAccountId: "UC_PUBLISH_TARGET",
       displayName: "Publish target",

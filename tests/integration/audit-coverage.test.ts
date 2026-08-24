@@ -477,6 +477,7 @@ describe("AC-11 runtime Audit coverage", () => {
     await denyYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: youtubeConsent.id,
       actorUserId: owner.user.id,
       correlationId: randomUUID(),
       reason: "provider_denied",
@@ -496,6 +497,7 @@ describe("AC-11 runtime Audit coverage", () => {
     await completeYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: youtubeConsent.id,
       actorUserId: owner.user.id,
       externalAccountId: "UC_AUDIT_PRIMARY",
       displayName: "Audit primary channel",
@@ -654,6 +656,7 @@ describe("AC-11 runtime Audit coverage", () => {
     await completeYouTubeConnection(db, {
       workspaceId: owner.workspace.id,
       channelId: channel.id,
+      consentRecordId: youtubeConsent.id,
       actorUserId: owner.user.id,
       externalAccountId: "UC_AUDIT_RECONNECTED",
       displayName: "Audit reconnected channel",

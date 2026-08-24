@@ -106,6 +106,7 @@ async function connectedChannel(owner: Awaited<ReturnType<typeof fixture>>, exte
   await completeYouTubeConnection(db, {
     workspaceId: owner.workspace.id,
     channelId: channel.id,
+    consentRecordId: owner.consent.id,
     actorUserId: owner.user.id,
     externalAccountId: externalId,
     displayName: `${externalId} channel`,
