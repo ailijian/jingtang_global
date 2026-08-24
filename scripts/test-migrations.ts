@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { installDisposableContainerSignalHandlers } from "./lib/disposable-containers.js";
 import {
   deployMigrations,
   migrationEnvironment,
@@ -14,6 +15,7 @@ import {
 } from "./lib/disposable-postgres.js";
 
 const execFileAsync = promisify(execFile);
+installDisposableContainerSignalHandlers();
 const migrationRoot = join(
   dirname(fileURLToPath(import.meta.url)),
   "../packages/db/prisma/migrations",

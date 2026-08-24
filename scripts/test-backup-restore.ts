@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
+import { installDisposableContainerSignalHandlers } from "./lib/disposable-containers.js";
 import {
   deployMigrations,
   startDisposablePostgres,
@@ -9,6 +10,7 @@ import {
 } from "./lib/disposable-postgres.js";
 
 const execFileAsync = promisify(execFile);
+installDisposableContainerSignalHandlers();
 const database = await startDisposablePostgres();
 const workspaceId = "00000000-0000-4000-8000-0000000000d6";
 const requestId = "00000000-0000-4000-8000-0000000000d7";

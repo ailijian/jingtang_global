@@ -1,5 +1,6 @@
 import { globSync } from "glob";
 
+import { installDisposableContainerSignalHandlers } from "./lib/disposable-containers.js";
 import {
   deployMigrations,
   migrationEnvironment,
@@ -15,6 +16,7 @@ import {
 
 const testFiles = globSync("tests/integration/**/*.test.ts").sort();
 if (testFiles.length === 0) throw new Error("No integration test files were found");
+installDisposableContainerSignalHandlers();
 
 for (const testFile of testFiles) {
   const database = await startDisposablePostgres();

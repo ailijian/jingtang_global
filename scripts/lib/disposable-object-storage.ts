@@ -2,6 +2,12 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 
+import {
+  disposableContainerLabels,
+  trackDisposableContainer,
+  untrackDisposableContainer,
+} from "./disposable-containers.js";
+
 const execFileAsync = promisify(execFile);
 
 export interface DisposableObjectStorage {
@@ -11,23 +17,25 @@ export interface DisposableObjectStorage {
 
 export async function startDisposableObjectStorage(): Promise<DisposableObjectStorage> {
   const name = `jingtang-d4-storage-${process.pid}-${randomUUID().slice(0, 8)}`;
-  await execFileAsync("docker", [
-    "run",
-    "--detach",
-    "--rm",
-    "--name",
-    name,
-    "--publish",
-    "127.0.0.1::9000",
-    "--env",
-    "MINIO_ROOT_USER=jingtang_test",
-    "--env",
-    "MINIO_ROOT_PASSWORD=test_storage_only_change_me",
-    "minio/minio:RELEASE.2025-04-22T22-12-26Z",
-    "server",
-    "/data",
-  ]);
+  trackDisposableContainer(name);
   try {
+    await execFileAsync("docker", [
+      "run",
+      "--detach",
+      "--rm",
+      "--name",
+      name,
+      ...disposableContainerLabels("object-storage"),
+      "--publish",
+      "127.0.0.1::9000",
+      "--env",
+      "MINIO_ROOT_USER=jingtang_test",
+      "--env",
+      "MINIO_ROOT_PASSWORD=test_storage_only_change_me",
+      "minio/minio:RELEASE.2025-04-22T22-12-26Z",
+      "server",
+      "/data",
+    ]);
     const { stdout } = await execFileAsync("docker", ["port", name, "9000/tcp"]);
     const port = stdout.trim().split(":").at(-1);
     if (!port || !/^\d+$/.test(port)) throw new Error("Could not resolve MinIO port");
@@ -49,7 +57,11 @@ export async function startDisposableObjectStorage(): Promise<DisposableObjectSt
 }
 
 export async function stopDisposableObjectStorage(name: string): Promise<void> {
-  await execFileAsync("docker", ["stop", "--time", "1", name]).catch(() => undefined);
+  try {
+    await execFileAsync("docker", ["stop", "--timeout", "1", name]).catch(() => undefined);
+  } finally {
+    untrackDisposableContainer(name);
+  }
 }
 
 export function objectStorageEnvironment(storage: DisposableObjectStorage): NodeJS.ProcessEnv {

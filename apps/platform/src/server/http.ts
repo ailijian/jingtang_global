@@ -85,10 +85,19 @@ export async function parseBody<T>(request: NextRequest, schema: ZodType<T>): Pr
   return schema.parse(value);
 }
 
+export function hasTrustedSameOriginMetadata(
+  origin: string | null,
+  fetchSite: string | null,
+  expectedOrigin: string,
+): boolean {
+  if (origin) return origin === expectedOrigin;
+  return fetchSite === "same-origin";
+}
+
 export function requireSameOrigin(request: NextRequest): void {
   const origin = request.headers.get("origin");
   const expected = new URL(getRuntime().config.APP_BASE_URL).origin;
-  if (!origin || origin !== expected) {
+  if (!hasTrustedSameOriginMetadata(origin, request.headers.get("sec-fetch-site"), expected)) {
     throw new ApplicationError("permission_denied", "Request origin was rejected", 403);
   }
 }

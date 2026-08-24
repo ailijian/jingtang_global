@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { cleanupOrphanedDisposableContainers } from "./lib/disposable-containers.js";
 import {
   deployMigrations,
   migrationEnvironment,
@@ -17,6 +18,7 @@ import {
   stopDisposableObjectStorage,
 } from "./lib/disposable-object-storage.js";
 
+cleanupOrphanedDisposableContainers();
 const database = await startDisposablePostgres();
 const storage = await startDisposableObjectStorage();
 deployMigrations(database);

@@ -2,6 +2,12 @@ import { execFile, spawn, spawnSync, type ChildProcess } from "node:child_proces
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 
+import {
+  disposableContainerLabels,
+  trackDisposableContainer,
+  untrackDisposableContainer,
+} from "./disposable-containers.js";
+
 const execFileAsync = promisify(execFile);
 
 export interface DisposablePostgres {
@@ -57,21 +63,23 @@ async function provisionRuntimeRoles(name: string): Promise<void> {
 
 export async function startDisposablePostgres(): Promise<DisposablePostgres> {
   const name = `jingtang-d2-${process.pid}-${randomUUID().slice(0, 8)}`;
-  await execFileAsync("docker", [
-    "run",
-    "--detach",
-    "--rm",
-    "--name",
-    name,
-    "--publish",
-    "127.0.0.1::5432",
-    "--env",
-    "POSTGRES_DB=jingtang",
-    "--env",
-    "POSTGRES_PASSWORD=local_admin_only",
-    "postgres:17.6-alpine",
-  ]);
+  trackDisposableContainer(name);
   try {
+    await execFileAsync("docker", [
+      "run",
+      "--detach",
+      "--rm",
+      "--name",
+      name,
+      ...disposableContainerLabels("postgres"),
+      "--publish",
+      "127.0.0.1::5432",
+      "--env",
+      "POSTGRES_DB=jingtang",
+      "--env",
+      "POSTGRES_PASSWORD=local_admin_only",
+      "postgres:17.6-alpine",
+    ]);
     await waitForPostgres(name);
     const { stdout } = await execFileAsync("docker", ["port", name, "5432/tcp"]);
     const port = stdout.trim().split(":").at(-1);
@@ -91,7 +99,11 @@ export async function startDisposablePostgres(): Promise<DisposablePostgres> {
 }
 
 export async function stopDisposablePostgres(name: string): Promise<void> {
-  await execFileAsync("docker", ["stop", "--time", "1", name]).catch(() => undefined);
+  try {
+    await execFileAsync("docker", ["stop", "--timeout", "1", name]).catch(() => undefined);
+  } finally {
+    untrackDisposableContainer(name);
+  }
 }
 
 export function runChecked(
