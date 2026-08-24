@@ -68,10 +68,24 @@ for (const role of ["PLATFORM", "DISPATCHER", "WORKER"] as const) {
   requireText(composeText, `${role}_SECRET_VERSION_ID`, "compose.yaml");
 }
 requireText(composeText, "RUNTIME_SECRET_BUNDLE_REGION: ap-seoul", "compose.yaml");
+for (const marker of [
+  'TERMS_VERSION: "2026-08-24"',
+  'PRIVACY_VERSION: "2026-08-24"',
+  'DATA_PURPOSE_VERSION: "2026-08-24"',
+] as const) {
+  requireText(composeText, marker, "compose.yaml");
+}
 requireText(
   composeText,
   "OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: bucket_default",
   "compose.yaml",
+);
+
+const platformStart = read("apps/platform/scripts/start.mjs");
+requireText(
+  platformStart,
+  'process.chdir(fileURLToPath(new URL("..", import.meta.url)))',
+  "platform production start script",
 );
 requireText(composeText, "https://app.jingtangai.com", "compose.yaml");
 requireText(composeText, "condition: service_healthy", "compose.yaml");

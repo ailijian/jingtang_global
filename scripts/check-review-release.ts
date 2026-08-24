@@ -72,6 +72,9 @@ if (
 }
 for (const marker of [
   "APP_ENV: review",
+  'TERMS_VERSION: "2026-08-24"',
+  'PRIVACY_VERSION: "2026-08-24"',
+  'DATA_PURPOSE_VERSION: "2026-08-24"',
   'user: "65532:65532"',
   'ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360"',
   'MAX_SOURCE_ASSET_BYTES: "524288000"',
@@ -85,6 +88,13 @@ for (const marker of [
 ]) {
   requireText(composeText, marker, "review compose");
 }
+
+const platformStart = read("apps/platform/scripts/start.mjs");
+requireText(
+  platformStart,
+  'process.chdir(fileURLToPath(new URL("..", import.meta.url)))',
+  "platform production start script",
+);
 if (/ports:\s*\n/u.test(composeText)) throw new Error("review compose exposes a host port");
 if (composeText.includes('user: "1000:1000"')) {
   throw new Error("review services must not share the ordinary host operator UID");
