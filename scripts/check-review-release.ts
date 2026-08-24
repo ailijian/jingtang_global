@@ -183,7 +183,12 @@ for (const forbidden of [
 }
 
 const restoreDrill = read("infra/tencent/review/restore-review-drill.sh");
-for (const marker of ["ready_count >= 2", "Isolated restore database did not become stably ready."]) {
+for (const marker of [
+  "ready_count >= 2",
+  "Isolated restore database did not become stably ready.",
+  "CREATE ROLE jingtang_app NOLOGIN",
+  "CREATE ROLE jingtang_worker NOLOGIN",
+]) {
   requireText(restoreDrill, marker, "review restore drill");
 }
 

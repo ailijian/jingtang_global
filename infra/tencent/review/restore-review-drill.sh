@@ -65,6 +65,10 @@ if (( ready_count < 2 )); then
   echo "Isolated restore database did not become stably ready." >&2
   exit 3
 fi
+docker exec "$container" psql -U postgres -d postgres --set=ON_ERROR_STOP=1 \
+  -c "CREATE ROLE jingtang_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
+docker exec "$container" psql -U postgres -d postgres --set=ON_ERROR_STOP=1 \
+  -c "CREATE ROLE jingtang_worker NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
 docker exec "$container" createdb -U postgres restore_drill
 docker exec "$container" pg_restore -U postgres -d restore_drill --no-owner --no-privileges /restore/database.dump
 table_count="$(docker exec "$container" psql -U postgres -d restore_drill -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")"
