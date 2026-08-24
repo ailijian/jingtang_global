@@ -89,15 +89,24 @@ export function hasTrustedSameOriginMetadata(
   origin: string | null,
   fetchSite: string | null,
   expectedOrigin: string,
+  fetchMode: string | null = null,
 ): boolean {
-  if (origin) return origin === expectedOrigin;
+  if (origin && origin !== "null") return origin === expectedOrigin;
+  if (origin === "null") return fetchSite === "same-origin" && fetchMode === "navigate";
   return fetchSite === "same-origin";
 }
 
 export function requireSameOrigin(request: NextRequest): void {
   const origin = request.headers.get("origin");
   const expected = new URL(getRuntime().config.APP_BASE_URL).origin;
-  if (!hasTrustedSameOriginMetadata(origin, request.headers.get("sec-fetch-site"), expected)) {
+  if (
+    !hasTrustedSameOriginMetadata(
+      origin,
+      request.headers.get("sec-fetch-site"),
+      expected,
+      request.headers.get("sec-fetch-mode"),
+    )
+  ) {
     throw new ApplicationError("permission_denied", "Request origin was rejected", 403);
   }
 }

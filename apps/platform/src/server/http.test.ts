@@ -19,6 +19,21 @@ describe("hasTrustedSameOriginMetadata", () => {
     expect(hasTrustedSameOriginMetadata(null, "same-origin", expectedOrigin)).toBe(true);
   });
 
+  it("accepts an opaque Origin for a same-origin browser navigation", () => {
+    expect(hasTrustedSameOriginMetadata("null", "same-origin", expectedOrigin, "navigate")).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ["cross-site", "navigate"],
+    ["same-site", "navigate"],
+    ["same-origin", "cors"],
+    ["same-origin", null],
+  ])("rejects an opaque Origin with Fetch Metadata %s/%s", (fetchSite, fetchMode) => {
+    expect(hasTrustedSameOriginMetadata("null", fetchSite, expectedOrigin, fetchMode)).toBe(false);
+  });
+
   it.each([null, "same-site", "cross-site", "none"])(
     "rejects a missing Origin with Fetch Metadata %s",
     (fetchSite) => {
