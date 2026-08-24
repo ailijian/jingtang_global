@@ -1,21 +1,29 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { ApplicationError } from "@jingtang/application";
-import type { SourceAsset } from "@jingtang/domain";
-import { completeSourceAsset, createPendingSourceAsset, failSourceAsset } from "@jingtang/db";
+import { createPendingSourceAsset, failSourceAsset } from "@jingtang/db";
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 
 import { authorize, requestSession } from "../../../../../server/auth";
-import { apiError, correlationId, requireSameOrigin } from "../../../../../server/http";
+import {
+  apiError,
+  correlationId,
+  enforceReviewRateLimit,
+  parseBody,
+  requireSameOrigin,
+} from "../../../../../server/http";
 import { getRuntime } from "../../../../../server/runtime";
 
-const allowedMediaTypes = new Set([
-  "video/mp4",
-  "video/quicktime",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
+const allowedMediaTypes = new Set(["video/mp4", "video/quicktime"]);
+const schema = z.object({
+  filename: z.string().trim().min(1).max(255),
+  mediaType: z.string().trim().min(1).max(160),
+  byteSize: z.number().int().positive(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  sha256Base64: z.string().regex(/^[A-Za-z0-9+/]{43}=$/u),
+  ownershipConfirmed: z.literal(true),
+});
 
 function safeFilename(filename: string): string {
   const normalized = filename.normalize("NFKC").replace(/[^a-zA-Z0-9._-]+/g, "-");
@@ -26,112 +34,76 @@ export async function POST(request: NextRequest) {
   const requestId = correlationId(request);
   try {
     requireSameOrigin(request);
+    enforceReviewRateLimit(request, {
+      bucket: "asset-upload-initiate",
+      limit: 30,
+      windowMs: 10 * 60_000,
+    });
+    const input = await parseBody(request, schema);
     const session = await requestSession(request);
     const { workspaceId } = await authorize(session, "content.create", requestId);
     const { config, db, assets } = getRuntime();
-    const declaredHeader = request.headers.get("content-length");
-    const declaredLength = Number(declaredHeader);
-    if (!declaredHeader || !Number.isSafeInteger(declaredLength) || declaredLength <= 0) {
-      throw new ApplicationError("invalid_input", "A bounded Source Asset body is required", 400);
-    }
-    if (declaredLength > config.MAX_SOURCE_ASSET_BYTES + 100_000) {
+    if (input.byteSize > config.MAX_SOURCE_ASSET_BYTES) {
       throw new ApplicationError("payload_too_large", "Source Asset is too large", 413);
     }
-    if (!request.headers.get("content-type")?.startsWith("multipart/form-data")) {
-      throw new ApplicationError("invalid_input", "A multipart Source Asset is required", 400);
-    }
-    const form = await request.formData();
-    const file = form.get("asset");
-    if (!(file instanceof File) || file.size < 1) {
-      throw new ApplicationError("invalid_input", "Select a non-empty Source Asset", 400);
-    }
-    if (file.size > config.MAX_SOURCE_ASSET_BYTES) {
-      throw new ApplicationError("payload_too_large", "Source Asset is too large", 413);
-    }
-    if (!allowedMediaTypes.has(file.type)) {
+    if (!allowedMediaTypes.has(input.mediaType)) {
       throw new ApplicationError("invalid_input", "Source Asset media type is not supported", 400);
     }
-    if (form.get("ownershipConfirmed") !== "true") {
-      throw new ApplicationError(
-        "invalid_input",
-        "Confirm that you own or are authorized to use this Source Asset",
-        400,
-      );
+    if (config.ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES > 0) {
+      const activeBytes = await assets.activeBytes("workspaces/");
+      if (activeBytes + input.byteSize > config.ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES) {
+        throw new ApplicationError(
+          "payload_too_large",
+          "The active Source Asset storage limit has been reached",
+          413,
+        );
+      }
     }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const digest = createHash("sha256").update(bytes).digest();
     const assetId = randomUUID();
-    const objectKey = `workspaces/${workspaceId}/source-assets/${assetId}/${safeFilename(file.name)}`;
+    const objectKey = `workspaces/${workspaceId}/source-assets/${assetId}/${safeFilename(input.filename)}`;
     await createPendingSourceAsset(db, {
       id: assetId,
       workspaceId,
       objectKey,
-      filename: file.name.slice(0, 255),
-      mediaType: file.type,
-      byteSize: file.size,
-      sha256: digest.toString("hex"),
+      filename: input.filename,
+      mediaType: input.mediaType,
+      byteSize: input.byteSize,
+      sha256: input.sha256,
       ownershipConfirmed: true,
       uploadedByUserId: session.user.id,
     });
     try {
-      await assets.put({
+      const upload = await assets.createDirectUpload({
         key: objectKey,
-        body: bytes,
-        contentType: file.type,
-        sha256Base64: digest.toString("base64"),
+        contentType: input.mediaType,
+        contentLength: input.byteSize,
+        sha256Hex: input.sha256,
+        sha256Base64: input.sha256Base64,
+        expiresInSeconds: 10 * 60,
       });
-    } catch {
-      await failSourceAsset(db, {
-        workspaceId,
-        assetId,
-        actorUserId: session.user.id,
-        correlationId: requestId,
-        failureCategory: "object_storage_unavailable",
-      });
-      throw new ApplicationError(
-        "service_unavailable",
-        "The Source Asset could not be stored. No content was created.",
-        503,
+      return NextResponse.json(
+        {
+          asset_id: assetId,
+          upload,
+          expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+          request_id: requestId,
+        },
+        { status: 201 },
       );
-    }
-    let asset;
-    try {
-      asset = await completeSourceAsset(db, {
-        workspaceId,
-        assetId,
-        actorUserId: session.user.id,
-        correlationId: requestId,
-      });
     } catch {
-      await assets.delete(objectKey).catch(() => undefined);
       await failSourceAsset(db, {
         workspaceId,
         assetId,
         actorUserId: session.user.id,
         correlationId: requestId,
-        failureCategory: "upload_confirmation_failed",
+        failureCategory: "upload_authorization_failed",
       }).catch(() => undefined);
       throw new ApplicationError(
         "service_unavailable",
-        "The Source Asset could not be confirmed. No content was created.",
+        "The Source Asset upload could not be authorized",
         503,
       );
     }
-    const response: SourceAsset = {
-      asset_id: asset.id,
-      workspace_id: asset.workspaceId,
-      content_id: asset.contentId,
-      filename: asset.filename,
-      media_type: asset.mediaType,
-      byte_size: asset.byteSize,
-      sha256: asset.sha256,
-      status: asset.status,
-      ownership_confirmed: true,
-      failure_category: asset.failureCategory,
-      created_at: asset.createdAt.toISOString(),
-      updated_at: asset.updatedAt.toISOString(),
-    };
-    return NextResponse.json(response, { status: 201 });
   } catch (error) {
     return apiError(error, requestId);
   }

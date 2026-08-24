@@ -23,17 +23,20 @@ interface StoredMockRecord extends IdentityProfile {
 
 interface MockIdentityOptions {
   readonly storagePath?: string;
+  readonly selfServiceEnabled?: boolean;
   readonly resolveExistingProfile?: (email: string) => Promise<IdentityProfile | null>;
 }
 
 export class MockIdentityProvider implements IdentityProvider {
   private readonly records = new Map<string, MockRecord>();
   private readonly storagePath: string | undefined;
+  private readonly selfServiceEnabled: boolean;
   private readonly resolveExistingProfile:
     MockIdentityOptions["resolveExistingProfile"] | undefined;
 
   public constructor(options: MockIdentityOptions = {}) {
     this.storagePath = options.storagePath;
+    this.selfServiceEnabled = options.selfServiceEnabled ?? true;
     this.resolveExistingProfile = options.resolveExistingProfile;
     if (!this.storagePath) return;
     try {
@@ -89,7 +92,22 @@ export class MockIdentityProvider implements IdentityProvider {
     readonly password: string;
     readonly name: string;
   }): Promise<SignUpResult> {
+    if (!this.selfServiceEnabled) {
+      throw new ApplicationError("not_found", "Self-service identity is not available", 404);
+    }
+    const profile = this.provisionIdentity(input);
+    return Promise.resolve({ confirmed: true, profile });
+  }
+
+  public provisionIdentity(input: {
+    readonly email: string;
+    readonly password: string;
+    readonly name: string;
+  }): IdentityProfile {
     const email = input.email.trim().toLowerCase();
+    if (input.password.length < 12 || input.password.length > 128 || !input.name.trim()) {
+      throw new ApplicationError("invalid_input", "Identity input is invalid", 400);
+    }
     if (this.records.has(email))
       throw new ApplicationError("conflict", "Account already exists", 409);
     const salt = randomBytes(16);
@@ -103,13 +121,13 @@ export class MockIdentityProvider implements IdentityProvider {
       resetRequested: false,
     });
     this.persist();
-    return Promise.resolve({
-      confirmed: true,
-      profile: { subject, email, name: input.name.trim() },
-    });
+    return { subject, email, name: input.name.trim() };
   }
 
   public confirmSignUp(input: { readonly email: string }): Promise<IdentityProfile> {
+    if (!this.selfServiceEnabled) {
+      throw new ApplicationError("not_found", "Self-service identity is not available", 404);
+    }
     const record = this.records.get(input.email.trim().toLowerCase());
     if (!record) throw new ApplicationError("not_found", "Identity was not found", 404);
     return Promise.resolve({ subject: record.subject, email: record.email, name: record.name });
@@ -129,6 +147,9 @@ export class MockIdentityProvider implements IdentityProvider {
   }
 
   public async requestPasswordReset(email: string): Promise<{ readonly challenge?: string }> {
+    if (!this.selfServiceEnabled) {
+      throw new ApplicationError("not_found", "Self-service identity is not available", 404);
+    }
     const normalizedEmail = email.trim().toLowerCase();
     let record = this.records.get(normalizedEmail);
     if (!record && this.resolveExistingProfile) {
@@ -157,6 +178,9 @@ export class MockIdentityProvider implements IdentityProvider {
     readonly code: string;
     readonly newPassword: string;
   }): Promise<void> {
+    if (!this.selfServiceEnabled) {
+      throw new ApplicationError("not_found", "Self-service identity is not available", 404);
+    }
     const record = this.records.get(input.email.trim().toLowerCase());
     if (!record || !record.resetRequested || input.code !== "000000") {
       throw new ApplicationError("invalid_input", "Invalid or expired reset code", 400);

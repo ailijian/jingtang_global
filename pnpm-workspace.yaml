@@ -26,6 +26,7 @@ pmOnFail: error
 
 catalog:
   "@aws-sdk/client-s3": 3.1114.0
+  "@aws-sdk/s3-request-presigner": 3.1114.0
   amqplib: 2.0.1
   tencentcloud-sdk-nodejs-common: 4.1.220
   tencentcloud-sdk-nodejs-ciam: 4.1.233

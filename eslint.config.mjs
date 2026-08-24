@@ -14,6 +14,7 @@ export default tseslint.config(
       "**/out/**",
       "**/cdk.out/**",
       "**/coverage/**",
+      "**/.cache/**",
       "packages/db/src/generated/**",
       "design/jingtang-v1/prototype.html",
     ],

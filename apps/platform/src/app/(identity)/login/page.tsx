@@ -1,6 +1,7 @@
 import { AuthForm } from "../../../components/auth-form";
 import { translate } from "@jingtang/i18n";
 import { pageLocale } from "../../../server/locale";
+import { getRuntime } from "../../../server/runtime";
 
 export default async function LoginPage({
   searchParams,
@@ -24,7 +25,11 @@ export default async function LoginPage({
           )}
         </p>
       ) : null}
-      <AuthForm mode="login" locale={locale} />
+      <AuthForm
+        mode="login"
+        locale={locale}
+        selfServiceEnabled={getRuntime().config.APP_ENV !== "review"}
+      />
     </>
   );
 }

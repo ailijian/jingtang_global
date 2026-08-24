@@ -31,6 +31,7 @@
     "test:operations": "tsx scripts/check-d6-controls.ts && tsx scripts/test-backup-restore.ts",
     "infra:validate": "pnpm --filter @jingtang/infra validate",
     "saas:release-check": "tsx scripts/check-saas-release.ts",
+    "review:release-check": "tsx scripts/check-review-release.ts",
     "verify": "pnpm format:check && pnpm build:packages && pnpm lint && pnpm typecheck && pnpm build && pnpm infra:validate && pnpm saas:release-check && pnpm test:unit && pnpm test:contract && pnpm test:i18n && pnpm test:site && pnpm test:migration && pnpm test:integration && pnpm test:e2e && pnpm test:operations && pnpm test:security",
     "site:release-check": "pnpm test:site -- --production",
     "site:production-smoke": "tsx scripts/smoke-public-site.ts",

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted JINGTANG review backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=10min
+Unit=jingtang-review-backup.service
+
+[Install]
+WantedBy=timers.target

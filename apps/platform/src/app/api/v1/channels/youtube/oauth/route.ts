@@ -3,7 +3,12 @@ import { beginYouTubeConnection, recordConsent } from "@jingtang/db";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { authorize, requestSession } from "../../../../../../server/auth";
-import { apiError, correlationId, requireSameOrigin } from "../../../../../../server/http";
+import {
+  apiError,
+  correlationId,
+  enforceReviewRateLimit,
+  requireSameOrigin,
+} from "../../../../../../server/http";
 import { getRuntime } from "../../../../../../server/runtime";
 import {
   setYouTubeOAuthCookie,
@@ -15,6 +20,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const requestId = correlationId(request);
   try {
     requireSameOrigin(request);
+    enforceReviewRateLimit(request, {
+      bucket: "oauth-initiate",
+      limit: 20,
+      windowMs: 5 * 60_000,
+    });
     const session = await requestSession(request);
     const { workspaceId } = await authorize(session, "channel.connect", requestId);
     if (!request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded")) {

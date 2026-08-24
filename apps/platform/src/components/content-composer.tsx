@@ -106,15 +106,49 @@ export function ContentComposer({
     setBusy(true);
     setMessage(null);
     try {
-      const body = new FormData();
-      body.set("asset", file);
-      body.set("ownershipConfirmed", "true");
-      const response = await fetch("/api/v1/content/assets", { method: "POST", body });
+      const digest = new Uint8Array(
+        await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
+      );
+      const sha256 = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      const sha256Base64 = btoa(String.fromCharCode(...digest));
+      const response = await fetch("/api/v1/content/assets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          mediaType: file.type,
+          byteSize: file.size,
+          sha256,
+          sha256Base64,
+          ownershipConfirmed: true,
+        }),
+      });
       if (!response.ok) {
         setMessage("upload_failed");
         return;
       }
-      const payload = (await response.json()) as {
+      const authorization = (await response.json()) as {
+        asset_id: string;
+        upload: { url: string; headers: Record<string, string> };
+      };
+      const upload = await fetch(authorization.upload.url, {
+        method: "PUT",
+        headers: authorization.upload.headers,
+        body: file,
+      });
+      if (!upload.ok) {
+        setMessage("upload_failed");
+        return;
+      }
+      const confirmation = await fetch(
+        `/api/v1/content/assets/${authorization.asset_id}/complete`,
+        { method: "POST" },
+      );
+      if (!confirmation.ok) {
+        setMessage("upload_failed");
+        return;
+      }
+      const payload = (await confirmation.json()) as {
         asset_id: string;
         filename: string;
         byte_size: number;

@@ -1,4 +1,5 @@
 import { recordConsent, upsertIdentityUser } from "@jingtang/db";
+import { usesSecureCookies } from "@jingtang/application";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     requireSameOrigin(request);
     const input = await parseBody(request, schema);
     const runtime = getRuntime();
-    const production = runtime.config.APP_ENV === "production";
+    const production = usesSecureCookies(runtime.config.APP_ENV);
     const challenge = readIdentityChallengeCookie(
       request,
       "signup",

@@ -2,10 +2,12 @@ import { AuthForm } from "../../../components/auth-form";
 import { translate } from "@jingtang/i18n";
 import { pageLocale } from "../../../server/locale";
 import { getRuntime } from "../../../server/runtime";
+import { redirect } from "next/navigation";
 
 export default async function SignupPage() {
   const locale = await pageLocale();
   const config = getRuntime().config;
+  if (config.APP_ENV === "review") redirect("/login");
   const localizePolicyUrl = (url: string) =>
     locale === "zh-CN" ? url.replace("/en/", "/zh-cn/") : url;
   return (

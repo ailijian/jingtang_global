@@ -29,7 +29,7 @@ const productionPolicy = {
 const schema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-    APP_ENV: z.enum(["local", "test", "staging", "production"]).default("local"),
+    APP_ENV: z.enum(["local", "test", "review", "staging", "production"]).default("local"),
     APP_BASE_URL: z.url(),
     RUNTIME_SECRET_BUNDLE_ENABLED: booleanString,
     RUNTIME_SECRET_BUNDLE_ROLE: z.enum(["platform", "dispatcher", "worker"]).default("platform"),
@@ -93,8 +93,14 @@ const schema = z
       .number()
       .int()
       .min(1_000_000)
-      .max(536_870_912)
+      .max(524_288_000)
       .default(262_144_000),
+    ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(16_106_127_360)
+      .default(0),
     YOUTUBE_OAUTH_ENABLED: booleanString,
     YOUTUBE_OAUTH_CLIENT_ID: optionalSecret,
     YOUTUBE_OAUTH_CLIENT_SECRET: optionalSecret,
@@ -184,12 +190,12 @@ const schema = z
         message: "Required for Tencent Cloud CIAM account deletion",
       });
     }
-    if (value.APP_ENV === "staging" || value.APP_ENV === "production") {
-      for (const key of [
-        "OBJECT_STORAGE_REGION",
-        "TENCENT_KMS_REGION",
-        "RUNTIME_SECRET_BUNDLE_REGION",
-      ] as const) {
+    if (
+      value.APP_ENV === "review" ||
+      value.APP_ENV === "staging" ||
+      value.APP_ENV === "production"
+    ) {
+      for (const key of ["OBJECT_STORAGE_REGION", "RUNTIME_SECRET_BUNDLE_REGION"] as const) {
         if (value[key] !== "ap-seoul") {
           context.addIssue({
             code: "custom",
@@ -198,6 +204,97 @@ const schema = z
           });
         }
       }
+    }
+    if (
+      (value.APP_ENV === "staging" || value.APP_ENV === "production") &&
+      value.TENCENT_KMS_REGION !== "ap-seoul"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["TENCENT_KMS_REGION"],
+        message: "Deployed Tencent KMS resources are frozen to ap-seoul",
+      });
+    }
+    if (value.APP_ENV === "review") {
+      if (value.APP_BASE_URL !== "https://review.jingtangai.com") {
+        context.addIssue({
+          code: "custom",
+          path: ["APP_BASE_URL"],
+          message: "The temporary review environment uses its dedicated HTTPS hostname",
+        });
+      }
+      if (
+        value.IDENTITY_PROVIDER !== "mock" ||
+        value.ALLOW_TEST_IDENTITY ||
+        !value.LOCAL_IDENTITY_STORE_PATH
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["IDENTITY_PROVIDER"],
+          message: "Review requires the protected file identity store with no synthetic identity",
+        });
+      }
+      if (value.ASYNC_TRANSPORT !== "local" || !value.DATABASE_WORKER_URL) {
+        context.addIssue({
+          code: "custom",
+          path: ["ASYNC_TRANSPORT"],
+          message: "Review requires the single-worker PostgreSQL outbox profile",
+        });
+      }
+      if (value.TENCENT_CREDENTIAL_PROVIDER !== "static" || value.RUNTIME_SECRET_BUNDLE_ENABLED) {
+        context.addIssue({
+          code: "custom",
+          path: ["TENCENT_CREDENTIAL_PROVIDER"],
+          message: "Review requires root-only static CAM secret files, not production credentials",
+        });
+      }
+      if (
+        !value.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION ||
+        value.OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE !== "bucket_default"
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE"],
+          message: "Review requires the COS bucket encryption default",
+        });
+      }
+      if (
+        value.ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES < 1 ||
+        value.ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES > 16_106_127_360
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES"],
+          message: "Review requires an active Source Asset soft quota no greater than 15 GiB",
+        });
+      }
+      for (const [key, entry] of Object.entries({
+        TERMS_VERSION: value.TERMS_VERSION,
+        PRIVACY_VERSION: value.PRIVACY_VERSION,
+        DATA_PURPOSE_VERSION: value.DATA_PURPOSE_VERSION,
+      })) {
+        if (entry !== productionPolicy.version) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: `Review requires policy version ${productionPolicy.version}`,
+          });
+        }
+      }
+      for (const [key, actual, expected] of [
+        ["TERMS_URL", value.TERMS_URL, productionPolicy.termsUrl],
+        ["PRIVACY_URL", value.PRIVACY_URL, productionPolicy.privacyUrl],
+      ] as const) {
+        if (actual !== expected) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: `Review requires the official same-domain policy URL ${expected}`,
+          });
+        }
+      }
+    }
+    if (value.APP_ENV === "staging" || value.APP_ENV === "production") {
       if (value.TENCENT_CREDENTIAL_PROVIDER !== "cvm_role") {
         context.addIssue({
           code: "custom",
@@ -330,13 +427,18 @@ const schema = z
         });
       }
       if (
-        (value.APP_ENV === "staging" || value.APP_ENV === "production") &&
-        value.OAUTH_TOKEN_VAULT_PROVIDER !== "tencent_kms"
+        (value.APP_ENV === "review" ||
+          value.APP_ENV === "staging" ||
+          value.APP_ENV === "production") &&
+        value.OAUTH_TOKEN_VAULT_PROVIDER !== (value.APP_ENV === "review" ? "local" : "tencent_kms")
       ) {
         context.addIssue({
           code: "custom",
           path: ["OAUTH_TOKEN_VAULT_PROVIDER"],
-          message: "Deployed YouTube OAuth requires the Tencent KMS token vault",
+          message:
+            value.APP_ENV === "review"
+              ? "The temporary review environment requires the local envelope token vault"
+              : "Staging and production YouTube OAuth require the Tencent KMS token vault",
         });
       }
       if (value.OAUTH_TOKEN_VAULT_PROVIDER === "tencent_kms") {
@@ -408,4 +510,8 @@ export type AppConfig = z.infer<typeof schema>;
 
 export function parseAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
   return schema.parse(environment);
+}
+
+export function usesSecureCookies(environment: AppConfig["APP_ENV"]): boolean {
+  return environment === "review" || environment === "staging" || environment === "production";
 }

@@ -220,6 +220,35 @@ export async function completeSourceAsset(
   });
 }
 
+export async function readPendingSourceAssetUpload(
+  client: PrismaClient,
+  input: { readonly workspaceId: string; readonly assetId: string },
+): Promise<{
+  readonly objectKey: string;
+  readonly mediaType: string;
+  readonly byteSize: number;
+  readonly sha256: string;
+} | null> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const asset = await transaction.sourceAsset.findFirst({
+      where: {
+        id: input.assetId,
+        workspaceId: input.workspaceId,
+        status: DbSourceAssetStatus.PENDING_UPLOAD,
+      },
+      select: { objectKey: true, mediaType: true, byteSize: true, sha256: true },
+    });
+    return asset
+      ? {
+          objectKey: asset.objectKey,
+          mediaType: asset.mediaType,
+          byteSize: Number(asset.byteSize),
+          sha256: asset.sha256,
+        }
+      : null;
+  });
+}
+
 export async function failSourceAsset(
   client: PrismaClient,
   input: {

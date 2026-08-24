@@ -15,8 +15,18 @@ RUN pnpm install --frozen-lockfile \
   && pnpm build:packages \
   && pnpm --filter @jingtang/platform build \
   && pnpm --filter @jingtang/dispatcher build \
-  && pnpm --filter @jingtang/worker build \
-  && CI=true pnpm install --prod --offline --frozen-lockfile
+  && pnpm --filter @jingtang/worker build
+
+FROM build AS migration
+
+ARG VCS_REF
+LABEL org.opencontainers.image.revision=$VCS_REF
+
+CMD ["node", "apps/platform/scripts/migrate-review.mjs"]
+
+FROM build AS production-pruned
+
+RUN CI=true pnpm install --prod --offline --frozen-lockfile
 
 FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS runtime
 
@@ -38,11 +48,11 @@ RUN apk add --no-cache ca-certificates openssl \
     /usr/local/bin/yarn \
     /usr/local/bin/yarnpkg
 
-COPY --from=build --chown=node:node /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/
-COPY --from=build --chown=node:node /app/node_modules /app/node_modules
-COPY --from=build --chown=node:node /app/apps/platform /app/apps/platform
-COPY --from=build --chown=node:node /app/apps/dispatcher /app/apps/dispatcher
-COPY --from=build --chown=node:node /app/apps/worker /app/apps/worker
-COPY --from=build --chown=node:node /app/packages /app/packages
+COPY --from=production-pruned --chown=node:node /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/
+COPY --from=production-pruned --chown=node:node /app/node_modules /app/node_modules
+COPY --from=production-pruned --chown=node:node /app/apps/platform /app/apps/platform
+COPY --from=production-pruned --chown=node:node /app/apps/dispatcher /app/apps/dispatcher
+COPY --from=production-pruned --chown=node:node /app/apps/worker /app/apps/worker
+COPY --from=production-pruned --chown=node:node /app/packages /app/packages
 
 USER node

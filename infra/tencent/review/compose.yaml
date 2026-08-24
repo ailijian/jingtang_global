@@ -1,0 +1,262 @@
+name: jingtang-review
+
+x-runtime: &runtime
+  image: ${JINGTANG_IMAGE:?JINGTANG_IMAGE must identify an immutable Git-SHA release}
+  restart: unless-stopped
+  init: true
+  # Dedicated non-login service identity. Keep this distinct from the ordinary
+  # Tencent Ubuntu operator account (normally UID 1000).
+  user: "65532:65532"
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+  networks:
+    - private
+
+x-common-environment: &common-environment
+  NODE_ENV: production
+  APP_ENV: review
+  APP_BASE_URL: https://review.jingtangai.com
+  RUNTIME_SECRET_BUNDLE_ENABLED: "false"
+  RUNTIME_SECRET_BUNDLE_REGION: ap-seoul
+  ASYNC_TRANSPORT: local
+  IDENTITY_PROVIDER: mock
+  ALLOW_TEST_IDENTITY: "false"
+  LOCAL_IDENTITY_STORE_PATH: /var/lib/jingtang/identity.json
+  TERMS_VERSION: 2026-08-24
+  PRIVACY_VERSION: 2026-08-24
+  DATA_PURPOSE_VERSION: 2026-08-24
+  TERMS_URL: https://jingtangai.com/en/terms/
+  PRIVACY_URL: https://jingtangai.com/en/privacy/
+  OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com
+  OBJECT_STORAGE_REGION: ap-seoul
+  OBJECT_STORAGE_BUCKET: ${REVIEW_COS_BUCKET:?required}
+  OBJECT_STORAGE_FORCE_PATH_STYLE: "false"
+  OBJECT_STORAGE_AUTO_CREATE_BUCKET: "false"
+  OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION: "true"
+  OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: bucket_default
+  OBJECT_STORAGE_REQUEST_TIMEOUT_MS: "120000"
+  MAX_SOURCE_ASSET_BYTES: "524288000"
+  ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360"
+  YOUTUBE_OAUTH_ENABLED: "true"
+  YOUTUBE_OAUTH_CLIENT_ID: ${REVIEW_YOUTUBE_OAUTH_CLIENT_ID:?required}
+  YOUTUBE_TEST_FAULT: none
+  OAUTH_TOKEN_VAULT_PROVIDER: local
+  LOCAL_TOKEN_KEY_STORE_PATH: /var/lib/jingtang/oauth-envelope-keys.json
+  TENCENT_CREDENTIAL_PROVIDER: static
+
+services:
+  postgres:
+    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jingtang
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/jingtang-secrets/postgres-admin-password
+      APP_DB_PASSWORD_FILE: /run/jingtang-secrets/postgres-app-password
+      WORKER_DB_PASSWORD_FILE: /run/jingtang-secrets/postgres-worker-password
+    volumes:
+      - /srv/jingtang/review/postgres:/var/lib/postgresql/data
+      - ./init/001-create-roles.sh:/docker-entrypoint-initdb.d/001-create-roles.sh:ro
+      - /srv/jingtang/review/secrets/postgres-admin-password:/run/jingtang-secrets/postgres-admin-password:ro
+      - /srv/jingtang/review/secrets/postgres-app-password:/run/jingtang-secrets/postgres-app-password:ro
+      - /srv/jingtang/review/secrets/postgres-worker-password:/run/jingtang-secrets/postgres-worker-password:ro
+    shm_size: 128m
+    mem_limit: 768m
+    cpus: 0.50
+    pids_limit: 160
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jingtang"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    networks:
+      - private
+
+  platform:
+    <<: *runtime
+    command: ["node", "--use-env-proxy", "apps/platform/scripts/start.mjs"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *common-environment
+      RUNTIME_SECRET_BUNDLE_ROLE: platform
+      DATABASE_URL: ""
+      DATABASE_URL_FILE: /run/jingtang-secrets/database-app-url
+      DATABASE_WORKER_URL: unused-by-platform
+      SESSION_COOKIE_SECRET: ""
+      SESSION_COOKIE_SECRET_FILE: /run/jingtang-secrets/platform-session-cookie
+      OBJECT_STORAGE_ACCESS_KEY_ID: ""
+      OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/jingtang-secrets/platform-cam-secret-id
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ""
+      OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/jingtang-secrets/platform-cam-secret-key
+      OAUTH_TOKEN_ENCRYPTION_KEY: ""
+      OAUTH_TOKEN_ENCRYPTION_KEY_FILE: /run/jingtang-secrets/oauth-token-encryption-key
+      YOUTUBE_OAUTH_CLIENT_SECRET: ""
+      YOUTUBE_OAUTH_CLIENT_SECRET_FILE: /run/jingtang-secrets/youtube-client-secret
+      YOUTUBE_OAUTH_STATE_SECRET: ""
+      YOUTUBE_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/youtube-state-secret
+      PORT: "3100"
+    volumes:
+      - /srv/jingtang/review/state:/var/lib/jingtang
+      - /srv/jingtang/review/secrets/database-app-url:/run/jingtang-secrets/database-app-url:ro
+      - /srv/jingtang/review/secrets/platform-session-cookie:/run/jingtang-secrets/platform-session-cookie:ro
+      - /srv/jingtang/review/secrets/platform-cam-secret-id:/run/jingtang-secrets/platform-cam-secret-id:ro
+      - /srv/jingtang/review/secrets/platform-cam-secret-key:/run/jingtang-secrets/platform-cam-secret-key:ro
+      - /srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro
+      - /srv/jingtang/review/secrets/youtube-client-secret:/run/jingtang-secrets/youtube-client-secret:ro
+      - /srv/jingtang/review/secrets/youtube-state-secret:/run/jingtang-secrets/youtube-state-secret:ro
+    mem_limit: 768m
+    cpus: 0.60
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      private:
+      ingress:
+        aliases:
+          - review-platform
+
+  worker:
+    <<: *runtime
+    command: ["node", "--use-env-proxy", "apps/worker/dist/index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *common-environment
+      RUNTIME_SECRET_BUNDLE_ROLE: worker
+      DATABASE_URL: unused-by-worker
+      DATABASE_WORKER_URL: ""
+      DATABASE_WORKER_URL_FILE: /run/jingtang-secrets/database-worker-url
+      SESSION_COOKIE_SECRET: ""
+      SESSION_COOKIE_SECRET_FILE: /run/jingtang-secrets/worker-config-secret
+      OBJECT_STORAGE_ACCESS_KEY_ID: ""
+      OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/jingtang-secrets/worker-cam-secret-id
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ""
+      OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/jingtang-secrets/worker-cam-secret-key
+      OAUTH_TOKEN_ENCRYPTION_KEY: ""
+      OAUTH_TOKEN_ENCRYPTION_KEY_FILE: /run/jingtang-secrets/oauth-token-encryption-key
+      YOUTUBE_OAUTH_CLIENT_SECRET: ""
+      YOUTUBE_OAUTH_CLIENT_SECRET_FILE: /run/jingtang-secrets/youtube-client-secret
+    volumes:
+      - /srv/jingtang/review/state:/var/lib/jingtang
+      - /srv/jingtang/review/secrets/database-worker-url:/run/jingtang-secrets/database-worker-url:ro
+      - /srv/jingtang/review/secrets/worker-config-secret:/run/jingtang-secrets/worker-config-secret:ro
+      - /srv/jingtang/review/secrets/worker-cam-secret-id:/run/jingtang-secrets/worker-cam-secret-id:ro
+      - /srv/jingtang/review/secrets/worker-cam-secret-key:/run/jingtang-secrets/worker-cam-secret-key:ro
+      - /srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro
+      - /srv/jingtang/review/secrets/youtube-client-secret:/run/jingtang-secrets/youtube-client-secret:ro
+    mem_limit: 768m
+    cpus: 0.75
+
+  migrate:
+    image: ${JINGTANG_MIGRATION_IMAGE:?required}
+    profiles: [tools]
+    user: "0:0"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: review
+      DATABASE_URL: ""
+      DATABASE_URL_FILE: /run/jingtang-secrets/database-admin-url
+    volumes:
+      - /srv/jingtang/review/secrets/database-admin-url:/run/jingtang-secrets/database-admin-url:ro
+    networks:
+      - private
+
+  provision-identity:
+    <<: *runtime
+    profiles: [tools]
+    restart: "no"
+    command: ["node", "apps/platform/scripts/provision-review-identity.mjs"]
+    environment:
+      APP_ENV: review
+      REVIEW_IDENTITY_EMAIL: ${REVIEW_IDENTITY_EMAIL:-}
+      REVIEW_IDENTITY_NAME: ${REVIEW_IDENTITY_NAME:-}
+      REVIEW_IDENTITY_PASSWORD_FILE: /run/jingtang-secrets/reviewer-password
+      LOCAL_IDENTITY_STORE_PATH: /var/lib/jingtang/identity.json
+    volumes:
+      - /srv/jingtang/review/state:/var/lib/jingtang
+      - /srv/jingtang/review/secrets/reviewer-password:/run/jingtang-secrets/reviewer-password:ro
+
+  storage-capacity:
+    <<: *runtime
+    profiles: [tools]
+    restart: "no"
+    command: ["node", "apps/platform/scripts/review-storage-tool.mjs", "capacity"]
+    environment:
+      APP_ENV: review
+      OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com
+      OBJECT_STORAGE_REGION: ap-seoul
+      OBJECT_STORAGE_BUCKET: ${REVIEW_COS_BUCKET:?required}
+      OBJECT_STORAGE_FORCE_PATH_STYLE: "false"
+      OBJECT_STORAGE_ACCESS_KEY_ID: ""
+      OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/jingtang-secrets/platform-cam-secret-id
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ""
+      OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/jingtang-secrets/platform-cam-secret-key
+    volumes:
+      - /srv/jingtang/review/secrets/platform-cam-secret-id:/run/jingtang-secrets/platform-cam-secret-id:ro
+      - /srv/jingtang/review/secrets/platform-cam-secret-key:/run/jingtang-secrets/platform-cam-secret-key:ro
+
+  backup-tool:
+    <<: *runtime
+    profiles: [tools]
+    restart: "no"
+    command: ["node", "apps/platform/scripts/review-storage-tool.mjs", "backup"]
+    environment:
+      APP_ENV: review
+      OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com
+      OBJECT_STORAGE_REGION: ap-seoul
+      OBJECT_STORAGE_BUCKET: ${REVIEW_COS_BUCKET:?required}
+      OBJECT_STORAGE_FORCE_PATH_STYLE: "false"
+      OBJECT_STORAGE_ACCESS_KEY_ID: ""
+      OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/jingtang-secrets/backup-cam-secret-id
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ""
+      OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/jingtang-secrets/backup-cam-secret-key
+      REVIEW_BACKUP_ENCRYPTION_KEY_FILE: /run/jingtang-secrets/backup-encryption-key
+    volumes:
+      - ${REVIEW_BACKUP_WORKDIR:-/srv/jingtang/review/backup-work}:/work
+      - /srv/jingtang/review/secrets/backup-cam-secret-id:/run/jingtang-secrets/backup-cam-secret-id:ro
+      - /srv/jingtang/review/secrets/backup-cam-secret-key:/run/jingtang-secrets/backup-cam-secret-key:ro
+      - /srv/jingtang/review/secrets/backup-encryption-key:/run/jingtang-secrets/backup-encryption-key:ro
+
+networks:
+  private:
+    name: jingtang-review-private
+    driver: bridge
+  ingress:
+    name: jingtang-ingress
+    external: true

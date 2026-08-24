@@ -380,7 +380,7 @@ resource "tencentcloud_tdmq_rabbitmq_vip_instance" "commands" {
   enable_create_default_ha_mirror_queue = true
   auto_renew_flag                       = false
   pay_mode                              = 0
-  cluster_version                       = "3.11.8"
+  cluster_version                       = "3.13.7"
   enable_public_access                  = false
 
   resource_tags {

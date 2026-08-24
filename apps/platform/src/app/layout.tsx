@@ -8,16 +8,19 @@ import Link from "next/link";
 import { LocalePicker } from "../components/locale-picker";
 import { FormStateRestorer } from "../components/form-state-restorer";
 import { pageLocale } from "../server/locale";
+import { getRuntime } from "../server/runtime";
 
 export const metadata: Metadata = {
   title: "JINGTANG Workspace",
   description: "Controlled cross-border publishing workspace",
+  robots: { index: false, follow: false, noarchive: true },
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await pageLocale();
+  const review = getRuntime().config.APP_ENV === "review";
   return (
     <html lang={locale}>
       <body>
@@ -36,6 +39,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             zhLabel={translate(locale, "locale.zhCN")}
           />
         </header>
+        {review ? (
+          <div className="review-environment-banner" role="status">
+            {translate(locale, "app.environment.review")}
+          </div>
+        ) : null}
         {children}
       </body>
     </html>

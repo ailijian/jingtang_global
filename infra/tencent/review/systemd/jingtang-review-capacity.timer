@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly JINGTANG review capacity check
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5min
+Unit=jingtang-review-capacity.service
+
+[Install]
+WantedBy=timers.target

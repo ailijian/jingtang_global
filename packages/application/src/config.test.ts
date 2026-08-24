@@ -44,6 +44,47 @@ describe("environment isolation", () => {
     expect(() => parseAppConfig({ ...base, APP_ENV: "staging" })).toThrow();
   });
 
+  it("accepts only the isolated Seoul review profile", () => {
+    const review = {
+      ...base,
+      NODE_ENV: "production",
+      APP_ENV: "review",
+      APP_BASE_URL: "https://review.jingtangai.com",
+      DATABASE_WORKER_URL: "postgresql://worker.example.invalid/review",
+      ALLOW_TEST_IDENTITY: "false",
+      LOCAL_IDENTITY_STORE_PATH: "/var/lib/jingtang/review-identities.json",
+      OBJECT_STORAGE_ENDPOINT: "https://cos.ap-seoul.myqcloud.com",
+      OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "bucket_default",
+      ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360",
+      YOUTUBE_OAUTH_ENABLED: "true",
+      YOUTUBE_OAUTH_CLIENT_ID: "review-client.apps.googleusercontent.com",
+      YOUTUBE_OAUTH_CLIENT_SECRET: "review-client-secret",
+      YOUTUBE_OAUTH_STATE_SECRET: "a-separate-review-state-secret-value",
+      OAUTH_TOKEN_VAULT_PROVIDER: "local",
+      OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      LOCAL_TOKEN_KEY_STORE_PATH: "/var/lib/jingtang/oauth-envelope-keys.json",
+    };
+    expect(parseAppConfig(review).APP_ENV).toBe("review");
+    expect(() =>
+      parseAppConfig({ ...review, APP_BASE_URL: "https://app.jingtangai.com" }),
+    ).toThrow();
+    expect(() => parseAppConfig({ ...review, ALLOW_TEST_IDENTITY: "true" })).toThrow();
+    expect(() =>
+      parseAppConfig({ ...review, ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "0" }),
+    ).toThrow();
+    expect(() => parseAppConfig({ ...review, TENCENT_CREDENTIAL_PROVIDER: "cvm_role" })).toThrow();
+    expect(() =>
+      parseAppConfig({
+        ...review,
+        OAUTH_TOKEN_VAULT_PROVIDER: "tencent_kms",
+        TENCENT_KMS_KEY_ID: "review-kms-key",
+        OAUTH_TOKEN_KEY_STORAGE_BUCKET: "review-wrapped-keys",
+        TENCENT_CLOUD_SECRET_ID: "review-secret-id",
+        TENCENT_CLOUD_SECRET_KEY: "review-secret-key",
+      }),
+    ).toThrow("temporary review environment requires the local envelope token vault");
+  });
+
   it("requires the frozen policy version and same-domain URLs in production", () => {
     const production = {
       ...base,
@@ -96,37 +137,44 @@ describe("environment isolation", () => {
   });
 
   it("does not require a browser-only OAuth state secret in the deployed worker", () => {
-    expect(
+    const stagingWorker = {
+      ...base,
+      APP_ENV: "staging",
+      DATABASE_WORKER_URL: "postgresql://worker.example.invalid/staging",
+      ASYNC_TRANSPORT: "tdmq_rabbitmq",
+      TDMQ_AMQP_URL: "amqps://queue.example.invalid/jingtang-staging",
+      IDENTITY_PROVIDER: "ciam",
+      ALLOW_TEST_IDENTITY: "false",
+      CIAM_ISSUER: "https://example.auth.tencentciam.com",
+      CIAM_CLIENT_ID: "example-client",
+      CIAM_CLIENT_SECRET: "",
+      CIAM_PASSWORD_AUTH_SOURCE_ID: "",
+      CIAM_USER_STORE_ID: "user-store",
+      RUNTIME_SECRET_BUNDLE_ENABLED: "true",
+      RUNTIME_SECRET_BUNDLE_ROLE: "worker",
+      RUNTIME_SECRET_BUNDLE_BUCKET: "jingtang-staging-runtime-secrets",
+      RUNTIME_SECRET_BUNDLE_VERSION_ID: "immutable-version-id",
+      RUNTIME_SECRET_BUNDLE_ENDPOINT: "https://cos.ap-seoul.myqcloud.com",
+      TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
+      OBJECT_STORAGE_ACCESS_KEY_ID: "",
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
+      OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "bucket_default",
+      YOUTUBE_OAUTH_ENABLED: "true",
+      YOUTUBE_OAUTH_CLIENT_ID: "worker-client.apps.googleusercontent.com",
+      YOUTUBE_OAUTH_CLIENT_SECRET: "worker-client-secret",
+      OAUTH_TOKEN_VAULT_PROVIDER: "tencent_kms",
+      TENCENT_KMS_KEY_ID: "kms-key",
+      OAUTH_TOKEN_KEY_STORAGE_BUCKET: "jingtang-token-keys",
+    };
+    expect(parseAppConfig(stagingWorker).RUNTIME_SECRET_BUNDLE_ROLE).toBe("worker");
+    expect(() =>
       parseAppConfig({
-        ...base,
-        APP_ENV: "staging",
-        DATABASE_WORKER_URL: "postgresql://worker.example.invalid/staging",
-        ASYNC_TRANSPORT: "tdmq_rabbitmq",
-        TDMQ_AMQP_URL: "amqps://queue.example.invalid/jingtang-staging",
-        IDENTITY_PROVIDER: "ciam",
-        ALLOW_TEST_IDENTITY: "false",
-        CIAM_ISSUER: "https://example.auth.tencentciam.com",
-        CIAM_CLIENT_ID: "example-client",
-        CIAM_CLIENT_SECRET: "",
-        CIAM_PASSWORD_AUTH_SOURCE_ID: "",
-        CIAM_USER_STORE_ID: "user-store",
-        RUNTIME_SECRET_BUNDLE_ENABLED: "true",
-        RUNTIME_SECRET_BUNDLE_ROLE: "worker",
-        RUNTIME_SECRET_BUNDLE_BUCKET: "jingtang-staging-runtime-secrets",
-        RUNTIME_SECRET_BUNDLE_VERSION_ID: "immutable-version-id",
-        RUNTIME_SECRET_BUNDLE_ENDPOINT: "https://cos.ap-seoul.myqcloud.com",
-        TENCENT_CREDENTIAL_PROVIDER: "cvm_role",
-        OBJECT_STORAGE_ACCESS_KEY_ID: "",
-        OBJECT_STORAGE_SECRET_ACCESS_KEY: "",
-        OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION_MODE: "bucket_default",
-        YOUTUBE_OAUTH_ENABLED: "true",
-        YOUTUBE_OAUTH_CLIENT_ID: "worker-client.apps.googleusercontent.com",
-        YOUTUBE_OAUTH_CLIENT_SECRET: "worker-client-secret",
-        OAUTH_TOKEN_VAULT_PROVIDER: "tencent_kms",
-        TENCENT_KMS_KEY_ID: "kms-key",
-        OAUTH_TOKEN_KEY_STORAGE_BUCKET: "jingtang-token-keys",
-      }).RUNTIME_SECRET_BUNDLE_ROLE,
-    ).toBe("worker");
+        ...stagingWorker,
+        OAUTH_TOKEN_VAULT_PROVIDER: "local",
+        OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        LOCAL_TOKEN_KEY_STORE_PATH: "/var/lib/jingtang/oauth-envelope-keys.json",
+      }),
+    ).toThrow("Staging and production YouTube OAuth require the Tencent KMS token vault");
   });
 
   it("requires a separate wrapped-key bucket and complete Tencent KMS configuration", () => {

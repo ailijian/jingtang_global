@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { usesSecureCookies } from "@jingtang/application";
 
 import {
   apiError,
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           providerChallenge: result.challenge,
         },
         runtime.config.SESSION_COOKIE_SECRET,
-        runtime.config.APP_ENV === "production",
+        usesSecureCookies(runtime.config.APP_ENV),
       );
     }
     return response;

@@ -1,5 +1,6 @@
 import {
   ApplicationError,
+  usesSecureCookies,
   YouTubeOAuthFlowStateCodec,
   assertYouTubeOAuthFlowBinding,
   youtubeOAuthCallbackPath,
@@ -13,7 +14,7 @@ import type { SessionView } from "@jingtang/db";
 import { getRuntime } from "./runtime";
 
 export function youtubeOAuthCookieName(): "__Host-jt_youtube_oauth" | "jt_youtube_oauth" {
-  return getRuntime().config.APP_ENV === "production"
+  return usesSecureCookies(getRuntime().config.APP_ENV)
     ? "__Host-jt_youtube_oauth"
     : "jt_youtube_oauth";
 }
@@ -45,7 +46,7 @@ export function youtubeOAuthServices(): {
 export function setYouTubeOAuthCookie(response: NextResponse, value: string): void {
   response.cookies.set(youtubeOAuthCookieName(), value, {
     httpOnly: true,
-    secure: getRuntime().config.APP_ENV === "production",
+    secure: usesSecureCookies(getRuntime().config.APP_ENV),
     sameSite: "lax",
     path: "/",
     maxAge: 600,
@@ -55,7 +56,7 @@ export function setYouTubeOAuthCookie(response: NextResponse, value: string): vo
 export function clearYouTubeOAuthCookie(response: NextResponse): void {
   response.cookies.set(youtubeOAuthCookieName(), "", {
     httpOnly: true,
-    secure: getRuntime().config.APP_ENV === "production",
+    secure: usesSecureCookies(getRuntime().config.APP_ENV),
     sameSite: "lax",
     path: "/",
     maxAge: 0,

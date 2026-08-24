@@ -10,7 +10,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { setLocaleCookie, setSessionCookie } from "../../../../../server/auth";
-import { apiError, correlationId, parseBody, requireSameOrigin } from "../../../../../server/http";
+import {
+  apiError,
+  correlationId,
+  enforceReviewRateLimit,
+  parseBody,
+  requireSameOrigin,
+} from "../../../../../server/http";
 import { getRuntime } from "../../../../../server/runtime";
 
 const schema = z.object({ email: z.email(), password: z.string().min(1) });
@@ -19,6 +25,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const requestId = correlationId(request);
   try {
     requireSameOrigin(request);
+    enforceReviewRateLimit(request, { bucket: "login", limit: 10, windowMs: 5 * 60_000 });
     const input = await parseBody(request, schema);
     const runtime = getRuntime();
     const identity = await runtime.identity.authenticate(input);

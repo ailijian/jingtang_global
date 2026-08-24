@@ -18,6 +18,7 @@ packages/db/src/generated/
 !.env.example
 !.env.*.example
 .local/
+.cache/
 
 # Test and tool output
 playwright-report/

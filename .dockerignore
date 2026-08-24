@@ -1,6 +1,7 @@
 .git
 .github
 .local
+.cache
 **/.terraform
 .env
 .env.*

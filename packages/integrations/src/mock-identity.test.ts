@@ -21,6 +21,31 @@ function storePath(): string {
 }
 
 describe("MockIdentityProvider persistence", () => {
+  it("allows protected provisioning while denying public identity self-service", async () => {
+    const storagePath = storePath();
+    const provider = new MockIdentityProvider({ storagePath, selfServiceEnabled: false });
+    provider.provisionIdentity({
+      email: "reviewer@example.com",
+      password: "a-review-password-123",
+      name: "Platform Reviewer",
+    });
+    await expect(
+      provider.authenticate({ email: "reviewer@example.com", password: "a-review-password-123" }),
+    ).resolves.toMatchObject({ email: "reviewer@example.com" });
+    await expect(
+      Promise.resolve().then(() =>
+        provider.signUp({
+          email: "public@example.com",
+          password: "a-public-password-123",
+          name: "Public User",
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(provider.requestPasswordReset("reviewer@example.com")).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
   it("authenticates an account after the provider restarts", async () => {
     const storagePath = storePath();
     const first = new MockIdentityProvider({ storagePath });

@@ -10,3 +10,4 @@ export * from "./tencent-kms-envelope-token-vault.js";
 export * from "./tencent-runtime-secret-bundle.js";
 export * from "./token-envelope-vault.js";
 export * from "./rabbit-command-transport.js";
+export * from "./runtime-secret-files.js";

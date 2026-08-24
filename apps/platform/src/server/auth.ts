@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { ApplicationError } from "@jingtang/application";
+import { ApplicationError, usesSecureCookies } from "@jingtang/application";
 import {
   getMembershipRole,
   readSession,
@@ -14,11 +14,11 @@ import type { NextRequest, NextResponse } from "next/server";
 import { getRuntime } from "./runtime";
 
 export function sessionCookieName(): "__Host-jt_session" | "jt_session" {
-  return getRuntime().config.APP_ENV === "production" ? "__Host-jt_session" : "jt_session";
+  return usesSecureCookies(getRuntime().config.APP_ENV) ? "__Host-jt_session" : "jt_session";
 }
 
 export function setSessionCookie(response: NextResponse, token: string, expiresAt: Date): void {
-  const production = getRuntime().config.APP_ENV === "production";
+  const production = usesSecureCookies(getRuntime().config.APP_ENV);
   response.cookies.set(sessionCookieName(), token, {
     httpOnly: true,
     secure: production,
@@ -31,7 +31,7 @@ export function setSessionCookie(response: NextResponse, token: string, expiresA
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(sessionCookieName(), "", {
     httpOnly: true,
-    secure: getRuntime().config.APP_ENV === "production",
+    secure: usesSecureCookies(getRuntime().config.APP_ENV),
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -40,7 +40,7 @@ export function clearSessionCookie(response: NextResponse): void {
 
 export function setLocaleCookie(response: NextResponse, locale: Locale): void {
   response.cookies.set("jt_locale", locale, {
-    secure: getRuntime().config.APP_ENV === "production",
+    secure: usesSecureCookies(getRuntime().config.APP_ENV),
     sameSite: "lax",
     path: "/",
     maxAge: 31_536_000,

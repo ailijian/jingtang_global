@@ -3,6 +3,7 @@ import type { en } from "./en.js";
 export const zhCN: Record<keyof typeof en, string> = {
   "app.brand": "JINGTANG",
   "app.skipToContent": "跳到主要内容",
+  "app.environment.review": "审核环境 · 非销售用途",
   "action.signOut": "退出登录",
   "action.cancel": "取消",
   "locale.en": "English",

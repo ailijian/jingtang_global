@@ -7,6 +7,57 @@ import { ZodError, type ZodType } from "zod";
 
 import { getRuntime } from "./runtime";
 
+interface ReviewRateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+declare global {
+  var __jingtangReviewRateLimits: Map<string, ReviewRateLimitEntry> | undefined;
+}
+
+function reviewRateLimitStore(): Map<string, ReviewRateLimitEntry> {
+  globalThis.__jingtangReviewRateLimits ??= new Map();
+  return globalThis.__jingtangReviewRateLimits;
+}
+
+function requestAddress(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    "unknown"
+  );
+}
+
+export function enforceReviewRateLimit(
+  request: NextRequest,
+  input: { readonly bucket: string; readonly limit: number; readonly windowMs: number },
+): void {
+  if (getRuntime().config.APP_ENV !== "review") return;
+  const now = Date.now();
+  const store = reviewRateLimitStore();
+  if (store.size >= 10_000) {
+    for (const [key, entry] of store) {
+      if (entry.resetAt <= now) store.delete(key);
+    }
+    while (store.size >= 10_000) {
+      const oldest = store.keys().next().value;
+      if (!oldest) break;
+      store.delete(oldest);
+    }
+  }
+  const key = `${input.bucket}:${requestAddress(request)}`;
+  const current = store.get(key);
+  if (!current || current.resetAt <= now) {
+    store.set(key, { count: 1, resetAt: now + input.windowMs });
+    return;
+  }
+  if (current.count >= input.limit) {
+    throw new ApplicationError("rate_limited", "Too many requests. Try again later.", 429);
+  }
+  current.count += 1;
+}
+
 export function correlationId(request: NextRequest): string {
   const requested = request.headers.get("x-correlation-id");
   return requested &&

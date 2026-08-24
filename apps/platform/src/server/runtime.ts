@@ -54,12 +54,13 @@ export function getRuntime(): Runtime {
               config.COGNITO_CLIENT_ID ?? "",
             )
           : new MockIdentityProvider({
-              ...(config.APP_ENV === "local"
+              ...(config.APP_ENV === "local" || config.APP_ENV === "review"
                 ? {
                     storagePath:
                       config.LOCAL_IDENTITY_STORE_PATH ?? "../../.local/mock-identity.json",
                   }
                 : {}),
+              selfServiceEnabled: config.APP_ENV !== "review",
               resolveExistingProfile: async (email) => {
                 const existing = await db.user.findUnique({
                   where: { email },

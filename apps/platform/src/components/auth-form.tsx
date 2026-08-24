@@ -13,14 +13,16 @@ type AuthFormProps =
       readonly mode: "signup";
       readonly locale: Locale;
       readonly policyLinks: { readonly terms: string; readonly privacy: string };
+      readonly selfServiceEnabled?: never;
     }
   | {
       readonly mode: Exclude<Mode, "signup">;
       readonly locale: Locale;
       readonly policyLinks?: never;
+      readonly selfServiceEnabled?: boolean;
     };
 
-export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
+export function AuthForm({ mode, locale, policyLinks, selfServiceEnabled = true }: AuthFormProps) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -172,13 +174,15 @@ export function AuthForm({ mode, locale, policyLinks }: AuthFormProps) {
       <Button type="submit" disabled={busy}>
         {action}
       </Button>
-      {mode === "login" ? <Link href="/reset-password">{t("auth.reset.request")}</Link> : null}
+      {mode === "login" && selfServiceEnabled ? (
+        <Link href="/reset-password">{t("auth.reset.request")}</Link>
+      ) : null}
       {mode === "signup" ? (
         <p>
           {t("auth.account.existing")} <Link href="/login">{t("auth.login.action")}</Link>
         </p>
       ) : null}
-      {mode === "login" ? (
+      {mode === "login" && selfServiceEnabled ? (
         <p>
           {t("auth.account.new")} <Link href="/signup">{t("auth.signUp.action")}</Link>
         </p>

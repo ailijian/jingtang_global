@@ -65,12 +65,14 @@ import {
   DeterministicYouTubeTestAdapter,
   GoogleYouTubeOAuthProvider,
   loadRuntimeSecretBundle,
+  loadRuntimeSecretFiles,
   MockIdentityProvider,
   RabbitCommandConsumer,
   S3AssetStorage,
 } from "@jingtang/integrations";
 import { safeLog } from "@jingtang/observability";
 
+loadRuntimeSecretFiles(process.env, "worker");
 await loadRuntimeSecretBundle(process.env, "worker");
 const config = parseAppConfig(process.env);
 if (!config.DATABASE_WORKER_URL) throw new Error("worker_database_url_required");
@@ -103,9 +105,10 @@ const identity =
           config.COGNITO_CLIENT_ID ?? "",
         )
       : new MockIdentityProvider({
-          ...(config.APP_ENV === "local"
+          ...(config.APP_ENV === "local" || config.APP_ENV === "review"
             ? { storagePath: config.LOCAL_IDENTITY_STORE_PATH ?? "../../.local/mock-identity.json" }
             : {}),
+          selfServiceEnabled: config.APP_ENV !== "review",
         });
 const assets = new S3AssetStorage({
   ...(config.OBJECT_STORAGE_ENDPOINT ? { endpoint: config.OBJECT_STORAGE_ENDPOINT } : {}),

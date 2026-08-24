@@ -2,10 +2,13 @@ import {
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { AssetStorage } from "@jingtang/application";
 
 import type { S3Credentials } from "./tencent-cloud-credentials.js";
@@ -88,6 +91,91 @@ export class S3AssetStorage implements AssetStorage {
         { abortSignal },
       ),
     );
+  }
+
+  async createDirectUpload(input: {
+    readonly key: string;
+    readonly contentType: string;
+    readonly contentLength: number;
+    readonly sha256Hex: string;
+    readonly sha256Base64: string;
+    readonly expiresInSeconds: number;
+  }): Promise<{ readonly url: string; readonly headers: Readonly<Record<string, string>> }> {
+    await this.#ensureBucket();
+    const metadataHeader = "x-amz-meta-jingtang-sha256";
+    const command = new PutObjectCommand({
+      Bucket: this.#bucket,
+      Key: input.key,
+      ContentType: input.contentType,
+      ContentLength: input.contentLength,
+      ChecksumSHA256: input.sha256Base64,
+      Metadata: { "jingtang-sha256": input.sha256Hex },
+      ...(this.#serverSideEncryption === "AES256"
+        ? { ServerSideEncryption: "AES256" as const }
+        : {}),
+    });
+    const url = await getSignedUrl(this.#client, command, {
+      expiresIn: input.expiresInSeconds,
+      signableHeaders: new Set([
+        "content-length",
+        "content-type",
+        "x-amz-checksum-sha256",
+        metadataHeader,
+      ]),
+      unhoistableHeaders: new Set(["x-amz-checksum-sha256", metadataHeader]),
+    });
+    return {
+      url,
+      headers: {
+        "content-type": input.contentType,
+        "x-amz-checksum-sha256": input.sha256Base64,
+        [metadataHeader]: input.sha256Hex,
+      },
+    };
+  }
+
+  async stat(key: string): Promise<{
+    readonly contentType?: string;
+    readonly contentLength?: number;
+    readonly sha256Hex?: string;
+  }> {
+    const result = await this.#withTimeout((abortSignal) =>
+      this.#client.send(new HeadObjectCommand({ Bucket: this.#bucket, Key: key }), {
+        abortSignal,
+      }),
+    );
+    return {
+      ...(result.ContentType ? { contentType: result.ContentType } : {}),
+      ...(result.ContentLength !== undefined ? { contentLength: result.ContentLength } : {}),
+      ...(result.Metadata?.["jingtang-sha256"]
+        ? { sha256Hex: result.Metadata["jingtang-sha256"] }
+        : {}),
+    };
+  }
+
+  async activeBytes(prefix: string): Promise<number> {
+    let continuationToken: string | undefined;
+    let bytes = 0;
+    do {
+      const result = await this.#withTimeout((abortSignal) =>
+        this.#client.send(
+          new ListObjectsV2Command({
+            Bucket: this.#bucket,
+            Prefix: prefix,
+            ...(continuationToken ? { ContinuationToken: continuationToken } : {}),
+          }),
+          { abortSignal },
+        ),
+      );
+      for (const object of result.Contents ?? []) {
+        if (object.Size !== undefined) bytes += object.Size;
+      }
+      continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined;
+      if (result.IsTruncated && !continuationToken) {
+        throw new Error("object_storage_list_continuation_missing");
+      }
+    } while (continuationToken);
+    return bytes;
   }
 
   async delete(key: string): Promise<void> {

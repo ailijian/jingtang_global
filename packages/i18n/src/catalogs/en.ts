@@ -1,6 +1,7 @@
 export const en = {
   "app.brand": "JINGTANG",
   "app.skipToContent": "Skip to content",
+  "app.environment.review": "REVIEW ENVIRONMENT · NOT FOR SALE",
   "action.signOut": "Sign out",
   "action.cancel": "Cancel",
   "locale.en": "English",

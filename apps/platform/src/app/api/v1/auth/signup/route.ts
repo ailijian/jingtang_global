@@ -1,4 +1,5 @@
 import { createSession, recordConsent, upsertIdentityUser } from "@jingtang/db";
+import { usesSecureCookies } from "@jingtang/application";
 import { isLocale } from "@jingtang/i18n";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           locale: input.locale,
         },
         runtime.config.SESSION_COOKIE_SECRET,
-        runtime.config.APP_ENV === "production",
+        usesSecureCookies(runtime.config.APP_ENV),
       );
       return response;
     }
