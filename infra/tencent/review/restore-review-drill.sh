@@ -46,17 +46,30 @@ docker run -d --name "$container" --network none \
   -v "$workdir/postgres-data:/var/lib/postgresql/data" \
   "$postgres_image" >/dev/null
 
-for _ in {1..30}; do
-  if docker exec "$container" pg_isready -U postgres -d postgres >/dev/null 2>&1; then
-    break
+ready_count=0
+for _ in {1..60}; do
+  if docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -qx true \
+    && docker exec "$container" psql -U postgres -d postgres -Atc "SELECT 1" \
+      2>/dev/null | grep -qx 1; then
+    ((ready_count += 1))
+    if (( ready_count >= 2 )); then
+      break
+    fi
+  else
+    ready_count=0
   fi
   sleep 1
 done
+if (( ready_count < 2 )); then
+  docker logs "$container" >&2 || true
+  echo "Isolated restore database did not become stably ready." >&2
+  exit 3
+fi
 docker exec "$container" createdb -U postgres restore_drill
 docker exec "$container" pg_restore -U postgres -d restore_drill --no-owner --no-privileges /restore/database.dump
 table_count="$(docker exec "$container" psql -U postgres -d restore_drill -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")"
 if [[ ! "$table_count" =~ ^[0-9]+$ ]] || (( table_count < 1 )); then
   echo "Isolated restore did not produce the expected schema." >&2
-  exit 3
+  exit 4
 fi
 echo "Isolated restore drill passed ($table_count public tables)."

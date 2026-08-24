@@ -182,6 +182,11 @@ for (const forbidden of [
   }
 }
 
+const restoreDrill = read("infra/tencent/review/restore-review-drill.sh");
+for (const marker of ["ready_count >= 2", "Isolated restore database did not become stably ready."]) {
+  requireText(restoreDrill, marker, "review restore drill");
+}
+
 for (const script of [
   "infra/tencent/review/package-release.sh",
   "infra/tencent/review/prepare-host.sh",
