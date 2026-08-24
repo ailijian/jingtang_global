@@ -1,3 +1,4 @@
+import { allowsYouTubeTestOAuth } from "@jingtang/application";
 import { listYouTubeChannels } from "@jingtang/db";
 import { hasPermission } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
@@ -29,7 +30,7 @@ export default async function ChannelsPage({
   const canConnect =
     hasPermission(role, "channel.connect") &&
     runtime.config.YOUTUBE_OAUTH_ENABLED &&
-    (runtime.config.APP_ENV === "local" || runtime.config.APP_ENV === "test");
+    allowsYouTubeTestOAuth(runtime.config.APP_ENV);
   const canDisconnect = hasPermission(role, "channel.disconnect");
   const legalLocale = locale === "zh-CN" ? "zh-cn" : "en";
   const connectionForm = (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAppConfig } from "./config.js";
+import { allowsYouTubeTestOAuth, parseAppConfig } from "./config.js";
 
 const base = {
   NODE_ENV: "test",
@@ -23,6 +23,14 @@ const base = {
 };
 
 describe("environment isolation", () => {
+  it("allows the test OAuth journey only in local, test, and review environments", () => {
+    expect(allowsYouTubeTestOAuth("local")).toBe(true);
+    expect(allowsYouTubeTestOAuth("test")).toBe(true);
+    expect(allowsYouTubeTestOAuth("review")).toBe(true);
+    expect(allowsYouTubeTestOAuth("staging")).toBe(false);
+    expect(allowsYouTubeTestOAuth("production")).toBe(false);
+  });
+
   it("allows explicit synthetic test configuration", () => {
     expect(parseAppConfig(base).APP_ENV).toBe("test");
     expect(parseAppConfig(base).OBJECT_STORAGE_REGION).toBe("ap-seoul");

@@ -515,3 +515,7 @@ export function parseAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
 export function usesSecureCookies(environment: AppConfig["APP_ENV"]): boolean {
   return environment === "review" || environment === "staging" || environment === "production";
 }
+
+export function allowsYouTubeTestOAuth(environment: AppConfig["APP_ENV"]): boolean {
+  return environment === "local" || environment === "test" || environment === "review";
+}
