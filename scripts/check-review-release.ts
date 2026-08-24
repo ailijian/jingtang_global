@@ -136,6 +136,13 @@ requireText(dockerfile, `${pinnedNode} AS runtime`, "Dockerfile");
 requireText(dockerfile, "FROM build AS migration", "Dockerfile");
 requireText(dockerfile, "FROM build AS production-pruned", "Dockerfile");
 
+const platformPackage = JSON.parse(read("apps/platform/package.json")) as {
+  dependencies?: Record<string, string>;
+};
+if (!platformPackage.dependencies?.["@aws-sdk/client-s3"]) {
+  throw new Error("platform must retain the S3 SDK used by review maintenance tools");
+}
+
 const assetRoute = read("apps/platform/src/app/api/v1/content/assets/route.ts");
 const composer = read("apps/platform/src/components/content-composer.tsx");
 requireText(assetRoute, "createDirectUpload", "asset upload initiation route");

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "catalog:",
     "@jingtang/application": "workspace:*",
     "@jingtang/db": "workspace:*",
     "@jingtang/domain": "workspace:*",

@@ -101,6 +101,9 @@ importers:
 
   apps/platform:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 'catalog:'
+        version: 3.1114.0
       '@jingtang/application':
         specifier: workspace:*
         version: link:../../packages/application
