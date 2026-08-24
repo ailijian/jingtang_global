@@ -54,6 +54,8 @@ const requireCamPolicy = (
 
 const composeText = read("infra/tencent/review/compose.yaml");
 const runtimeEnvExample = read("infra/tencent/review/runtime.env.example");
+const pinnedNode =
+  "node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03";
 const compose = parse(composeText) as {
   services?: Record<string, { ports?: unknown; mem_limit?: string; networks?: unknown }>;
   networks?: Record<string, { external?: boolean; name?: string }>;
@@ -129,6 +131,8 @@ for (const marker of [
 }
 
 const dockerfile = read("Dockerfile");
+requireText(dockerfile, `${pinnedNode} AS build`, "Dockerfile");
+requireText(dockerfile, `${pinnedNode} AS runtime`, "Dockerfile");
 requireText(dockerfile, "FROM build AS migration", "Dockerfile");
 requireText(dockerfile, "FROM build AS production-pruned", "Dockerfile");
 

@@ -17,10 +17,8 @@ function requireText(contents: string, fragment: string, owner: string): void {
 const dockerfile = read("Dockerfile");
 const pinnedBuildNode =
   "node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03";
-const pinnedRuntimeNode =
-  "node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995";
 requireText(dockerfile, `${pinnedBuildNode} AS build`, "Dockerfile");
-requireText(dockerfile, `${pinnedRuntimeNode} AS runtime`, "Dockerfile");
+requireText(dockerfile, `${pinnedBuildNode} AS runtime`, "Dockerfile");
 requireText(dockerfile, "org.opencontainers.image.revision=$VCS_REF", "Dockerfile");
 requireText(dockerfile, "USER node", "Dockerfile");
 requireText(

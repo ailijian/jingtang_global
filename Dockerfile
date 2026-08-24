@@ -28,7 +28,7 @@ FROM build AS production-pruned
 
 RUN CI=true pnpm install --prod --offline --frozen-lockfile
 
-FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS runtime
+FROM node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
 
 ARG VCS_REF
 LABEL org.opencontainers.image.revision=$VCS_REF
@@ -37,7 +37,9 @@ ENV NODE_ENV=production
 ENV NODE_OPTIONS=--enable-source-maps
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates openssl \
+RUN apt-get update \
+  && apt-get install --yes --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/* \
   && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
   && rm -f \
     /usr/local/bin/corepack \
