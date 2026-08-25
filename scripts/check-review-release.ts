@@ -234,7 +234,13 @@ for (const unit of [
 
 requireCamPolicy(
   "infra/tencent/review/cam/platform-policy.json",
-  ["name/cos:GetBucket", "name/cos:PutObject", "name/cos:GetObject", "name/cos:DeleteObject"],
+  [
+    "name/cos:GetBucket",
+    "name/cos:PutObject",
+    "name/cos:GetObject",
+    "name/cos:DeleteObject",
+    "name/cos:HeadObject",
+  ],
   ["REPLACE_WITH_SOURCE_BUCKET_WITH_APPID/*", "workspaces/*"],
 );
 requireCamPolicy(

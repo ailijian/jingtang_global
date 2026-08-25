@@ -33,7 +33,7 @@ Planning Preflight: PASS
 | R4 | TikTok 最小权限真实纵向切片与审核包 | Scope Approval + Code Review + Acceptance Review + Human E2E |
 | R5 | 全量 review regression、提交就绪记录与可回收/迁移收口 | Final Acceptance Review + Human E2E + Stage Acceptance |
 
-## Execution Status — 2026-08-24
+## Execution Status — 2026-08-25
 
 - R0: Complete. Knowledge routing, approved review exception, production preservation boundary and current platform-review authorities are aligned.
 - R1: Complete and amended for the approved Review-only local envelope boundary; final amendment verification is recorded by the current implementation run.
@@ -41,7 +41,7 @@ Planning Preflight: PASS
   - Runtime/deployment evidence: PASS. Review release checker, shell syntax, Compose rendering, pinned Caddy validation, no-public-port/resource markers and final diff whitespace check passed. Services use dedicated UID/GID `65532`; the ordinary host operator cannot read role Secret files.
   - Code Review: PASS. The final review found no open R1 P1/P2 finding. It closed the host-UID Secret exposure and client-IP trust gaps. Tencent COS signature/CORS/header compatibility is intentionally not inferred from the local S3-compatible harness and remains an R2 deployed smoke check.
   - Non-blocking environment limitation: the unrelated D7 Terraform validation command cannot run on this workstation because Terraform is not installed; R1 does not provision or change D7 Terraform infrastructure.
-- R2: In progress by explicit Human Owner action. A Seoul private COS source/backup Bucket has been created and configured with SSE-COS, versioning, lifecycle and Review CORS. A second OAuth-key COS Bucket was created before the amendment but remains empty and uncredentialed; it is not part of the runtime design and may be deleted at teardown. KMS was not purchased. COS-only CAM credentials, DNS and server deployment remain pending; no commit or push is implied by this status.
+- R2: In progress; Stage Acceptance has not been granted. `review.jingtangai.com` is deployed on the authorized Seoul Lighthouse with HTTPS, isolated PostgreSQL, private COS source/backup paths, Review-only `local:v2` OAuth envelope, least-privilege CAM credentials and the existing single-ingress Caddy route. Human Owner verified login, Workspace creation, YouTube OAuth connection, direct private-COS upload and one private YouTube publish. The deployed upload smoke identified `HeadObject` as a required platform permission; the live CAM policy was corrected and the repository template/regression check now own that requirement. One failed pre-correction upload left an unclaimed `pending_upload` object; R2 closure fail-closes initiated uploads after 20 minutes and durably retries exact COS deletion. The single pre-correction orphan was then fail-closed with a minimized system audit and its exact COS key was removed; the successful `complete` asset remained unchanged and COS active usage returned to one object. The unused OAuth-key COS Bucket remains empty and uncredentialed and may be deleted at teardown. No push or additional deployment is implied by this status.
 
 ## R0 — Authority and Review Boundary
 

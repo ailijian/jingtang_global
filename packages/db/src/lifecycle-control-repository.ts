@@ -107,6 +107,48 @@ export async function purgeExpiredLifecycleRecords(
   return rows[0]?.result ?? {};
 }
 
+export interface ExpiredSourceAssetUploadCleanup {
+  readonly assetId: string;
+  readonly workspaceId: string;
+  readonly objectKey: string;
+}
+
+export async function claimExpiredSourceAssetUploadCleanup(
+  workerClient: PrismaClient,
+  input: {
+    readonly batchSize?: number;
+    readonly uploadCutoff: Date;
+  },
+): Promise<readonly ExpiredSourceAssetUploadCleanup[]> {
+  const rows = await workerClient.$queryRaw<
+    {
+      asset_id: string;
+      workspace_id: string;
+      object_key: string;
+    }[]
+  >`
+    SELECT * FROM claim_expired_source_asset_upload_cleanup(
+      ${input.batchSize ?? 20},
+      ${input.uploadCutoff}::timestamptz
+    )
+  `;
+  return rows.map((row) => ({
+    assetId: row.asset_id,
+    workspaceId: row.workspace_id,
+    objectKey: row.object_key,
+  }));
+}
+
+export async function completeSourceAssetUploadCleanup(
+  workerClient: PrismaClient,
+  assetId: string,
+): Promise<boolean> {
+  const rows = await workerClient.$queryRaw<{ completed: boolean }[]>`
+    SELECT complete_source_asset_upload_cleanup(${assetId}::uuid) AS completed
+  `;
+  return rows[0]?.completed ?? false;
+}
+
 export async function renewLifecycleOperationClaim(
   workerClient: PrismaClient,
   input: {

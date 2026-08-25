@@ -14,9 +14,11 @@ import {
 import {
   accountAuthorizedDataDeletionPending,
   claimQueuedOutboxMessage,
+  claimExpiredSourceAssetUploadCleanup,
   claimLifecycleOperation,
   claimNextOutboxMessage,
   completeAuthorizedDataRetention,
+  completeSourceAssetUploadCleanup,
   completeAccountDeletion,
   completeWorkspaceDataDeletion,
   completeYouTubeDisconnect,
@@ -127,6 +129,8 @@ const assets = new S3AssetStorage({
 
 let stopping = false;
 const lifecycleIntervalMs = 5_000;
+const sourceAssetUploadCleanupIntervalMs = 30_000;
+const sourceAssetUploadExpirationMs = 20 * 60_000;
 
 function failureCategory(error: unknown, fallback = "internal_error"): string {
   return isApplicationError(error)
@@ -894,6 +898,32 @@ async function processLifecycleOperation(): Promise<boolean> {
   return true;
 }
 
+async function cleanupExpiredSourceAssetUploads(): Promise<boolean> {
+  const expiredUploads = await claimExpiredSourceAssetUploadCleanup(db, {
+    uploadCutoff: new Date(Date.now() - sourceAssetUploadExpirationMs),
+  });
+  if (expiredUploads.length === 0) return false;
+
+  for (const upload of expiredUploads) {
+    try {
+      await assets.delete(upload.objectKey);
+      const completed = await completeSourceAssetUploadCleanup(db, upload.assetId);
+      safeLog("info", "source_asset.expired_upload_cleanup", {
+        workspaceId: upload.workspaceId,
+        assetId: upload.assetId,
+        completed,
+      });
+    } catch (error) {
+      safeLog("warn", "source_asset.expired_upload_cleanup_failed", {
+        workspaceId: upload.workspaceId,
+        assetId: upload.assetId,
+        failureCategory: failureCategory(error, "object_storage_delete_failed"),
+      });
+    }
+  }
+  return true;
+}
+
 async function waitWhileRunning(durationMs: number): Promise<void> {
   const deadline = Date.now() + durationMs;
   while (!stopping && Date.now() < deadline) {
@@ -930,6 +960,11 @@ async function run(): Promise<void> {
     await Promise.all([
       runLoop("youtube_publish", processNextLocalPublish, 1_000),
       runLoop("lifecycle_control", processLifecycleOperation, lifecycleIntervalMs),
+      runLoop(
+        "source_asset_upload_cleanup",
+        cleanupExpiredSourceAssetUploads,
+        sourceAssetUploadCleanupIntervalMs,
+      ),
     ]);
     return;
   }
@@ -963,7 +998,14 @@ async function run(): Promise<void> {
         });
       },
     );
-    await runLoop("lifecycle_control", processLifecycleOperation, lifecycleIntervalMs);
+    await Promise.all([
+      runLoop("lifecycle_control", processLifecycleOperation, lifecycleIntervalMs),
+      runLoop(
+        "source_asset_upload_cleanup",
+        cleanupExpiredSourceAssetUploads,
+        sourceAssetUploadCleanupIntervalMs,
+      ),
+    ]);
   } finally {
     await consumer.close();
   }

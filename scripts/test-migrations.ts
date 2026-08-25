@@ -145,11 +145,11 @@ try {
     "-d",
     "jingtang",
     "-c",
-    "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('jingtang_app','jingtang_worker')) || '|' || (SELECT count(*) FROM pg_proc WHERE proname IN ('claim_lifecycle_operation','renew_lifecycle_operation_claim','record_lifecycle_step','finish_lifecycle_operation','enqueue_due_lifecycle_operations','purge_expired_lifecycle_records'));",
+    "SELECT (SELECT count(*) FROM pg_roles WHERE rolname IN ('jingtang_app','jingtang_worker')) || '|' || (SELECT count(*) FROM pg_proc WHERE proname IN ('claim_lifecycle_operation','renew_lifecycle_operation_claim','record_lifecycle_step','finish_lifecycle_operation','enqueue_due_lifecycle_operations','purge_expired_lifecycle_records','claim_expired_source_asset_upload_cleanup','complete_source_asset_upload_cleanup'));",
   ]);
-  if (roleAndControlCount.trim() !== "2|6") {
+  if (roleAndControlCount.trim() !== "2|8") {
     throw new Error(
-      `Expected D6 runtime roles and control functions, found ${roleAndControlCount.trim()}`,
+      `Expected runtime roles, lifecycle controls, and Source Asset cleanup functions, found ${roleAndControlCount.trim()}`,
     );
   }
   process.stdout.write(

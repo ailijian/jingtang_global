@@ -10,7 +10,12 @@
     },
     {
       "effect": "allow",
-      "action": ["name/cos:PutObject", "name/cos:GetObject", "name/cos:DeleteObject"],
+      "action": [
+        "name/cos:PutObject",
+        "name/cos:GetObject",
+        "name/cos:DeleteObject",
+        "name/cos:HeadObject"
+      ],
       "resource": [
         "qcs::cos:ap-seoul:uid/REPLACE_WITH_APP_ID:REPLACE_WITH_SOURCE_BUCKET_WITH_APPID/workspaces/*"
       ]

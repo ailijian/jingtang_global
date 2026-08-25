@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
+  claimExpiredSourceAssetUploadCleanup,
   completeSourceAsset,
+  completeSourceAssetUploadCleanup,
   createContent,
   createDatabaseClient,
   createPendingSourceAsset,
@@ -19,12 +21,15 @@ import { S3AssetStorage } from "@jingtang/integrations";
 import { afterAll, describe, expect, it } from "vitest";
 
 const databaseUrl = process.env.DATABASE_URL;
+const workerDatabaseUrl = process.env.DATABASE_WORKER_URL;
 const storageEndpoint = process.env.OBJECT_STORAGE_ENDPOINT;
-if (!databaseUrl || !storageEndpoint) {
-  throw new Error("D4 integration tests require database and object storage endpoints");
+if (!databaseUrl || !workerDatabaseUrl || !storageEndpoint) {
+  throw new Error("Content integration tests require app and worker databases plus object storage");
 }
 
 const db = createDatabaseClient(databaseUrl);
+const adminDb = createDatabaseClient(process.env.DATABASE_ADMIN_URL ?? databaseUrl);
+const workerDb = createDatabaseClient(workerDatabaseUrl);
 const storage = new S3AssetStorage({
   endpoint: storageEndpoint,
   region: process.env.OBJECT_STORAGE_REGION ?? "ap-southeast-1",
@@ -89,7 +94,9 @@ async function uploadedAsset(workspaceId: string, userId: string) {
   return assetId;
 }
 
-afterAll(async () => db.$disconnect());
+afterAll(async () =>
+  Promise.all([db.$disconnect(), adminDb.$disconnect(), workerDb.$disconnect()]),
+);
 
 describe("D4 content and approval closure", () => {
   it("stores a real Source Asset and keeps approval separate from publishing", async () => {
@@ -208,6 +215,102 @@ describe("D4 content and approval closure", () => {
         actorUserId: second.user.id,
       }),
     ).rejects.toThrow("source_asset_not_ready");
+  });
+
+  it("atomically fail-closes expired pending uploads and retries object cleanup", async () => {
+    const owner = await workspaceFixture("expired-upload-owner");
+    const expiredAssetId = randomUUID();
+    const recentAssetId = randomUUID();
+    const createPending = (assetId: string, filename: string) =>
+      createPendingSourceAsset(db, {
+        id: assetId,
+        workspaceId: owner.workspace.id,
+        objectKey: `workspaces/${owner.workspace.id}/source-assets/${assetId}/${filename}`,
+        filename,
+        mediaType: "video/mp4",
+        byteSize: 128,
+        sha256: createHash("sha256").update(assetId).digest("hex"),
+        ownershipConfirmed: true,
+        uploadedByUserId: owner.user.id,
+      });
+    await Promise.all([
+      createPending(expiredAssetId, "expired.mp4"),
+      createPending(recentAssetId, "recent.mp4"),
+    ]);
+    await adminDb.$executeRaw`
+      UPDATE source_assets
+      SET created_at = clock_timestamp() - interval '30 minutes'
+      WHERE id = ${expiredAssetId}::uuid
+    `;
+
+    const cutoff = new Date(Date.now() - 20 * 60_000);
+    await expect(
+      claimExpiredSourceAssetUploadCleanup(workerDb, { uploadCutoff: cutoff }),
+    ).resolves.toEqual([
+      {
+        assetId: expiredAssetId,
+        workspaceId: owner.workspace.id,
+        objectKey: `workspaces/${owner.workspace.id}/source-assets/${expiredAssetId}/expired.mp4`,
+      },
+    ]);
+    await expect(
+      adminDb.sourceAsset.findUniqueOrThrow({
+        where: { id: expiredAssetId },
+        select: { status: true, failureCategory: true },
+      }),
+    ).resolves.toEqual({
+      status: "FAILED",
+      failureCategory: "upload_expired_cleanup_pending",
+    });
+    const auditEvents = await adminDb.auditEvent.findMany({
+      where: {
+        workspaceId: owner.workspace.id,
+        action: "source_asset.upload_failed",
+        targetId: expiredAssetId,
+      },
+      select: { actorType: true, metadata: true, result: true },
+    });
+    expect(auditEvents).toEqual([
+      {
+        actorType: "system",
+        metadata: { cleanup_state: "pending", failure_category: "upload_expired" },
+        result: "failed",
+      },
+    ]);
+
+    await expect(
+      claimExpiredSourceAssetUploadCleanup(workerDb, { uploadCutoff: cutoff }),
+    ).resolves.toEqual([]);
+    await adminDb.$executeRaw`
+      UPDATE source_assets
+      SET updated_at = clock_timestamp() - interval '1 minute'
+      WHERE id = ${expiredAssetId}::uuid
+    `;
+    const concurrentRetries = await Promise.all([
+      claimExpiredSourceAssetUploadCleanup(workerDb, { uploadCutoff: cutoff }),
+      claimExpiredSourceAssetUploadCleanup(workerDb, { uploadCutoff: cutoff }),
+    ]);
+    expect(concurrentRetries.map((entries) => entries.length).sort()).toEqual([0, 1]);
+    await expect(
+      adminDb.auditEvent.count({
+        where: {
+          workspaceId: owner.workspace.id,
+          action: "source_asset.upload_failed",
+          targetId: expiredAssetId,
+        },
+      }),
+    ).resolves.toBe(1);
+    await expect(completeSourceAssetUploadCleanup(workerDb, expiredAssetId)).resolves.toBe(true);
+    await expect(completeSourceAssetUploadCleanup(workerDb, expiredAssetId)).resolves.toBe(false);
+    await expect(
+      claimExpiredSourceAssetUploadCleanup(workerDb, { uploadCutoff: cutoff }),
+    ).resolves.toEqual([]);
+    await expect(
+      adminDb.sourceAsset.findUniqueOrThrow({
+        where: { id: recentAssetId },
+        select: { status: true, failureCategory: true },
+      }),
+    ).resolves.toEqual({ status: "PENDING_UPLOAD", failureCategory: null });
   });
 
   it("allows only one Content to claim a Source Asset under concurrency", async () => {

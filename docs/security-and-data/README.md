@@ -1,7 +1,7 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 19
+- Security/Data Revision: 20
 - Effective Date: 2026-08-24
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
@@ -57,7 +57,7 @@ Adding analytics, CRM, customer support, error-reporting, CDN, AI, or marketing 
 
 The approved Social Platform Developer Review Enablement Delivery permits one time-bounded `review` profile on the existing Seoul Lighthouse. It is not production and cannot support public sales or production security claims. Review account, Workspace, Content, approval, execution and audit rows use a dedicated local PostgreSQL volume; source assets and encrypted database backups use dedicated prefixes in one private Seoul COS Bucket. OAuth tokens use the `local:v2` application envelope: each connection has an independent data key, its wrapped key lives in a root-only detached store on the protected local persistent volume, and the 256-bit root key is delivered to platform/worker from a `0400` file. Neither local key file is included in database/COS backup; host loss or root-key replacement therefore requires channel reconnection. The separately created OAuth-key COS Bucket remains empty, receives no runtime credential, and may be deleted at review teardown. Static least-privilege COS CAM credentials are permitted only because Lighthouse cannot be assumed to expose the production CVM role credential path. They are supplied through root-managed runtime Secret material: the directory is non-traversable by ordinary host users and each `0400` file is readable only by its dedicated non-login service or database identity. Credentials are scoped to named review resources, excluded from logs/images/Git, and revoked at teardown.
 
-Public registration and self-service reset are disabled. Only pre-created Human Owner and reviewer accounts are permitted. Review source uploads are limited to 500 MiB per object and a 15 GB active soft quota, are sent directly to private COS with short-lived signatures, and never persist on the Lighthouse media filesystem. Existing retention/deletion rows below continue to apply; deleting the review Workspace triggers the same deny-first durable cleanup. The public website remains database-free and does not receive review cookies, account data or content.
+Public registration and self-service reset are disabled. Only pre-created Human Owner and reviewer accounts are permitted. Review source uploads are limited to 500 MiB per object and a 15 GB active soft quota, are sent directly to private COS with short-lived signatures, and never persist on the Lighthouse media filesystem. An initiated upload becomes ineligible for completion after 20 minutes: the worker atomically fail-closes its metadata, records a minimized system audit event, and retries exact-object deletion until COS confirms success. Existing retention/deletion rows below continue to apply; deleting the review Workspace triggers the same deny-first durable cleanup. The public website remains database-free and does not receive review cookies, account data or content.
 
 ## Retention Matrix
 
@@ -144,3 +144,4 @@ D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant
 - Revision 17 — 2026-08-24：Human Owner 明确批准在既有腾讯云首尔 Lighthouse 与新购 20 GB COS 上建立限时、非销售用途的 Social Platform Developer Review 环境，同时要求真实 production server requirements 保持不变。本修订增加独立 review PostgreSQL/COS/KMS/CAM/OAuth/备份边界、预创建审核账号、500 MiB 单对象和 15 GB 活跃素材软配额，以及 teardown credential/data cleanup；未新增区域或处理方，未放宽既有用途、撤销、删除或保留义务，且不构成 D7 production evidence。
 - Revision 18 — 2026-08-24：R1 实现收紧了临时 review 主机 Secret 边界：普通 SSH 操作员 UID 不再与容器共享，root 管理不可遍历的 Secret 目录，`0400` 文件仅由专用非登录 service/database identity 读取；Caddy 同时覆盖上游客户端 IP 头后再执行应用限流。本修订是对已批准 root-only 意图的可执行实现说明，未扩大凭证可见范围、用途、处理方、区域或保留期，也未执行云端写入。
 - Revision 19 — 2026-08-24：腾讯 KMS 被确认需要购买付费实例后，Human Owner 明确批准临时 Review 使用本地 envelope key、正式 production 继续使用 KMS。Review 改为 `local:v2` 每连接独立数据密钥、root-only 256-bit 根密钥和不进入备份的本机 detached key store；丢失或轮换根密钥须重新连接渠道。此前创建的 OAuth-key COS Bucket 不授予运行时权限并保持为空，可在 teardown 删除。本修订没有削弱 staging/production KMS、sealed bundle、CAM、地域或密码学擦除义务，也未新增处理方、用途、区域或保留期。
+- Revision 20 — 2026-08-25：R2 首尔真实上传验证确认 platform 在完成直传时必须以 `HeadObject` 校验 COS 对象，并暴露了一条失败请求遗留的未认领对象。Review 现将发起后 20 分钟仍未完成的上传原子 fail-close，由 worker 持久重试精确对象删除并记录最小化系统审计；CAM 模板与发布门禁同步固化 `HeadObject`。本修订未新增处理方、用途、区域或更长保留期。
