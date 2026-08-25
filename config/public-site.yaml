@@ -1,7 +1,7 @@
 schema_version: 1
-revision: 7
+revision: 8
 status: production
-effective_date: "2026-08-24"
+effective_date: "2026-08-25"
 owner: JINGTANG Human Owner
 
 identity:
@@ -18,10 +18,10 @@ identity:
     approval_provenance: Human Owner supplied and confirmed the exact values for D3 implementation
 
 legal:
-  policy_version: "2026-08-24"
-  effective_date: "2026-08-24"
+  policy_version: "2026-08-25"
+  effective_date: "2026-08-25"
   approval_status: approved
-  approval_provenance: Human Owner explicitly authorized the formal Seoul regional correction and corresponding bilingual Legal, Security, Data Deletion, and Integration disclosure revision on 2026-08-24
+  approval_provenance: Human Owner explicitly authorized Social Platform Review Baseline Revision 3 and the corresponding formal bilingual product, Legal, Security, Data Deletion, and Integration presentation on 2026-08-25
   deployment_status: deployed_verified
   routes:
     en:
@@ -43,8 +43,11 @@ contact:
   notice: Form values remain in the browser until the visitor explicitly opens an email draft.
 
 product_access:
-  public_status: private_beta_prelaunch
-  sign_in_action: unavailable_until_production_application_url_is_frozen
+  public_status: authorized_access
+  sign_in_action: direct_to_current_saas
+  sign_in_url: https://review.jingtangai.com/login
+  access_mode: precreated_accounts_only
+  self_service_registration: disabled
 
 production_readiness:
   domain_ownership: verified
@@ -53,3 +56,4 @@ production_readiness:
   legal_data_approval: approved
   production_rollout: deployed_verified
   legal_policy_rollout: deployed_verified
+  product_access_rollout: deployed_verified

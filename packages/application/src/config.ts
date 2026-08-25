@@ -21,7 +21,7 @@ const optionalEncryptionKey = z.preprocess(
 );
 
 const productionPolicy = {
-  version: "2026-08-24",
+  version: "2026-08-25",
   termsUrl: "https://jingtangai.com/en/terms/",
   privacyUrl: "https://jingtangai.com/en/privacy/",
 } as const;

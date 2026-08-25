@@ -1,9 +1,12 @@
-import { mkdtempSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { cleanupOrphanedDisposableContainers } from "./lib/disposable-containers.js";
+import {
+  cleanupOrphanedE2ETokenVaultDirectories,
+  createE2ETokenVaultDirectory,
+} from "./lib/disposable-files.js";
 import {
   deployMigrations,
   migrationEnvironment,
@@ -19,13 +22,15 @@ import {
 } from "./lib/disposable-object-storage.js";
 
 cleanupOrphanedDisposableContainers();
+cleanupOrphanedE2ETokenVaultDirectories();
 const database = await startDisposablePostgres();
 const storage = await startDisposableObjectStorage();
 deployMigrations(database);
 runChecked("pnpm", ["build:packages"]);
 runChecked("pnpm", ["--filter", "@jingtang/worker", "build"]);
 const platformPort = process.env.E2E_PORT ?? "3100";
-const tokenKeyStoreDirectory = mkdtempSync(join(tmpdir(), "jingtang-e2e-token-vault-"));
+const tokenKeyStoreDirectory = createE2ETokenVaultDirectory();
+process.once("exit", () => rmSync(tokenKeyStoreDirectory, { recursive: true, force: true }));
 
 const environment: NodeJS.ProcessEnv = {
   ...migrationEnvironment(database),
@@ -47,9 +52,9 @@ const environment: NodeJS.ProcessEnv = {
   OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   LOCAL_TOKEN_KEY_STORE_PATH: join(tokenKeyStoreDirectory, "keys.json"),
   SESSION_COOKIE_SECRET: "e2e-session-cookie-secret-at-least-32-bytes",
-  TERMS_VERSION: "2026-08-24",
-  PRIVACY_VERSION: "2026-08-24",
-  DATA_PURPOSE_VERSION: "2026-08-24",
+  TERMS_VERSION: "2026-08-25",
+  PRIVACY_VERSION: "2026-08-25",
+  DATA_PURPOSE_VERSION: "2026-08-25",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
 };
@@ -75,6 +80,7 @@ async function stop(signal: NodeJS.Signals, exitCode = 0) {
 }
 process.on("SIGINT", () => void stop("SIGINT"));
 process.on("SIGTERM", () => void stop("SIGTERM"));
+process.on("SIGHUP", () => void stop("SIGHUP"));
 for (const child of [platform, worker]) {
   child.on("exit", (code) => {
     if (!stopping) void stop("SIGTERM", code ?? 1);

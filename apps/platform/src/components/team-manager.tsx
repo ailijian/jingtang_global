@@ -70,11 +70,11 @@ export function TeamManager({
               : t("member.failed"),
       });
     } else {
-      const testToken = body.invitation?.token;
+      const invitationToken = body.invitation?.token;
       setStatus({
         tone: "success",
-        text: testToken
-          ? `${t("member.testInvite")} /onboarding?invite=${testToken}`
+        text: invitationToken
+          ? `${t("member.testInvite")} /onboarding?invite=${invitationToken}`
           : t("member.changed"),
       });
       router.refresh();

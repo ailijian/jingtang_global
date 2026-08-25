@@ -28,5 +28,6 @@ export default defineConfig({
     url: `${platformBaseUrl}/login`,
     reuseExistingServer: false,
     timeout: 120_000,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 15_000 },
   },
 });

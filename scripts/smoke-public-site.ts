@@ -1,5 +1,6 @@
 const origin = process.env.SITE_ORIGIN ?? "https://jingtangai.com";
 if (!origin.startsWith("https://")) throw new Error("Production smoke requires HTTPS");
+const approvedSignInUrl = "https://review.jingtangai.com/login";
 
 const routes = [
   "/",
@@ -17,6 +18,8 @@ const routes = [
   "/zh-cn/data-deletion/",
   "/en/security/",
   "/zh-cn/security/",
+  "/en/sign-in/",
+  "/zh-cn/sign-in/",
   "/en/company/contact/",
   "/zh-cn/company/contact/",
 ];
@@ -50,12 +53,30 @@ for (const route of routes) {
     (route.includes("/privacy/") ||
       route.includes("/terms/") ||
       route.includes("/data-deletion/")) &&
-    !html.includes("2026-08-24")
+    !html.includes("2026-08-25")
   ) {
     throw new Error(`${route} does not expose the released policy version`);
   }
   if (route.includes("/integrations/") && html.includes('href="/connect')) {
     throw new Error(`${route} exposes an unavailable executable action`);
+  }
+  if (!html.includes(`href="${approvedSignInUrl}"`)) {
+    throw new Error(`${route} does not link Sign in to the approved current SaaS`);
+  }
+  for (const prohibited of [
+    "Private Beta",
+    "pre-launch",
+    "Review Environment",
+    "REVIEW ENVIRONMENT",
+    "TEST INTEGRATION",
+    "私有测试",
+    "预发布",
+    "审核环境",
+    "测试账号",
+  ]) {
+    if (html.includes(prohibited)) {
+      throw new Error(`${route} renders prohibited internal product copy: ${prohibited}`);
+    }
   }
   for (const header of [
     "strict-transport-security",

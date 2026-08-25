@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 6
+revision: 7
 status: approved
-effective_date: "2026-08-22"
+effective_date: "2026-08-25"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-22"
-revision_note: D6 repository controls for revocation, deletion, retention, audit, and recovery are implemented and locally verified; the Human Owner approved the corresponding public disclosures on 2026-08-22, while production capability truth remains unchanged pending D7 deployed-production gates
+revision_note: The Human Owner approved formal product presentation for the current account-controlled Seoul service on 2026-08-25. Real YouTube OAuth, private upload, tracking, disconnect, revocation, and cleanup are available only to approved accounts; broader public availability remains Coming Soon and production_available remains false.
 
 authority:
   owns:
@@ -48,7 +48,7 @@ integrations:
     delivery_role: first_production_channel
     public_status: coming_soon
     production_available: false
-    implementation_stage: D6
+    implementation_stage: review_r2_controlled_access
     capabilities:
       connect:
         state: not_available
@@ -74,7 +74,7 @@ integrations:
       incremental_authorization: true
       requested_scopes:
         - scope: https://www.googleapis.com/auth/youtube.upload
-          request_state: requested_in_test
+          request_state: active_for_controlled_access
           purpose: upload the exact user-approved video and metadata after explicit Publish Confirmation
           baseline_trace:
             - AC-07
@@ -94,7 +94,7 @@ integrations:
           api_methods:
             - videos.insert for user-confirmed upload
         - scope: https://www.googleapis.com/auth/youtube.readonly
-          request_state: requested_in_test
+          request_state: active_for_controlled_access
           purpose: identify the exact authorized YouTube channel before confirmation and read the owner-only processing/result state of the returned uploaded video
           baseline_trace:
             - AC-07
@@ -132,7 +132,7 @@ integrations:
       - ordinary Authorized API Data must be refreshed or deleted within 30 calendar days
       - in-product revocation must programmatically revoke immediately and applicable Authorized Data must be deleted as soon as possible and within 7 calendar days
       - Schedule is not available and no scheduler or status claim may be exposed
-      - Test OAuth, real authorized-channel identity, private upload, and result tracking passed in the protected local D5 harness; D6 trust controls and their public disclosures are repository-verified, while production availability remains false until D7 deployed-production gates pass
+      - real OAuth, authorized-channel identity, private upload, result tracking, disconnect, revocation, and cleanup are deployed for approved accounts on the current Seoul service; broader public availability remains false until the formal production gates and rollout decision pass
     d5_entry_gates:
       - current official policy re-verification recorded
       - official domain, domain email, English legal entity expression, homepage, Privacy, Terms, Data Deletion, Security, and YouTube Integration page are live and consistent

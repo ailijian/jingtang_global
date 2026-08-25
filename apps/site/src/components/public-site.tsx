@@ -27,6 +27,7 @@ function statusLabel(t: Translator, status: PublicStatus): string {
 }
 
 function Header({ locale, pageId, t }: PageProps & { readonly t: Translator }) {
+  const signInUrl = getPublicSiteConfig().product_access.sign_in_url;
   const links: readonly [PageId, MessageKey][] = [
     ["socialPublishing", "site.nav.platform"],
     ["integrations", "site.nav.integrations"],
@@ -61,9 +62,9 @@ function Header({ locale, pageId, t }: PageProps & { readonly t: Translator }) {
             alternatePath={getAlternatePath(locale, pageId)}
             label={t(locale === "en" ? "site.locale.switchToZh" : "site.locale.switchToEn")}
           />
-          <Link className="site-sign-in" href={getLocalizedPath(locale, "signIn")}>
+          <a className="site-sign-in" href={signInUrl}>
             {t("site.action.signIn")}
-          </Link>
+          </a>
           <Link
             className="site-button site-button-primary site-header-cta"
             href={getLocalizedPath(locale, "bookDemo")}
@@ -82,7 +83,7 @@ function Header({ locale, pageId, t }: PageProps & { readonly t: Translator }) {
                   {t(key)}
                 </Link>
               ))}
-              <Link href={getLocalizedPath(locale, "signIn")}>{t("site.action.signIn")}</Link>
+              <a href={signInUrl}>{t("site.action.signIn")}</a>
               <Link href={getLocalizedPath(locale, "bookDemo")}>{t("site.action.bookDemo")}</Link>
             </nav>
           </details>
@@ -190,9 +191,6 @@ function EditorialPage({ locale, pageId, t }: PageProps & { readonly t: Translat
         lead={t(definition.lead)}
         compact={isLegal}
       >
-        {pageId === "security" || pageId === "signIn" ? (
-          <span className="site-status site-status-warning">{t("site.status.privateBeta")}</span>
-        ) : null}
         {isLegal ? <PolicyMeta t={t} /> : null}
       </Hero>
       <div className={isLegal ? "site-legal-layout" : "site-section-grid"}>
@@ -223,11 +221,8 @@ function EditorialPage({ locale, pageId, t }: PageProps & { readonly t: Translat
       {!isLegal && pageId !== "signIn" ? <FinalCta locale={locale} t={t} /> : null}
       {pageId === "signIn" ? (
         <div className="site-centered-action">
-          <a
-            className="site-button site-button-secondary"
-            href={`mailto:${config.identity.support_email}`}
-          >
-            {t("site.action.emailSupport")}
+          <a className="site-button site-button-primary" href={config.product_access.sign_in_url}>
+            {t("site.action.signIn")}
           </a>
         </div>
       ) : null}

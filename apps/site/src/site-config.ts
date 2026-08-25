@@ -27,8 +27,11 @@ interface PublicSiteConfig {
     readonly inactive_retention_days: number;
   };
   readonly product_access: {
-    readonly public_status: "private_beta_prelaunch";
-    readonly sign_in_action: string;
+    readonly public_status: "authorized_access";
+    readonly sign_in_action: "direct_to_current_saas";
+    readonly sign_in_url: "https://review.jingtangai.com/login";
+    readonly access_mode: "precreated_accounts_only";
+    readonly self_service_registration: "disabled";
   };
   readonly production_readiness: {
     readonly domain_ownership: string;
@@ -37,6 +40,8 @@ interface PublicSiteConfig {
     readonly legal_data_approval: string;
     readonly production_rollout: "blocked" | "authorized" | "deployed_verified";
     readonly legal_policy_rollout: "pending_production_change_authorization" | "deployed_verified";
+    readonly product_access_rollout:
+      "pending_production_change_authorization" | "deployed_verified";
   };
 }
 
@@ -56,8 +61,8 @@ function assertConfig(value: unknown): asserts value is PublicSiteConfig {
       "Jingtang (Shanghai) Intelligent Technology Co., Ltd." ||
     candidate.identity.legal_entity?.["zh-CN"] !== "鲸汤（上海）智能科技有限公司" ||
     candidate.identity.freeze?.status !== "approved" ||
-    candidate.legal?.policy_version !== "2026-08-24" ||
-    candidate.legal.effective_date !== "2026-08-24" ||
+    candidate.legal?.policy_version !== "2026-08-25" ||
+    candidate.legal.effective_date !== "2026-08-25" ||
     !["approved_pending_production_change_authorization", "deployed_verified"].includes(
       candidate.legal.deployment_status ?? "",
     ) ||
@@ -66,7 +71,14 @@ function assertConfig(value: unknown): asserts value is PublicSiteConfig {
     ) ||
     candidate.contact?.method !== "email_handoff" ||
     candidate.contact.destination !== candidate.identity.support_email ||
-    candidate.product_access?.public_status !== "private_beta_prelaunch"
+    candidate.product_access?.public_status !== "authorized_access" ||
+    candidate.product_access.sign_in_action !== "direct_to_current_saas" ||
+    candidate.product_access.sign_in_url !== "https://review.jingtangai.com/login" ||
+    candidate.product_access.access_mode !== "precreated_accounts_only" ||
+    candidate.product_access.self_service_registration !== "disabled" ||
+    !["pending_production_change_authorization", "deployed_verified"].includes(
+      candidate.production_readiness?.product_access_rollout ?? "",
+    )
   ) {
     throw new Error("Public site identity or legal configuration is invalid");
   }

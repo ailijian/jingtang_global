@@ -74,9 +74,9 @@ if (
 }
 for (const marker of [
   "APP_ENV: review",
-  'TERMS_VERSION: "2026-08-24"',
-  'PRIVACY_VERSION: "2026-08-24"',
-  'DATA_PURPOSE_VERSION: "2026-08-24"',
+  'TERMS_VERSION: "2026-08-25"',
+  'PRIVACY_VERSION: "2026-08-25"',
+  'DATA_PURPOSE_VERSION: "2026-08-25"',
   'user: "65532:65532"',
   'ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360"',
   'MAX_SOURCE_ASSET_BYTES: "524288000"',
@@ -167,6 +167,37 @@ for (const marker of [
   "usesSecureCookies",
 ]) {
   requireText(config, marker, "application config");
+}
+
+const platformLayout = read("apps/platform/src/app/layout.tsx");
+const channelPage = read("apps/platform/src/app/app/channels/page.tsx");
+const englishCatalog = read("packages/i18n/src/catalogs/en.ts");
+const chineseCatalog = read("packages/i18n/src/catalogs/zh-CN.ts");
+const publicSiteConfig = read("config/public-site.yaml");
+for (const [marker, sources] of [
+  ["REVIEW ENVIRONMENT · NOT FOR SALE", [platformLayout, englishCatalog]],
+  ["审核环境 · 非销售用途", [platformLayout, chineseCatalog]],
+  ["YOUTUBE · TEST INTEGRATION", [channelPage]],
+  ["Connect YouTube test account", [englishCatalog]],
+  ["连接 YouTube 测试账号", [chineseCatalog]],
+  ["Private Beta · pre-launch", [englishCatalog]],
+  ["私有测试版 · 尚未公开上线", [chineseCatalog]],
+] as const) {
+  if (sources.some((source) => source.includes(marker))) {
+    throw new Error(`user-facing product content must not expose internal status: ${marker}`);
+  }
+}
+if (platformLayout.includes("review-environment-banner")) {
+  throw new Error("platform layout must not render an internal environment banner");
+}
+for (const marker of [
+  "public_status: authorized_access",
+  "sign_in_action: direct_to_current_saas",
+  "sign_in_url: https://review.jingtangai.com/login",
+  "access_mode: precreated_accounts_only",
+  "self_service_registration: disabled",
+]) {
+  requireText(publicSiteConfig, marker, "public site current SaaS access");
 }
 
 const internalSecrets = read("infra/tencent/review/generate-internal-secrets.sh");

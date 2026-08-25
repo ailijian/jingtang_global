@@ -6,6 +6,8 @@ umask 077
 readonly release_id="${1:-$(git rev-parse HEAD)}"
 readonly output_root="${2:-.local/review-release}"
 readonly output_dir="$output_root/$release_id"
+readonly runtime_image="jingtang-review:$release_id"
+readonly migration_image="jingtang-review-migration:$release_id"
 
 if [[ ! "$release_id" =~ ^[0-9a-f]{40}$ ]] || [[ "$(git rev-parse HEAD)" != "$release_id" ]]; then
   echo "Package an exact current Git commit." >&2
@@ -20,13 +22,41 @@ if [[ -e "$output_dir" ]]; then
   exit 4
 fi
 
+cleanup_package_attempt() {
+  local status=$?
+  trap - EXIT
+  docker image rm "$runtime_image" "$migration_image" >/dev/null 2>&1 || true
+  if ((status != 0)) && [[ -d "$output_dir" ]]; then
+    rm -rf -- "$output_dir"
+  fi
+  exit "$status"
+}
+
+prune_stale_release_packages() {
+  local candidate candidate_id marker
+  shopt -s nullglob
+  for candidate in "$output_root"/*; do
+    [[ -d "$candidate" ]] || continue
+    candidate_id="$(basename "$candidate")"
+    [[ "$candidate_id" =~ ^[0-9a-f]{40}$ ]] || continue
+    [[ "$candidate_id" != "$release_id" ]] || continue
+    [[ -f "$candidate/RELEASE" ]] || continue
+    marker="$(tr -d '\r\n' < "$candidate/RELEASE")"
+    [[ "$marker" == "$candidate_id" ]] || continue
+    rm -rf -- "$candidate"
+    echo "Pruned superseded review release package $candidate_id"
+  done
+}
+
+trap cleanup_package_attempt EXIT
+
 install -d -m 0700 "$output_dir/init" "$output_dir/systemd"
 docker build --pull=false --target runtime --build-arg "VCS_REF=$release_id" \
-  --tag "jingtang-review:$release_id" .
+  --tag "$runtime_image" .
 docker build --pull=false --target migration --build-arg "VCS_REF=$release_id" \
-  --tag "jingtang-review-migration:$release_id" .
+  --tag "$migration_image" .
 docker run --rm --network none --user 65532:65532 --workdir /app/apps/worker \
-  --entrypoint node "jingtang-review:$release_id" --input-type=module --eval '
+  --entrypoint node "$runtime_image" --input-type=module --eval '
     import { access } from "node:fs/promises";
     import { createRequire } from "node:module";
     await access("/app/apps/platform/scripts/start.mjs");
@@ -34,8 +64,8 @@ docker run --rm --network none --user 65532:65532 --workdir /app/apps/worker \
     requireFromPlatform.resolve("next/dist/bin/next");
     await import("@jingtang/application");
   '
-docker save "jingtang-review:$release_id" | gzip -9 > "$output_dir/jingtang-review.tar.gz"
-docker save "jingtang-review-migration:$release_id" | gzip -9 > "$output_dir/jingtang-review-migration.tar.gz"
+docker save "$runtime_image" | gzip -9 > "$output_dir/jingtang-review.tar.gz"
+docker save "$migration_image" | gzip -9 > "$output_dir/jingtang-review-migration.tar.gz"
 
 install -m 0644 infra/tencent/review/compose.yaml "$output_dir/compose.yaml"
 install -m 0755 infra/tencent/review/init/001-create-roles.sh \
@@ -57,4 +87,5 @@ install -m 0600 infra/tencent/review/runtime.env.example "$output_dir/runtime.en
   sha256sum jingtang-review.tar.gz jingtang-review-migration.tar.gz > SHA256SUMS
 )
 printf '%s\n' "$release_id" > "$output_dir/RELEASE"
+prune_stale_release_packages
 echo "Review release package created at $output_dir"

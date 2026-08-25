@@ -124,7 +124,7 @@ export default async function ChannelsPage({
         <section className="channel-card" aria-labelledby="youtube-channel-title">
           <div className="channel-card__heading">
             <div>
-              <p className="detail-kicker">YOUTUBE · TEST INTEGRATION</p>
+              <p className="detail-kicker">YOUTUBE · CONTROLLED PUBLISHING</p>
               <h2 id="youtube-channel-title">YouTube</h2>
             </div>
             <span

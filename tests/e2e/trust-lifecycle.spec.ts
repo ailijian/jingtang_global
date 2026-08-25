@@ -58,7 +58,7 @@ test("YouTube connection locks the form after the first valid submission", async
   });
 
   await page.getByRole("checkbox").check();
-  const connectButton = page.getByRole("button", { name: "Connect YouTube test account" });
+  const connectButton = page.getByRole("button", { name: "Connect YouTube account" });
   await connectButton.click();
   await expect(page.getByRole("button", { name: "Opening Google…" })).toBeDisabled();
   await page.evaluate(() => {

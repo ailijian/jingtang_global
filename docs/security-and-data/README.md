@@ -1,8 +1,8 @@
 # JINGTANG Security and Data Authority
 
 - Status: Approved
-- Security/Data Revision: 20
-- Effective Date: 2026-08-24
+- Security/Data Revision: 21
+- Effective Date: 2026-08-25
 - Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Owner: JINGTANG Security/Data Owner
 - Architecture dependency: [`docs/architecture/README.md`](../architecture/README.md)
@@ -10,7 +10,7 @@
 
 ## Authority Boundary
 
-This document owns the current data classification, data-flow map, regional and processor boundary, retention/deletion defaults, encryption and backup requirements, and security control obligations. D6 repository evidence verifies the implemented lifecycle controls; D7 owns deployed Tencent Cloud production proof. Any longer retention, new processor, new region, new data purpose, or weaker deletion path requires Security/Data Owner approval and a public disclosure review.
+This document owns the current data classification, data-flow map, regional and processor boundary, retention/deletion defaults, encryption and backup requirements, and security control obligations. D6 repository evidence verifies the implemented lifecycle controls; R2 owns observed evidence for the current time-bounded Seoul service, while D7 continues to own final-production Tencent Cloud proof. Any longer retention, new processor, new region, new data purpose, or weaker deletion path requires Security/Data Owner approval and a public disclosure review.
 
 It does not own Delivery requirements, UX semantics, legal text, public security claims, infrastructure implementation, or platform capability status. Product copy is never evidence that a control exists.
 
@@ -31,7 +31,8 @@ Production data is prohibited in local development, CI fixtures, screenshots, de
 | --- | --- | --- |
 | Tencent Cloud Seoul (`ap-seoul`) | SaaS compute, TencentDB for PostgreSQL, private COS data and KMS-sealed secret buckets, TDMQ, KMS, SES, CLS/Cloud Monitor, backups | Primary production application data and compute remain in Seoul; the D3 public website and D7 SaaS data plane are separate resources, and integration/production use separate logical resources and credentials |
 | Tencent Cloud CIAM | Sign-up, login, logout, password reset and credential policy | The production tenant is not yet provisioned. D7 must capture the selected tenant's contractual processing location and console configuration as protected evidence, and public disclosure must match that evidence before production access |
-| Tencent Cloud Lighthouse (Seoul), GoDaddy DNS, and Let's Encrypt ACME | D3 public website static delivery, DNS, TLS certificate issuance/renewal, and bounded security/access logs | Public website assets plus limited request/security metadata only; no authenticated API data, user content, OAuth token, or application secret is processed on this host |
+| Tencent Cloud Lighthouse (Seoul), GoDaddy DNS, and Let's Encrypt ACME | Public website static delivery, current account-controlled SaaS compute/local PostgreSQL, DNS, TLS certificate issuance/renewal, and bounded security/access logs | Website and SaaS share only the physical host and TLS ingress. Their containers, networks, volumes, configuration, logs and release paths remain isolated; the website itself receives no authenticated API data, user content, OAuth token or application secret |
+| Tencent Cloud COS (Seoul) review storage | Current account-controlled SaaS source assets and encrypted PostgreSQL backups | Private, prefix-scoped storage with short-lived signed upload, SSE-COS, version/lifecycle controls and least-privilege role credentials; no public objects |
 | Google/YouTube | User-directed OAuth, channel identification, video upload, status tracking, revocation | Google processes data under its platform terms and global infrastructure after explicit user action |
 | GitHub | Source repository and Actions CI | Source code and synthetic fixtures only; no production data or long-lived cloud key |
 | User mail provider | Invitation, password/identity, security, support messages | Minimum message content; no OAuth token, source asset, or unpublished post body |
@@ -55,7 +56,7 @@ Adding analytics, CRM, customer support, error-reporting, CDN, AI, or marketing 
 
 ### Temporary review environment profile
 
-The approved Social Platform Developer Review Enablement Delivery permits one time-bounded `review` profile on the existing Seoul Lighthouse. It is not production and cannot support public sales or production security claims. Review account, Workspace, Content, approval, execution and audit rows use a dedicated local PostgreSQL volume; source assets and encrypted database backups use dedicated prefixes in one private Seoul COS Bucket. OAuth tokens use the `local:v2` application envelope: each connection has an independent data key, its wrapped key lives in a root-only detached store on the protected local persistent volume, and the 256-bit root key is delivered to platform/worker from a `0400` file. Neither local key file is included in database/COS backup; host loss or root-key replacement therefore requires channel reconnection. The separately created OAuth-key COS Bucket remains empty, receives no runtime credential, and may be deleted at review teardown. Static least-privilege COS CAM credentials are permitted only because Lighthouse cannot be assumed to expose the production CVM role credential path. They are supplied through root-managed runtime Secret material: the directory is non-traversable by ordinary host users and each `0400` file is readable only by its dedicated non-login service or database identity. Credentials are scoped to named review resources, excluded from logs/images/Git, and revoked at teardown.
+The approved Social Platform Developer Review Enablement Delivery permits one time-bounded `review` profile on the existing Seoul Lighthouse. It is not D7 final-production infrastructure, is not approved for public registration, promotion or scaled sales, and cannot support claims about unimplemented final-production controls. Under Baseline Revision 3 it is nevertheless the real current account-controlled product entry point, so public claims may describe only controls observed for this deployed service and must not expose internal Stage/Gate or environment labeling. Review account, Workspace, Content, approval, execution and audit rows use a dedicated local PostgreSQL volume; source assets and encrypted database backups use dedicated prefixes in one private Seoul COS Bucket. OAuth tokens use the `local:v2` application envelope: each connection has an independent data key, its wrapped key lives in a root-only detached store on the protected local persistent volume, and the 256-bit root key is delivered to platform/worker from a `0400` file. Neither local key file is included in database/COS backup; host loss or root-key replacement therefore requires channel reconnection. The separately created OAuth-key COS Bucket remains empty, receives no runtime credential, and may be deleted at review teardown. Static least-privilege COS CAM credentials are permitted only because Lighthouse cannot be assumed to expose the production CVM role credential path. They are supplied through root-managed runtime Secret material: the directory is non-traversable by ordinary host users and each `0400` file is readable only by its dedicated non-login service or database identity. Credentials are scoped to named review resources, excluded from logs/images/Git, and revoked at teardown.
 
 Public registration and self-service reset are disabled. Only pre-created Human Owner and reviewer accounts are permitted. Review source uploads are limited to 500 MiB per object and a 15 GB active soft quota, are sent directly to private COS with short-lived signatures, and never persist on the Lighthouse media filesystem. An initiated upload becomes ineligible for completion after 20 minutes: the worker atomically fail-closes its metadata, records a minimized system audit event, and retries exact-object deletion until COS confirms success. Existing retention/deletion rows below continue to apply; deleting the review Workspace triggers the same deny-first durable cleanup. The public website remains database-free and does not receive review cookies, account data or content.
 
@@ -107,7 +108,7 @@ The YouTube-specific controls implement the current policy boundary: ordinary Au
 - Audit events include user, Workspace, action, target, timestamp, result, correlation ID, and only necessary safe technical metadata.
 - Security alerts cover authentication abuse, RLS/authorization denials, secret-access anomalies, queue dead letters, repeated provider failures, deletion SLA risk, and backup/restore failure.
 - Redaction tests and canary secret tests are blocking repository checks. D7 verifies production alert routing and incident response evidence.
-- Public Security, Privacy, Terms, Data Deletion, and Integration pages may claim only controls evidenced in the production environment.
+- Public Security, Privacy, Terms, Data Deletion, and Integration pages may claim only controls evidenced in the currently accessible deployed service. They must not imply D7 final-production infrastructure, certification or integration availability that has not been verified.
 
 ## External Policy Trace
 
@@ -122,7 +123,7 @@ Official policies are external state. The YouTube Integration Owner must re-veri
 
 ## Evidence Boundary
 
-D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant controls, secret/log checks, and the disposable restore procedure in repository-controlled environments. [`docs/OPERATIONS.md`](../OPERATIONS.md) owns the procedures and evidence routing. Tencent IAM, KMS-sealed COS secret bundles, TencentDB/COS backups, CLS/Cloud Monitor alert routing, production access records, CIAM tenant/processing-location evidence, and an isolated production restore exercise remain D7 deployed-environment evidence; public claims must continue to describe them as launch requirements until verified.
+D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant controls, secret/log checks, and the disposable restore procedure in repository-controlled environments. R2 owns observed evidence for the separately deployed Lighthouse/PostgreSQL/COS service, and [`docs/OPERATIONS.md`](../OPERATIONS.md) owns its procedures and evidence routing. Tencent IAM, KMS-sealed COS secret bundles, TencentDB/COS backups, CLS/Cloud Monitor alert routing, final-production access records, CIAM tenant/processing-location evidence, and an isolated final-production restore exercise remain D7 evidence and must not be described as current controls before verification.
 
 ## Revision Record
 
@@ -145,3 +146,4 @@ D6 verifies user revocation/deletion, retention jobs, audit minimization, tenant
 - Revision 18 — 2026-08-24：R1 实现收紧了临时 review 主机 Secret 边界：普通 SSH 操作员 UID 不再与容器共享，root 管理不可遍历的 Secret 目录，`0400` 文件仅由专用非登录 service/database identity 读取；Caddy 同时覆盖上游客户端 IP 头后再执行应用限流。本修订是对已批准 root-only 意图的可执行实现说明，未扩大凭证可见范围、用途、处理方、区域或保留期，也未执行云端写入。
 - Revision 19 — 2026-08-24：腾讯 KMS 被确认需要购买付费实例后，Human Owner 明确批准临时 Review 使用本地 envelope key、正式 production 继续使用 KMS。Review 改为 `local:v2` 每连接独立数据密钥、root-only 256-bit 根密钥和不进入备份的本机 detached key store；丢失或轮换根密钥须重新连接渠道。此前创建的 OAuth-key COS Bucket 不授予运行时权限并保持为空，可在 teardown 删除。本修订没有削弱 staging/production KMS、sealed bundle、CAM、地域或密码学擦除义务，也未新增处理方、用途、区域或保留期。
 - Revision 20 — 2026-08-25：R2 首尔真实上传验证确认 platform 在完成直传时必须以 `HeadObject` 校验 COS 对象，并暴露了一条失败请求遗留的未认领对象。Review 现将发起后 20 分钟仍未完成的上传原子 fail-close，由 worker 持久重试精确对象删除并记录最小化系统审计；CAM 模板与发布门禁同步固化 `HeadObject`。本修订未新增处理方、用途、区域或更长保留期。
+- Revision 21 — 2026-08-25：Human Owner 明确批准 Social Platform Review Baseline Revision 3。当前首尔部署仍不是 D7 最终生产基础设施，也不开放自助注册、推广或规模化销售；但它成为官网指向的真实账号受控产品入口。公开 Security/Legal 只可描述 R2 已观察的当前服务事实，不再暴露内部 Stage/Gate 或测试环境标签，也不得把未来 TencentDB/TDMQ/KMS/CIAM/CLS 架构误述为当前控制。本修订未新增处理方、用途、区域、数据类型或更长保留期。

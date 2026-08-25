@@ -17,6 +17,13 @@ interface SiteConfig {
     readonly policy_version: string;
     readonly deployment_status: string;
   };
+  readonly product_access: {
+    readonly public_status: string;
+    readonly sign_in_action: string;
+    readonly sign_in_url: string;
+    readonly access_mode: string;
+    readonly self_service_registration: string;
+  };
   readonly production_readiness: Readonly<Record<string, string>>;
 }
 
@@ -43,9 +50,14 @@ if (
   siteConfig.identity.support_email !== "developer@jingtangai.com" ||
   siteConfig.identity.legal_entity.en !== "Jingtang (Shanghai) Intelligent Technology Co., Ltd." ||
   siteConfig.identity.legal_entity["zh-CN"] !== "鲸汤（上海）智能科技有限公司" ||
-  siteConfig.identity.freeze.status !== "approved"
+  siteConfig.identity.freeze.status !== "approved" ||
+  siteConfig.product_access.public_status !== "authorized_access" ||
+  siteConfig.product_access.sign_in_action !== "direct_to_current_saas" ||
+  siteConfig.product_access.sign_in_url !== "https://review.jingtangai.com/login" ||
+  siteConfig.product_access.access_mode !== "precreated_accounts_only" ||
+  siteConfig.product_access.self_service_registration !== "disabled"
 ) {
-  throw new Error("Public identity does not match the Human-frozen D3 values");
+  throw new Error("Public identity or current SaaS access does not match the approved values");
 }
 
 for (const [id, integration] of Object.entries(registry.integrations)) {
@@ -73,6 +85,7 @@ if (productionCheck) {
     legal_data_approval: siteConfig.production_readiness.legal_data_approval,
     rollout: siteConfig.production_readiness.production_rollout,
     legal_policy_rollout: siteConfig.production_readiness.legal_policy_rollout,
+    product_access_rollout: siteConfig.production_readiness.product_access_rollout,
   };
   const expected =
     siteConfig.status === "production"
@@ -86,6 +99,7 @@ if (productionCheck) {
           legal_data_approval: "approved",
           rollout: "deployed_verified",
           legal_policy_rollout: "deployed_verified",
+          product_access_rollout: "deployed_verified",
         }
       : {
           config_status: "production_approved",
@@ -97,6 +111,7 @@ if (productionCheck) {
           legal_data_approval: "approved",
           rollout: "authorized",
           legal_policy_rollout: "pending_production_change_authorization",
+          product_access_rollout: "pending_production_change_authorization",
         };
   const blocked = Object.entries(required).filter(
     ([key, value]) => value !== expected[key as keyof typeof expected],
@@ -132,6 +147,23 @@ const prohibitedCopy = [
   "example.invalid",
   "Connect now",
   "Publish now",
+  "Private Beta",
+  "private-beta",
+  "pre-launch",
+  "Review Environment",
+  "REVIEW ENVIRONMENT",
+  "TEST INTEGRATION",
+  "current Delivery",
+  "applicable Gates",
+  "D3",
+  "D6",
+  "D7",
+  "私有测试",
+  "预发布",
+  "审核环境",
+  "测试账号",
+  "当前 Delivery",
+  "适用 Gate",
 ];
 
 for (const locale of ["en", "zh-cn"] as const) {
@@ -156,6 +188,9 @@ for (const locale of ["en", "zh-cn"] as const) {
       if (html.includes(prohibited))
         throw new Error(`${file} renders prohibited copy: ${prohibited}`);
     }
+    if (!html.includes(`href="${siteConfig.product_access.sign_in_url}"`)) {
+      throw new Error(`${file} does not link Sign in to the approved current SaaS`);
+    }
     if (html.includes('href="/api/') || html.includes('href="/connect')) {
       throw new Error(`${file} exposes an unavailable executable integration action`);
     }
@@ -179,5 +214,5 @@ for (const locale of ["en", "zh-cn"] as const) {
 }
 
 process.stdout.write(
-  `D3 public-site evidence: ${routes.length * 2} localized routes, registry gating, identity, metadata, alternates, sitemap, and ${productionCheck ? "production" : "candidate"} readiness are valid.\n`,
+  `Public-site evidence: ${routes.length * 2} localized routes, current SaaS sign-in, registry gating, identity, formal content, metadata, alternates, sitemap, and ${productionCheck ? "production" : "candidate"} readiness are valid.\n`,
 );

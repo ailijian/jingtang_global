@@ -7,13 +7,13 @@ Planning Preflight: PASS
 - Baseline: `docs/deliveries/social-platform-review-enablement/BASELINE.md`
 - Delivery: JINGTANG Social Platform Developer Review Enablement
 - Status: Approved
-- Baseline Revision: 2
-- Approval: Human Owner explicitly approved the recommended plan and implementation on 2026-08-24 after purchasing a 20 GB Tencent COS storage package, then approved the Review-only `local:v2` envelope amendment while preserving staging/production KMS.
+- Baseline Revision: 3
+- Approval: Human Owner explicitly approved the recommended plan and implementation on 2026-08-24 after purchasing a 20 GB Tencent COS storage package, then approved the Review-only `local:v2` envelope amendment while preserving staging/production KMS. On 2026-08-25, the Human Owner explicitly authorized Revision 3 and superseded the earlier public-presentation decisions: official website login must enter the real SaaS, and public/SaaS copy must present the formal product without test or review-environment labeling.
 - Production preservation: The accepted D3 website and D7 production target remain unchanged. This plan creates only a time-bounded `review` environment and platform-review slices.
 
 ## Outcome and Boundaries
 
-建立 `review.jingtangai.com` 的受保护 SaaS 审核环境，在当前腾讯云首尔 Lighthouse 上以低资源 Docker profile 运行，并按 Facebook → TikTok 的顺序交付真实最小权限纵向切片、双语审核体验与可提交证据。外部审核决定不由本 Plan 控制，任何未正式生产上线的能力继续显示 `Coming Soon`。
+在当前腾讯云首尔 Lighthouse 上以低资源 `review` Docker profile 运行真实 SaaS，但把 `review` 限定为内部部署术语：`jingtangai.com` 登录直达 `review.jingtangai.com/login`，官网与 SaaS 对用户按正式产品呈现，并按 Facebook → TikTok 的顺序交付真实最小权限纵向切片、双语审核体验与可提交证据。外部审核决定不由本 Plan 控制，任何尚未真实可用的能力继续显示 `Coming Soon`。
 
 ## Stage Progression
 
@@ -28,7 +28,7 @@ Planning Preflight: PASS
 | --- | --- | --- |
 | R0 | 固化 review 环境、生产保留边界、平台顺序与当前官方审核约束 | Authority consistency and policy source check |
 | R1 | 实现本地可验证的低资源 review runtime profile、身份/Secret/容量控制和部署资产 | Self Verification + Code Review |
-| R2 | 在首尔 Lighthouse/COS 上部署 review 环境并证明官网不回退 | Deployment checks + Human E2E + Stage Acceptance |
+| R2 | 在首尔 Lighthouse/COS 上部署当前 SaaS，接通官网正式登录体验并证明官网不回退 | Deployment checks + Human E2E + Stage Acceptance |
 | R3 | Facebook 最小权限真实纵向切片与审核包 | Scope Approval + Code Review + Acceptance Review + Human E2E |
 | R4 | TikTok 最小权限真实纵向切片与审核包 | Scope Approval + Code Review + Acceptance Review + Human E2E |
 | R5 | 全量 review regression、提交就绪记录与可回收/迁移收口 | Final Acceptance Review + Human E2E + Stage Acceptance |
@@ -40,8 +40,8 @@ Planning Preflight: PASS
   - Self Verification: PASS. Focused config/identity/runtime-secret/S3 tests passed (21 tests); database integration, contract, i18n, migration, operations and seven platform E2E journeys passed; lint, typecheck, production build, Secret scan and production dependency policy passed.
   - Runtime/deployment evidence: PASS. Review release checker, shell syntax, Compose rendering, pinned Caddy validation, no-public-port/resource markers and final diff whitespace check passed. Services use dedicated UID/GID `65532`; the ordinary host operator cannot read role Secret files.
   - Code Review: PASS. The final review found no open R1 P1/P2 finding. It closed the host-UID Secret exposure and client-IP trust gaps. Tencent COS signature/CORS/header compatibility is intentionally not inferred from the local S3-compatible harness and remains an R2 deployed smoke check.
-  - Non-blocking environment limitation: the unrelated D7 Terraform validation command cannot run on this workstation because Terraform is not installed; R1 does not provision or change D7 Terraform infrastructure.
-- R2: In progress; Stage Acceptance has not been granted. `review.jingtangai.com` is deployed on the authorized Seoul Lighthouse with HTTPS, isolated PostgreSQL, private COS source/backup paths, Review-only `local:v2` OAuth envelope, least-privilege CAM credentials and the existing single-ingress Caddy route. Human Owner verified login, Workspace creation, YouTube OAuth connection, direct private-COS upload and one private YouTube publish. The deployed upload smoke identified `HeadObject` as a required platform permission; the live CAM policy was corrected and the repository template/regression check now own that requirement. One failed pre-correction upload left an unclaimed `pending_upload` object; R2 closure fail-closes initiated uploads after 20 minutes and durably retries exact COS deletion. The single pre-correction orphan was then fail-closed with a minimized system audit and its exact COS key was removed; the successful `complete` asset remained unchanged and COS active usage returned to one object. The unused OAuth-key COS Bucket remains empty and uncredentialed and may be deleted at teardown. Runtime commit `817f46679f125b924a7e2a3a34023b20cbc3cb4f` is active after an immutable Review build under the production host's restrictive umask; package-time UID `65532` execution checks, 25/25 migrations, cleanup-function grants, platform health, worker zero-restart status, HTTPS/noindex smoke and COS capacity checks passed. The automatic cleanup path is deployed, while its final Human E2E and R2 Stage Acceptance remain pending.
+  - Terraform validation: PASS with the repository-compatible Terraform 1.13.5 installed through `tfenv`; the D7 configuration validates without changing the production infrastructure target.
+- R2: In progress; Stage Acceptance has not been granted. `review.jingtangai.com` is deployed on the authorized Seoul Lighthouse with HTTPS, isolated PostgreSQL, private COS source/backup paths, Review-only `local:v2` OAuth envelope, least-privilege CAM credentials and the existing single-ingress Caddy route. Human Owner verified login, Workspace creation, YouTube OAuth connection, direct private-COS upload and one private YouTube publish. The deployed upload smoke identified `HeadObject` as a required platform permission; the live CAM policy was corrected and the repository template/regression check now own that requirement. One failed pre-correction upload left an unclaimed `pending_upload` object; R2 closure fail-closes initiated uploads after 20 minutes and durably retries exact COS deletion. The single pre-correction orphan was then fail-closed with a minimized system audit and its exact COS key was removed; the successful `complete` asset remained unchanged and COS active usage returned to one object. The unused OAuth-key COS Bucket remains empty and uncredentialed and may be deleted at teardown. Runtime commit `817f46679f125b924a7e2a3a34023b20cbc3cb4f` is active after an immutable Review build under the production host's restrictive umask; package-time UID `65532` execution checks, 25/25 migrations, cleanup-function grants, platform health, worker zero-restart status, HTTPS/noindex smoke and COS capacity checks passed. Automatic cleanup Human E2E: PASS. With the completion request deliberately blocked after a successful direct COS upload, the unclaimed asset was fail-closed after approximately 20 minutes as `failed / upload_expired`; its system audit was recorded, Worker cleanup reported one success and zero failures, the exact COS object was independently confirmed absent, and the previously completed asset remained unchanged. R2 Stage Acceptance remains pending. Baseline Revision 3 website/SaaS presentation changes are implemented and self-verified in the repository: the full verification suite passed with Terraform validation, 127 unit tests, integration/migration/operations/security checks, eight platform E2E journeys and seven website E2E journeys. On 2026-08-25 the Human Owner granted Production Change Authorization `PCA-20260825-R2-FORMAL-PRESENTATION` for the current Seoul SaaS and official website update while preserving the non-promotion and future-D7 boundaries; deployment and post-deployment smoke are in progress.
 
 ## R0 — Authority and Review Boundary
 
@@ -99,17 +99,21 @@ Planning Preflight: PASS
 - 初始化独立 review PostgreSQL、卷、网络、Secret 和备份路径。
 - 部署 immutable image，执行 migration、health、TLS、noindex、resource 和 website regression。
 - 创建 Human Owner 与平台 reviewer 专用账号。
+- 将官网双语 Sign in 直接接到 `https://review.jingtangai.com/login`，同时保留无自助注册的授权账号边界。
+- 审查官网、Legal/Security 与 SaaS 的全部用户可见内容：删除 test/private-beta/pre-launch/review-environment 和内部 Delivery/Stage/Gate 术语，以正式产品语言准确表达当前能力、平台限制和数据事实。
 
 ### Required Verification
 
 - `jingtangai.com` 双语 production smoke 保持通过。
 - `review.jingtangai.com` HTTPS、auth、upload、worker、audit、disconnect/delete、backup/restore 通过。
+- 官网桌面端与移动端 Sign in 均直达真实 SaaS login；SaaS 不显示环境横幅，English/简体中文关键页面无内部测试/阶段措辞。
+- Integration Registry、不可用操作、YouTube 私密上传限制、无自助注册、`noindex` 和临时基础设施安全边界保持不变。
 - 2 核 4 GB 主机资源与 20 GB COS 软阈值在完整 journey 中不触发阻断。
 
 ### Gates
 
 - Deployment checks: required.
-- Human E2E: required.
+- Human E2E: PASS, including the automatic abandoned-upload cleanup journey.
 - Stage Acceptance: required before R3.
 
 ## R3 — Facebook Review Slice
@@ -147,6 +151,7 @@ Planning Preflight: PASS
 ### Implementation
 
 - 执行官网、review SaaS、tenant/RBAC、upload/approve/publish/track/revoke/delete、双语/移动端、安全和备份恢复全量回归。
+- 执行 release-truth content audit，确认外部页面不含内部环境或 Delivery 术语，同时没有把 `Coming Soon`、私密上传、Schedule、账号访问或安全限制扩大为不可证实的可用状态。
 - 确认 Facebook/TikTok Registry 仍与真实 production state 一致；记录 `submission_ready` 或实际外部状态但不把第三方批准写成 Acceptance。
 - 输出受保护的 reviewer handoff checklist 和 review 环境 teardown/migration checklist。
 

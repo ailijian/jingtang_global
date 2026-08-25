@@ -68,7 +68,28 @@ test("all bilingual routes expose localized metadata, same-locale links, and rec
     }
   }
   for (const locale of locales) {
-    for (const segment of pageSegments) expect(discovered).toContain(`/${locale.route}/${segment}`);
+    for (const segment of pageSegments) {
+      if (segment !== "sign-in/") expect(discovered).toContain(`/${locale.route}/${segment}`);
+    }
+  }
+});
+
+test("official Sign in actions open the real account-controlled SaaS", async ({ page }) => {
+  for (const locale of locales) {
+    await page.goto(`/${locale.route}/`);
+    await expect(page.locator(".site-sign-in")).toHaveAttribute(
+      "href",
+      "https://review.jingtangai.com/login",
+    );
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.locator(".site-mobile-menu summary").click();
+    await expect(
+      page.locator('.site-mobile-menu a[href="https://review.jingtangai.com/login"]'),
+    ).toBeVisible();
+    await page.goto(`/${locale.route}/sign-in/`);
+    await expect(
+      page.locator('.site-centered-action a[href="https://review.jingtangai.com/login"]'),
+    ).toBeVisible();
   }
 });
 
@@ -188,7 +209,7 @@ test("keyboard focus, mobile navigation, public identity, and legal version are 
         ? "Jingtang (Shanghai) Intelligent Technology Co., Ltd."
         : "鲸汤（上海）智能科技有限公司",
     );
-    await expect(page.locator("body")).toContainText("2026-08-24");
+    await expect(page.locator("body")).toContainText("2026-08-25");
     await expect(page.getByRole("link", { name: "developer@jingtangai.com" })).toBeVisible();
   }
 });

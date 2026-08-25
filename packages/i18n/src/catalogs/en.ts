@@ -1,7 +1,6 @@
 export const en = {
   "app.brand": "JINGTANG",
   "app.skipToContent": "Skip to content",
-  "app.environment.review": "REVIEW ENVIRONMENT · NOT FOR SALE",
   "action.signOut": "Sign out",
   "action.cancel": "Cancel",
   "locale.en": "English",
@@ -66,7 +65,7 @@ export const en = {
   "member.changed": "Change saved.",
   "member.failed": "The request was not completed.",
   "member.lastOwner": "A Workspace must keep at least one Owner / Admin.",
-  "member.testInvite": "Local test invitation created:",
+  "member.testInvite": "Invitation link created:",
   "member.you": "(you)",
   "nav.home": "Home",
   "nav.content": "Content",
@@ -82,7 +81,7 @@ export const en = {
   "channel.status.disconnecting": "Disconnecting",
   "channel.status.disconnected": "Disconnected",
   "channel.status.reauthorization": "Reauthorization required",
-  "channel.status.test": "Test only",
+  "channel.status.test": "Private upload access",
   "channel.oauth.help":
     "Google's official OAuth flow opens next. JINGTANG never asks for or stores your YouTube password.",
   "channel.scope.upload":
@@ -90,15 +89,15 @@ export const en = {
   "channel.scope.readonly":
     "Identify the authorized channel and track only the video returned by your upload.",
   "channel.privateOnly":
-    "Test-project uploads remain private until Google completes any required verification or audit.",
+    "Uploads are currently limited to Private visibility until Google completes any required verification or audit.",
   "channel.consent":
     "I understand the data purpose and agree to the current policies before connecting YouTube.",
   "channel.youtubeTerms": "YouTube Terms of Service",
   "channel.googlePrivacy": "Google Privacy Policy",
-  "channel.connect": "Connect YouTube test account",
+  "channel.connect": "Connect YouTube account",
   "channel.connect.pending": "Opening Google…",
   "channel.reauthorize": "Reauthorize YouTube",
-  "channel.notEnabled": "The Test OAuth client is not configured in this environment yet.",
+  "channel.notEnabled": "YouTube connection is not available right now.",
   "channel.connected.help":
     "Authorization is stored server-side for this Workspace. Publishing still requires a separate confirmation.",
   "channel.disconnect.action": "Disconnect YouTube",
@@ -226,7 +225,7 @@ export const en = {
   "composer.platform.noConnectedChannel": "Connect a YouTube channel before continuing",
   "composer.platform.accountName": "Account display name",
   "composer.platform.comingSoon": "Coming Soon",
-  "composer.platform.noAction": "Connection is not available in this Stage.",
+  "composer.platform.noAction": "Connection is not available for these platforms.",
   "composer.customize.title": "Customize YouTube version",
   "composer.internalTitle": "Internal content title",
   "composer.internalTitle.help":
@@ -238,7 +237,7 @@ export const en = {
   "composer.privacy.private": "Private",
   "composer.privacy.unlisted": "Unlisted",
   "composer.privacy.public": "Public",
-  "composer.privacy.testOnly": "Test uploads are restricted to Private.",
+  "composer.privacy.testOnly": "Uploads are currently restricted to Private.",
   "composer.audience": "Audience",
   "composer.madeForKids": "Made for kids",
   "composer.notMadeForKids": "Not made for kids",
@@ -297,7 +296,7 @@ export const en = {
   "detail.publish.reviewChannel": "Review channel connection",
   "detail.publish.returnToContent": "Return to Content",
   "detail.publish.controlledFailure":
-    "A controlled test fault stopped the operation before any external upload.",
+    "A controlled failure stopped the operation before any external upload.",
   "detail.execution.notStarted": "Queued",
   "detail.execution.publishing": "Uploading",
   "detail.execution.processing": "YouTube processing",
@@ -381,8 +380,8 @@ export const en = {
   "state.error.description":
     "The request could not be completed safely. No unconfirmed change was applied.",
   "state.retry": "Try again",
-  "stage.later": "Later",
-  "stage.later.description": "Available in a later Stage",
+  "stage.later": "Planned",
+  "stage.later.description": "Planned capability",
   "permission.denied": "Your current role does not allow this action.",
   "site.skipToContent": "Skip to main content",
   "site.nav.platform": "Platform",
@@ -401,7 +400,6 @@ export const en = {
   "site.action.bookDemo": "Book a Demo",
   "site.action.explorePlatform": "Explore the platform",
   "site.action.learnMore": "Learn more",
-  "site.action.emailSupport": "Email JINGTANG",
   "site.action.prepareEmail": "Prepare email request",
   "site.action.openEmail": "Open email draft",
   "site.external.youtubeTerms": "YouTube Terms of Service",
@@ -414,10 +412,9 @@ export const en = {
   "site.locale.switchToZh": "切换至简体中文",
   "site.locale.switchToEn": "Switch to English",
   "site.status.available": "Available",
-  "site.status.betaEarlyAccess": "Beta / Early Access",
+  "site.status.betaEarlyAccess": "Early Access",
   "site.status.comingSoon": "Coming Soon",
   "site.status.scheduleUnavailable": "Schedule Not Available",
-  "site.status.privateBeta": "Private Beta · pre-launch",
   "site.common.truthNote":
     "Capability labels and actions come from the approved Integration Registry. Unavailable capabilities have no executable action.",
   "site.common.finalCtaTitle": "Bring a calmer publishing operation to your global team.",
@@ -439,7 +436,7 @@ export const en = {
     "A composed workspace for enterprise teams to prepare, approve, publish, and track social content—with every account, decision, and external action made explicit.",
   "site.home.footnote": "English-first · Enterprise approvals · User-controlled publishing",
   "site.home.workflow.label": "One controlled workflow",
-  "site.home.workflow.note": "Product direction · capabilities remain registry-gated",
+  "site.home.workflow.note": "Availability varies by integration",
   "site.home.workflow.create": "Create",
   "site.home.workflow.createDetail": "User-owned source asset",
   "site.home.workflow.approve": "Approve",
@@ -520,45 +517,47 @@ export const en = {
   "site.integrations.eyebrow": "Integrations",
   "site.integrations.title": "Status before promise.",
   "site.integrations.lead":
-    "Only production-proven capabilities can be marked Available. Planned channels remain non-executable until their implementation, authorization, and operational evidence pass the applicable Gates.",
+    "Availability reflects verified product and platform access. Coming Soon capabilities have no executable action.",
   "site.integrations.youtube.body":
-    "The first planned production channel for controlled video publishing. OAuth, publishing, and tracking are not available in D3.",
+    "Controlled access for private video publishing is available to approved accounts. Broader availability remains Coming Soon.",
   "site.integrations.facebook.body":
-    "Wave 1 product direction. No connection or publishing capability is included in the current Delivery plan.",
+    "Official connection and publishing are planned. No executable action is currently available.",
   "site.integrations.instagram.body":
-    "Wave 1 product direction. No connection or publishing capability is included in the current Delivery plan.",
-  "site.integrations.tiktok.body": "Wave 2 direction and outside the current Delivery scope.",
+    "Official connection and publishing are planned. No executable action is currently available.",
+  "site.integrations.tiktok.body":
+    "Official connection and video publishing are planned. No executable action is currently available.",
   "site.integrations.linkedin.body":
-    "Later integration direction and outside the current Delivery scope.",
+    "A future integration direction. No executable action is currently available.",
   "site.integrations.pinterest.body":
-    "Later integration direction and outside the current Delivery scope.",
-  "site.integrations.x.body": "Later integration direction and outside the current Delivery scope.",
+    "A future integration direction. No executable action is currently available.",
+  "site.integrations.x.body":
+    "A future integration direction. No executable action is currently available.",
   "site.integrations.capability.connect": "Connect",
   "site.integrations.capability.publish": "Publish Now",
   "site.integrations.capability.schedule": "Schedule",
   "site.integrations.capability.track": "Track result",
   "site.youtube.metaTitle": "YouTube integration status",
   "site.youtube.metaDescription":
-    "Review the planned YouTube authorization, publishing controls, data handling, deletion path, and current Coming Soon status.",
+    "Review YouTube authorization, publishing controls, data handling, deletion, and current access limits.",
   "site.youtube.eyebrow": "Integrations / YouTube",
-  "site.youtube.title": "Designed for controlled video publishing. Not yet available.",
+  "site.youtube.title": "Controlled YouTube publishing with clear access limits.",
   "site.youtube.lead":
-    "YouTube is the first planned production channel. Protected test implementation has verified official OAuth, private upload, result tracking, disconnect, revocation, and Authorized Data cleanup. Production access remains Coming Soon pending deployed-environment Gates.",
+    "Approved accounts can use official OAuth, private video upload, result tracking, disconnect, revocation, and Authorized Data cleanup. Broader availability remains Coming Soon while required Google verification or audit is pending.",
   "site.youtube.limit.title": "Current limitation",
   "site.youtube.limit.body":
-    "Connect, Publish Now, tracking, reauthorization, and disconnect are Coming Soon. Schedule is not available. No production authorization request is started from this page.",
+    "Access is issued to approved accounts, and uploads are limited to Private visibility until Google completes any required verification or audit. Schedule is not available. This public page does not start an authorization request.",
   "site.youtube.auth.title": "Official authorization and minimum access",
   "site.youtube.auth.body":
-    "The protected implementation uses Google's official OAuth 2.0 web flow and only youtube.upload plus youtube.readonly for the approved upload and owner-only result-tracking slice. JINGTANG never asks for or stores a YouTube password or browser cookie.",
+    "JINGTANG uses Google's official OAuth 2.0 web flow and only youtube.upload plus youtube.readonly for user-confirmed uploads and owner-only result tracking. JINGTANG never asks for or stores a YouTube password or browser cookie.",
   "site.youtube.control.title": "User-controlled external action",
   "site.youtube.control.body":
-    "The protected implementation keeps Channel, video, editable title and description, privacy, audience settings, preview, and a distinct final confirmation visible before upload. This evidence does not make the production capability Available.",
+    "JINGTANG keeps the Channel, video, editable title and description, privacy, audience settings, preview, and a distinct final confirmation visible before upload. General availability is not implied by controlled account access.",
   "site.youtube.data.title": "Authorized data and revocation",
   "site.youtube.data.body":
-    "D6 implements controls to refresh or delete ordinary Authorized Data within 30 days. In-product disconnect immediately denies new work, attempts programmatic token revocation, removes stored tokens, and deletes applicable Authorized Data as soon as possible and within 7 days. Production operation remains pending deployed-environment verification.",
+    "Ordinary Authorized Data is refreshed or deleted within 30 days. In-product disconnect immediately denies new work, attempts programmatic token revocation, removes stored tokens, and deletes applicable Authorized Data as soon as possible and within 7 days.",
   "site.youtube.audit.title": "Verification and audit truth",
   "site.youtube.audit.body":
-    "Uploads from qualifying unverified API projects are restricted to private viewing until the required audit is passed. JINGTANG will not describe public publishing as Available before real production evidence permits it.",
+    "Uploads from qualifying unverified API projects are restricted to private viewing until the required audit is passed. JINGTANG does not describe public publishing as Available while that restriction applies.",
   "site.solutions.metaTitle": "Solutions",
   "site.solutions.metaDescription":
     "Understand the boundary between JINGTANG Social Publishing, Professional Services, and AI Visibility early access.",
@@ -568,7 +567,7 @@ export const en = {
     "JINGTANG separates its controlled publishing product from professional services and exploratory capabilities. One label never stands in for another.",
   "site.solutions.product.title": "Social Publishing product",
   "site.solutions.product.body":
-    "A tenant-bound B2B SaaS direction for team roles, platform-specific content, approvals, explicit publishing, results, revocation, and deletion.",
+    "A tenant-bound B2B SaaS for team roles, platform-specific content, approvals, explicit publishing, results, revocation, and deletion.",
   "site.solutions.services.title": "Professional Services",
   "site.solutions.services.body":
     "Human-led strategy and implementation support may be scoped separately. Services are not represented as automated SaaS functionality.",
@@ -577,23 +576,23 @@ export const en = {
     "AI Visibility is not a generally available SaaS capability and does not promise ranking or recommendation outcomes. Any exploration is separately scoped and evidence-led.",
   "site.solutions.fit.title": "Built for controlled teams",
   "site.solutions.fit.body":
-    "The V1 direction fits organizations that need account ownership, role separation, approval evidence, and deliberate external action more than broad automation.",
+    "JINGTANG fits organizations that need account ownership, role separation, approval evidence, and deliberate external action more than broad automation.",
   "site.security.metaTitle": "Security and trust",
   "site.security.metaDescription":
-    "See JINGTANG's current security commitments, production evidence boundary, data contact, and certification status.",
+    "See JINGTANG's current safeguards, service boundary, data contact, and certification status.",
   "site.security.eyebrow": "Security",
   "site.security.title": "Trust claims follow evidence.",
   "site.security.lead":
-    "This page distinguishes implemented product safeguards, production control obligations, and evidence that remains pending. JINGTANG does not claim certifications or platform approval it has not obtained.",
-  "site.security.current.title": "Current implementation boundary",
+    "This page describes safeguards currently applied to the JINGTANG website and Workspace. JINGTANG does not claim certifications or platform approval it has not obtained.",
+  "site.security.current.title": "Workspace safeguards",
   "site.security.current.body":
-    "The runnable foundation enforces tenant-bound access, deny-by-default roles, server-managed sessions, audit events, secret scanning, migration checks, and automated verification. D6 also locally verifies deny-first disconnect, programmatic revocation, deletion ledgers, 7/30-day retention controls, audit minimization, and a disposable restore drill. These controls do not by themselves prove a production deployment.",
-  "site.security.production.title": "Production controls required before SaaS launch",
+    "The Workspace enforces tenant-bound access, deny-by-default roles, server-managed secure sessions, auditable user actions, private source storage, encrypted OAuth tokens, explicit publishing confirmation, and deny-first disconnect and deletion workflows. Secrets, tokens, signed URLs, and user content are excluded from ordinary logs.",
+  "site.security.production.title": "Data and service boundary",
   "site.security.production.body":
-    "The approved SaaS target is Tencent Cloud Seoul. TLS, encrypted TencentDB and COS storage, KMS-sealed private secret bundles, OAuth token envelope encryption, environment isolation, backups, access logging and monitoring, incident response, and vulnerability management remain subject to observed production evidence in D7. The CIAM tenant processing location must also be verified before production access.",
+    "The public website and account-controlled Workspace operate on JINGTANG-controlled Tencent Cloud resources in Seoul, South Korea. Website, application, database, private object storage, configuration, and logs use separated service boundaries. Workspace access is issued by JINGTANG; public self-service registration is not offered.",
   "site.security.website.title": "Public website boundary",
   "site.security.website.body":
-    "The D3 website is designed as a static public surface with no advertising tracker, analytics processor, account data, OAuth token, or user content. Contact details leave the browser only when a visitor explicitly opens an email draft.",
+    "The public website is a static surface with no advertising tracker, analytics processor, account data, OAuth token, or user content. Contact details leave the browser only when a visitor explicitly opens an email draft.",
   "site.security.certification.title": "Certification status",
   "site.security.certification.body":
     "JINGTANG currently makes no claim of ISO, SOC, platform Partner, or other third-party certification on this website.",
@@ -641,29 +640,29 @@ export const en = {
   "site.form.notice":
     "Form values stay in this browser until you explicitly open an email draft. If sent, the message is handled by your mail provider and the JINGTANG domain mailbox under the Privacy Policy.",
   "site.form.subject": "JINGTANG business inquiry from {company}",
-  "site.signIn.metaTitle": "JINGTANG sign in status",
+  "site.signIn.metaTitle": "Sign in to JINGTANG",
   "site.signIn.metaDescription":
-    "JINGTANG SaaS access remains private-beta and no public production sign-in endpoint is advertised before it is verified.",
+    "Access the JINGTANG Workspace through the official account-controlled sign-in page.",
   "site.signIn.eyebrow": "JINGTANG Workspace",
-  "site.signIn.title": "Private beta access is not publicly open yet.",
+  "site.signIn.title": "Sign in to JINGTANG Workspace.",
   "site.signIn.lead":
-    "The application foundation is runnable in controlled environments, but a production application URL has not been frozen or verified. This page does not send visitors to a mock or preview sign-in.",
-  "site.signIn.existing.title": "Existing authorized tester?",
+    "Continue to the official JINGTANG sign-in page. Workspace access is issued to authorized business, demonstration, and platform-review accounts.",
+  "site.signIn.existing.title": "Have a JINGTANG account?",
   "site.signIn.existing.body":
-    "Use the environment URL supplied directly by your JINGTANG contact. Do not enter credentials into an unverified domain.",
-  "site.signIn.contact.title": "Need access information?",
-  "site.signIn.contact.body": "Contact the verified domain mailbox shown on this site.",
+    "Use the Sign in action below and verify that your browser opens review.jingtangai.com before entering credentials.",
+  "site.signIn.contact.title": "Need an account?",
+  "site.signIn.contact.body":
+    "JINGTANG currently provisions Workspace access directly. Contact the verified domain mailbox shown on this site.",
   "site.legal.version": "Policy version {version}",
   "site.legal.effective": "Effective {date}",
-  "site.legal.approvalPending":
-    "This production-candidate disclosure remains blocked from public rollout until Human Legal/Data Disclosure Approval.",
+  "site.legal.approvalPending": "This policy revision is awaiting approval before publication.",
   "site.privacy.metaTitle": "Privacy Policy",
   "site.privacy.metaDescription":
     "How JINGTANG collects, uses, stores, shares, retains, secures, and deletes website, Workspace, content, and YouTube-related data.",
   "site.privacy.eyebrow": "Legal / Privacy",
   "site.privacy.title": "Privacy Policy",
   "site.privacy.lead":
-    "This policy explains how JINGTANG handles data for the public website, controlled-publishing Workspace, support contact, and official platform integrations used under protected test access or explicitly made available.",
+    "This policy explains how JINGTANG handles data for the public website, controlled-publishing Workspace, support contact, and official platform integrations enabled for an account.",
   "site.privacy.scope.title": "1. Who we are and scope",
   "site.privacy.scope.body":
     "JINGTANG is operated by {legalEntity}. This policy applies to jingtangai.com, the JINGTANG Workspace, official support contact, and integrations we explicitly make available.",
@@ -675,19 +674,19 @@ export const en = {
     "We use data to provide requested identity, Workspace, approval, publishing, tracking, support, security, audit, revocation, and deletion functions; to preserve user choices; and to meet applicable platform and legal obligations. We do not silently repurpose authorized platform data for unrelated advertising or AI training.",
   "site.privacy.processors.title": "4. Processors, region, and transfers",
   "site.privacy.processors.body":
-    "The approved production architecture plans primary SaaS application data and compute for Tencent Cloud Seoul, using isolated TencentDB, COS, TDMQ, KMS-sealed private secret storage, and logging resources. The public website and SaaS remain separate resource boundaries in the same region. Those SaaS paths remain blocked from production use until D7 provides observed deployment evidence, including the selected CIAM tenant's processing location. The public website's static assets and limited security/access logs are processed on a JINGTANG-controlled Tencent Cloud Lighthouse instance in Seoul, South Korea. GitHub handles source and synthetic CI data. Google/YouTube handles data only after an explicit authorized platform action. Email providers handle messages sent by users.",
+    "The public website and account-controlled Workspace are hosted on JINGTANG-controlled Tencent Cloud resources in Seoul, South Korea. The website and authenticated service use separated application, database, private object-storage, configuration, and log boundaries. GitHub handles source and synthetic CI data. Google/YouTube handles data only after an explicit authorized platform action. Email providers handle messages sent by users.",
   "site.privacy.youtube.title": "5. Google and YouTube data",
   "site.privacy.youtube.body":
-    "The protected YouTube implementation uses YouTube API Services through official OAuth only for functions explicitly shown to the user; public production access remains unavailable. Use is also governed by the YouTube Terms of Service and Google's Privacy Policy. Where the integration is enabled, users can disconnect in JINGTANG or revoke Google access from Google Security Settings.",
+    "When enabled for an account, JINGTANG uses YouTube API Services through official OAuth only for functions explicitly shown to the user. Use is also governed by the YouTube Terms of Service and Google's Privacy Policy. Users can disconnect in JINGTANG or revoke Google access from Google Security Settings.",
   "site.privacy.retention.title": "6. Retention and deletion",
   "site.privacy.retention.body":
     "Active Workspace data is kept while needed for the service. Authorized deletion deny-marks access immediately and targets live data deletion within 7 days; encrypted backups expire within 35 days and replay the deletion ledger on restore. Website inquiries are removed after 180 days without an active relationship. Ordinary YouTube Authorized Data is refreshed or deleted within 30 days; applicable revocation or requested deletion data is removed as soon as possible and within 7 days.",
   "site.privacy.cookies.title": "7. Cookies and website measurement",
   "site.privacy.cookies.body":
-    "The D3 public website does not use advertising trackers or analytics processors. A first-party locale preference may be stored when a visitor explicitly changes language. Authenticated application sessions, when available, use secure session technology needed to provide the requested service.",
+    "The public website does not use advertising trackers or analytics processors. A first-party locale preference may be stored when a visitor explicitly changes language. The Workspace uses secure session technology needed to provide the requested authenticated service.",
   "site.privacy.security.title": "8. Security",
   "site.privacy.security.body":
-    "JINGTANG applies tenant and role boundaries in the runnable foundation and requires TLS, encryption, managed secrets, restricted production access, logs, backups, incident response, and vulnerability management before SaaS production launch. The Security page distinguishes implemented controls from pending production evidence.",
+    "JINGTANG applies HTTPS, tenant and role boundaries, server-managed sessions, private object storage, OAuth token encryption, restricted service access, safe logging, backup procedures, incident response, and vulnerability management to the current service. See the Security page for details.",
   "site.privacy.rights.title": "9. Choices and contact",
   "site.privacy.rights.body":
     "Users may request access, correction, deletion, or help with consent and revocation through the support email shown on this site. Requests are verified to protect the Workspace and affected individuals. Applicable law may provide additional rights.",
@@ -700,13 +699,13 @@ export const en = {
   "site.terms.eyebrow": "Legal / Terms",
   "site.terms.title": "Terms of Service",
   "site.terms.lead":
-    "These terms govern access to JINGTANG's public website, private-beta Workspace, professional services when separately agreed, and any integration explicitly made available.",
+    "These terms govern access to JINGTANG's public website, account-controlled Workspace, professional services when separately agreed, and any integration enabled for an account.",
   "site.terms.agreement.title": "1. Agreement and operator",
   "site.terms.agreement.body":
     "The service is operated by {legalEntity}. By creating an account or using an available service, you agree to these Terms and the Privacy Policy. If you act for an organization, you confirm authority to bind it.",
   "site.terms.service.title": "2. Service boundary",
   "site.terms.service.body":
-    "JINGTANG provides controlled social-publishing and enterprise content-approval capabilities only as marked by current status. Beta, Early Access, Coming Soon, Schedule Not Available, and private-beta limitations are part of the service description and must not be treated as an availability promise.",
+    "JINGTANG provides controlled social-publishing and enterprise content-approval capabilities only as marked by current status. Early Access, Coming Soon, Schedule Not Available, account-access, and platform-specific limitations are part of the service description and must not be treated as broader availability promises.",
   "site.terms.accounts.title": "3. Accounts, Workspaces, and roles",
   "site.terms.accounts.body":
     "Users must provide accurate account information, protect access, and use only Workspaces and roles they are authorized to use. Workspace owners are responsible for membership and role assignments. Role enforcement does not replace an organization's own approval obligations.",
@@ -718,13 +717,13 @@ export const en = {
     "Only an authorized user may select accounts, approve content, confirm publishing, schedule where verified, revoke authorization, or request deletion. Approval and publish are separate actions. Platform processing, moderation, quotas, and availability remain controlled by the relevant platform.",
   "site.terms.youtube.title": "6. YouTube and external services",
   "site.terms.youtube.body":
-    "If YouTube functionality becomes available, use of that functionality also means agreeing to the YouTube Terms of Service. Google and YouTube process data under their own terms and privacy policy. Other integrations remain unavailable unless JINGTANG marks them otherwise from verified production capability.",
+    "When YouTube functionality is enabled for an account, use of that functionality also means agreeing to the YouTube Terms of Service. Google and YouTube process data under their own terms and privacy policy. Other integrations remain unavailable unless JINGTANG marks them otherwise from verified capability.",
   "site.terms.prohibited.title": "7. Prohibited use",
   "site.terms.prohibited.body":
     "Do not use JINGTANG to violate law, platform rules, intellectual-property or privacy rights; bypass authorization or role boundaries; upload malware; probe another tenant; misrepresent identity; scrape credentials; or publish content you are not authorized to use.",
   "site.terms.availability.title": "8. Availability and changes",
   "site.terms.availability.body":
-    "Pre-release capabilities may change, pause, or remain unavailable. JINGTANG may protect users, data, platforms, or the service by limiting access. Material Terms changes receive a new version and any required notice or consent.",
+    "Service capabilities may change, pause, or remain unavailable. JINGTANG may protect users, data, platforms, or the service by limiting access. Material Terms changes receive a new version and any required notice or consent.",
   "site.terms.liability.title": "9. Responsibility and applicable law",
   "site.terms.liability.body":
     "Each party remains responsible for its own acts and obligations. External platforms may reject, delay, restrict, remove, or alter content independently. Any warranties, liability limits, mandatory rights, and dispute rules apply only to the extent permitted by applicable law and any separately signed agreement.",
@@ -740,13 +739,13 @@ export const en = {
     "Deleting data held by JINGTANG, disconnecting an authorized platform account, and deleting content held by a third-party platform are distinct actions.",
   "site.deletion.jingtang.title": "Delete JINGTANG-held data",
   "site.deletion.jingtang.body":
-    "D6 implements and locally verifies separate in-product Account and Workspace deletion requests with explicit confirmation and durable references. Account deletion immediately disables access, removes the user's profile and memberships, and disconnects platform authorizations created by that account; shared Workspaces and their content remain available to eligible remaining members. Workspace deletion removes that Workspace, its memberships, source assets, content, publishing records, and applicable authorization data. Neither action deletes content already held by a third-party platform. Until these flows are production-verified in D7, send a request from your account email to the support address below without including passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
+    "Account and Workspace deletion are separate in-product requests with explicit confirmation and durable references. Account deletion immediately disables access, removes the user's profile and memberships, and disconnects platform authorizations created by that account; shared Workspaces and their content remain available to eligible remaining members. Workspace deletion removes that Workspace, its memberships, source assets, content, publishing records, and applicable authorization data. Neither action deletes content already held by a third-party platform. For help, send a request from your account email to the support address below without including passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
   "site.deletion.disconnect.title": "Disconnect and revoke platform access",
   "site.deletion.disconnect.body":
-    "D6 implements and locally verifies an in-product disconnect that stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Public production connectivity remains unavailable pending D7 verification. Users may also revoke access through Google Security Settings.",
+    "In-product disconnect stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Users may also revoke access through Google Security Settings.",
   "site.deletion.thirdParty.title": "Delete content held by YouTube or another platform",
   "site.deletion.thirdParty.body":
-    "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube or another platform. Use that platform's own application or an authorized client that explicitly supports third-party content deletion. JINGTANG V1 does not claim this capability.",
+    "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube or another platform. Use that platform's own application or an authorized client that explicitly supports third-party content deletion. JINGTANG does not currently claim this capability.",
   "site.deletion.timeline.title": "Timing and backups",
   "site.deletion.timeline.body":
     "Applicable live user and Authorized Data is removed as soon as possible and within 7 days after an authorized request or in-product revocation. External revocation detected through validity checks is cleaned within the applicable 30-day maximum. Isolated encrypted backups expire within 35 days and replay deletion records before restored data can serve traffic.",
