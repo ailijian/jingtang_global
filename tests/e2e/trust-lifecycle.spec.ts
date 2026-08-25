@@ -43,6 +43,37 @@ test("disconnect is explicit, fail-closed, recoverable, and distinguishes third-
   await expect(page.getByRole("button", { name: "Retry disconnect" })).toBeVisible();
 });
 
+test("YouTube connection locks the form after the first valid submission", async ({ page }) => {
+  await createWorkspace(page, "connect-once");
+  await page.goto("/app/channels");
+
+  const connectionForm = page.locator(".channel-consent");
+  await connectionForm.evaluate((form) => {
+    const testWindow = window as typeof window & { connectionSubmitCount?: number };
+    testWindow.connectionSubmitCount = 0;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      testWindow.connectionSubmitCount = (testWindow.connectionSubmitCount ?? 0) + 1;
+    });
+  });
+
+  await page.getByRole("checkbox").check();
+  const connectButton = page.getByRole("button", { name: "Connect YouTube test account" });
+  await connectButton.click();
+  await expect(page.getByRole("button", { name: "Opening Google…" })).toBeDisabled();
+  await page.evaluate(() => {
+    const button = document.querySelector<HTMLButtonElement>(
+      ".channel-consent button[type=submit]",
+    );
+    button?.click();
+  });
+  expect(
+    await page.evaluate(
+      () => (window as typeof window & { connectionSubmitCount?: number }).connectionSubmitCount,
+    ),
+  ).toBe(1);
+});
+
 test("Workspace data deletion requires exact confirmation and returns a durable reference", async ({
   page,
 }) => {

@@ -4,6 +4,7 @@ import { hasPermission } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 
 import { DestructiveActionDialog } from "../../../components/destructive-action-dialog";
+import { ChannelConnectionForm } from "../../../components/channel-connection-form";
 import { StatusAutoRefresh } from "../../../components/status-auto-refresh";
 import { workspacePageContext } from "../../../server/page-context";
 import { getRuntime } from "../../../server/runtime";
@@ -41,7 +42,18 @@ export default async function ChannelsPage({
         <li>{translate(locale, "channel.scope.readonly")}</li>
       </ul>
       <p className="channel-limitation">{translate(locale, "channel.privateOnly")}</p>
-      <form action="/api/v1/channels/youtube/oauth" method="post" className="channel-consent">
+      <ChannelConnectionForm
+        canConnect={canConnect}
+        buttonLabel={translate(locale, reauthorization ? "channel.reauthorize" : "channel.connect")}
+        pendingLabel={translate(locale, "channel.connect.pending")}
+        unavailableMessage={
+          !canConnect
+            ? hasPermission(role, "channel.connect")
+              ? translate(locale, "channel.notEnabled")
+              : translate(locale, "permission.denied")
+            : undefined
+        }
+      >
         <label>
           <input name="consent" type="checkbox" value="accepted" required />
           <span>{translate(locale, "channel.consent")}</span>
@@ -67,17 +79,7 @@ export default async function ChannelsPage({
             {translate(locale, "channel.googlePrivacy")}
           </a>
         </p>
-        <button className="jt-button jt-button--primary" type="submit" disabled={!canConnect}>
-          {translate(locale, reauthorization ? "channel.reauthorize" : "channel.connect")}
-        </button>
-        {!canConnect ? (
-          <small>
-            {hasPermission(role, "channel.connect")
-              ? translate(locale, "channel.notEnabled")
-              : translate(locale, "permission.denied")}
-          </small>
-        ) : null}
-      </form>
+      </ChannelConnectionForm>
     </>
   );
   return (

@@ -91,6 +91,7 @@ export const zhCN: Record<keyof typeof en, string> = {
   "channel.youtubeTerms": "YouTube 服务条款",
   "channel.googlePrivacy": "Google 隐私政策",
   "channel.connect": "连接 YouTube 测试账号",
+  "channel.connect.pending": "正在打开 Google…",
   "channel.reauthorize": "重新授权 YouTube",
   "channel.notEnabled": "此环境尚未配置 Test OAuth 客户端。",
   "channel.connected.help": "授权仅在服务端为当前工作空间保存；实际发布仍需单独明确确认。",

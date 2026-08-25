@@ -334,7 +334,7 @@ model Channel {
   workspace                Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   consent                  ConsentRecord? @relation("ChannelConsent", fields: [consentRecordId], references: [id], onDelete: Restrict)
 
-  @@unique([workspaceId, platform, externalAccountId])
+  @@unique([workspaceId, platform])
   @@index([workspaceId, state])
   @@map("channels")
 }

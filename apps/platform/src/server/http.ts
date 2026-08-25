@@ -147,7 +147,6 @@ export function apiError(error: unknown, requestId: string): NextResponse {
         if (
           code === "last_owner" ||
           code === "channel_already_connected" ||
-          code === "channel_connection_in_progress" ||
           code === "invalid_state" ||
           code === "source_asset_not_ready" ||
           code === "content_not_ready" ||

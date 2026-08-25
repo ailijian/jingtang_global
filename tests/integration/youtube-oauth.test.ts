@@ -132,7 +132,7 @@ describe("D5 YouTube OAuth persistence boundary", () => {
     ]);
   });
 
-  it("rejects duplicate connection attempts and cross-tenant callback completion", async () => {
+  it("supersedes an incomplete connection immediately and fences old or cross-tenant callbacks", async () => {
     const owner = await fixture("duplicate-owner");
     const other = await fixture("callback-attacker");
     const channel = await beginYouTubeConnection(db, {
@@ -141,20 +141,42 @@ describe("D5 YouTube OAuth persistence boundary", () => {
       actorUserId: owner.user.id,
       correlationId: randomUUID(),
     });
+    const replacementConsent = await recordConsent(db, {
+      userId: owner.user.id,
+      termsVersion: "d5-terms-v1",
+      privacyVersion: "d5-privacy-v1",
+      dataPurposeVersion: "d5-youtube-purpose-v1",
+      displayedLocale: "en",
+      acceptanceMethod: "youtube_connection_checkbox",
+    });
+    const replacement = await beginYouTubeConnection(db, {
+      workspaceId: owner.workspace.id,
+      consentRecordId: replacementConsent.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+    });
+    expect(replacement.id).toBe(channel.id);
+
+    const envelope = await vault.seal({ refreshToken: "must-not-persist" });
     await expect(
-      beginYouTubeConnection(db, {
+      completeYouTubeConnection(db, {
         workspaceId: owner.workspace.id,
+        channelId: channel.id,
         consentRecordId: owner.consent.id,
         actorUserId: owner.user.id,
+        externalAccountId: "UC_SUPERSEDED",
+        displayName: "Superseded callback",
+        grantedScopes: youtubeOAuthScopes,
+        tokenEnvelopeCiphertext: envelope.ciphertext,
+        tokenCiphertextReference: envelope.keyReference,
         correlationId: randomUUID(),
       }),
-    ).rejects.toThrow("channel_connection_in_progress");
-    const envelope = await vault.seal({ refreshToken: "must-not-persist" });
+    ).rejects.toThrow("channel_not_found");
     await expect(
       completeYouTubeConnection(db, {
         workspaceId: other.workspace.id,
         channelId: channel.id,
-        consentRecordId: owner.consent.id,
+        consentRecordId: replacementConsent.id,
         actorUserId: other.user.id,
         externalAccountId: "UC_CROSS_TENANT",
         displayName: "Cross tenant",
@@ -164,6 +186,20 @@ describe("D5 YouTube OAuth persistence boundary", () => {
         correlationId: randomUUID(),
       }),
     ).rejects.toThrow("channel_not_found");
+
+    const connectionEvents = await withTenant(db, owner.workspace.id, (transaction) =>
+      transaction.auditEvent.findMany({
+        where: {
+          workspaceId: owner.workspace.id,
+          targetId: channel.id,
+          action: "channel.connection_started",
+        },
+        select: { metadata: true },
+        orderBy: { occurredAt: "asc" },
+      }),
+    );
+    expect(connectionEvents).toHaveLength(2);
+    expect(connectionEvents[1]?.metadata).toMatchObject({ supersededIncompleteAttempt: true });
   });
 
   it("recovers an expired connection attempt without allowing the old callback to mutate it", async () => {

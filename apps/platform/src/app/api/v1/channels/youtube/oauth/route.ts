@@ -3,7 +3,7 @@ import {
   beginYouTubeConnection,
   denyYouTubeConnection,
   recordConsent,
-  YOUTUBE_CONNECTION_ATTEMPT_TTL_MS,
+  YOUTUBE_OAUTH_FLOW_TTL_MS,
 } from "@jingtang/db";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       actorUserId: session.user.id,
     };
     const flow = createOAuthPkce();
-    const expiresAt = Date.now() + YOUTUBE_CONNECTION_ATTEMPT_TTL_MS;
+    const expiresAt = Date.now() + YOUTUBE_OAUTH_FLOW_TTL_MS;
     const sealed = codec.seal({
       state: flow.state,
       codeVerifier: flow.codeVerifier,
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           reason: "initiation_failed",
         });
       } catch {
-        // Preserve the primary safe API error; the bounded connection lease remains recoverable.
+        // Preserve the primary safe API error; a new attempt can supersede this incomplete flow.
       }
     }
     return apiError(error, requestId);

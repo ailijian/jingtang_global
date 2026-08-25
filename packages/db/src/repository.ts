@@ -186,7 +186,7 @@ const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> =
   DISCONNECTED: "disconnected",
 };
 
-export const YOUTUBE_CONNECTION_ATTEMPT_TTL_MS = 10 * 60_000;
+export const YOUTUBE_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 
 function channelView(channel: {
   readonly id: string;
@@ -243,32 +243,25 @@ export async function beginYouTubeConnection(
 ): Promise<{ readonly id: string }> {
   return withTenant(client, input.workspaceId, async (transaction) => {
     await lockChannelConnectionInvariant(transaction, input.workspaceId, "youtube");
-    const current = await transaction.channel.findFirst({
-      where: { workspaceId: input.workspaceId, platform: "youtube" },
-      orderBy: { updatedAt: "desc" },
+    const current = await transaction.channel.findUnique({
+      where: {
+        workspaceId_platform: { workspaceId: input.workspaceId, platform: "youtube" },
+      },
       select: {
         id: true,
         state: true,
-        updatedAt: true,
         tokenEnvelopeCiphertext: true,
         tokenCiphertextReference: true,
       },
     });
-    const staleConnection =
-      current?.state === ChannelState.CONNECTING &&
-      current.updatedAt.getTime() <= Date.now() - YOUTUBE_CONNECTION_ATTEMPT_TTL_MS;
     if (
       current &&
       current.state !== ChannelState.NOT_CONNECTED &&
       current.state !== ChannelState.DISCONNECTED &&
       current.state !== ChannelState.REAUTHORIZATION_REQUIRED &&
-      !staleConnection
+      current.state !== ChannelState.CONNECTING
     ) {
-      throw new Error(
-        current.state === ChannelState.CONNECTING
-          ? "channel_connection_in_progress"
-          : "channel_already_connected",
-      );
+      throw new Error("channel_already_connected");
     }
     if (current?.tokenEnvelopeCiphertext || current?.tokenCiphertextReference) {
       throw new Error("channel_authorized_data_cleanup_required");
@@ -301,7 +294,10 @@ export async function beginYouTubeConnection(
       targetId: channel.id,
       result: "success",
       correlationId: input.correlationId,
-      metadata: { platform: "youtube", recoveredStaleAttempt: staleConnection },
+      metadata: {
+        platform: "youtube",
+        supersededIncompleteAttempt: current?.state === ChannelState.CONNECTING,
+      },
     });
     return channel;
   });

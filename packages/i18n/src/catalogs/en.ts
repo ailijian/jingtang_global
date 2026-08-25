@@ -96,6 +96,7 @@ export const en = {
   "channel.youtubeTerms": "YouTube Terms of Service",
   "channel.googlePrivacy": "Google Privacy Policy",
   "channel.connect": "Connect YouTube test account",
+  "channel.connect.pending": "Opening Google…",
   "channel.reauthorize": "Reauthorize YouTube",
   "channel.notEnabled": "The Test OAuth client is not configured in this environment yet.",
   "channel.connected.help":

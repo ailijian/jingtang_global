@@ -121,6 +121,20 @@ try {
   ]);
   if (Number(policyCount.trim()) < 12)
     throw new Error("Expected tenant RLS policies to be installed");
+  const channelInvariant = await queryScalar(
+    database.name,
+    `
+      SELECT count(*)
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND tablename = 'channels'
+        AND indexname = 'channels_workspace_id_platform_key'
+        AND indexdef LIKE 'CREATE UNIQUE INDEX%';
+    `,
+  );
+  if (channelInvariant !== "1") {
+    throw new Error("Expected one-channel-per-Workspace-and-platform unique index");
+  }
   const { stdout: roleAndControlCount } = await execFileAsync("docker", [
     "exec",
     database.name,
@@ -139,7 +153,7 @@ try {
     );
   }
   process.stdout.write(
-    "Migration evidence: clean forward deploy, complete D2-D6 schema, app/worker roles, lifecycle control functions, schema status, and RLS policies passed.\n",
+    "Migration evidence: clean forward deploy, complete D2-D7 schema, channel uniqueness, app/worker roles, lifecycle control functions, schema status, and RLS policies passed.\n",
   );
 } finally {
   await stopDisposablePostgres(database.name);
