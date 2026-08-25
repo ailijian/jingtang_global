@@ -129,6 +129,11 @@ for (const marker of [
 ]) {
   requireText(caddy, marker, "public-site Caddyfile");
 }
+requireText(
+  caddy,
+  "connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com;",
+  "Review Content-Security-Policy",
+);
 
 const dockerfile = read("Dockerfile");
 requireText(dockerfile, `${pinnedNode} AS build`, "Dockerfile");
