@@ -25,6 +25,15 @@ docker build --pull=false --target runtime --build-arg "VCS_REF=$release_id" \
   --tag "jingtang-review:$release_id" .
 docker build --pull=false --target migration --build-arg "VCS_REF=$release_id" \
   --tag "jingtang-review-migration:$release_id" .
+docker run --rm --network none --user 65532:65532 --workdir /app/apps/worker \
+  --entrypoint node "jingtang-review:$release_id" --input-type=module --eval '
+    import { access } from "node:fs/promises";
+    import { createRequire } from "node:module";
+    await access("/app/apps/platform/scripts/start.mjs");
+    const requireFromPlatform = createRequire("file:///app/apps/platform/scripts/start.mjs");
+    requireFromPlatform.resolve("next/dist/bin/next");
+    await import("@jingtang/application");
+  '
 docker save "jingtang-review:$release_id" | gzip -9 > "$output_dir/jingtang-review.tar.gz"
 docker save "jingtang-review-migration:$release_id" | gzip -9 > "$output_dir/jingtang-review-migration.tar.gz"
 

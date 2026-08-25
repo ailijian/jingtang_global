@@ -140,6 +140,7 @@ requireText(dockerfile, `${pinnedNode} AS build`, "Dockerfile");
 requireText(dockerfile, `${pinnedNode} AS runtime`, "Dockerfile");
 requireText(dockerfile, "FROM build AS migration", "Dockerfile");
 requireText(dockerfile, "FROM build AS production-pruned", "Dockerfile");
+requireText(dockerfile, "RUN chmod -R a+rX /app", "Dockerfile");
 
 const platformPackage = JSON.parse(read("apps/platform/package.json")) as {
   dependencies?: Record<string, string>;
@@ -222,6 +223,19 @@ for (const marker of [
   "https://review.jingtangai.com/api/v1/health",
 ]) {
   requireText(activation, marker, "review activation");
+}
+requireText(
+  activation,
+  "malformed-review-init-create-roles",
+  "review activation host-path normalization",
+);
+const packageRelease = read("infra/tencent/review/package-release.sh");
+for (const marker of [
+  "--user 65532:65532",
+  'await access("/app/apps/platform/scripts/start.mjs")',
+  'await import("@jingtang/application")',
+]) {
+  requireText(packageRelease, marker, "review package runtime-identity smoke");
 }
 for (const unit of [
   "infra/tencent/review/systemd/jingtang-review-backup.service",

@@ -103,6 +103,14 @@ if [[ "$(docker inspect --format '{{.State.Running}}' jingtang-review-platform-1
 fi
 
 install -d -m 0700 "$rollback_dir" "$review_root/init"
+# Older Review preparation created this bind-mount source as a directory when
+# the file did not yet exist. Preserve that malformed path for diagnosis and
+# normalize the live source to a regular executable before snapshot/activation.
+if [[ -d "$review_root/init/001-create-roles.sh" ]]; then
+  mv "$review_root/init/001-create-roles.sh" \
+    "$rollback_dir/malformed-review-init-create-roles"
+  install -m 0755 "$candidate_init" "$review_root/init/001-create-roles.sh"
+fi
 for entry in \
   "$review_root/compose.yaml:review-compose.yaml" \
   "$review_root/release.env:review-release.env" \
@@ -132,6 +140,9 @@ rollback() {
     "$rollback_dir/review-release.env:$review_root/release.env" \
     "$rollback_dir/review-current-release:$review_root/current-release" \
     "$rollback_dir/review-init-create-roles.sh:$review_root/init/001-create-roles.sh"; do
+    if [[ -d "${entry#*:}" ]]; then
+      mv "${entry#*:}" "$rollback_dir/unexpected-$(basename "${entry#*:}")-during-rollback"
+    fi
     if [[ -f "${entry%%:*}" ]]; then
       cp -p "${entry%%:*}" "${entry#*:}"
     else
@@ -205,4 +216,6 @@ for _ in {1..30}; do
 done
 
 echo "Review release did not become ready (platform=$platform_state worker=$worker_state site=$site_state)." >&2
+docker logs --tail 100 jingtang-review-platform-1 >&2 2>/dev/null || true
+docker logs --tail 100 jingtang-review-worker-1 >&2 2>/dev/null || true
 false

@@ -57,4 +57,9 @@ COPY --from=production-pruned --chown=node:node /app/apps/dispatcher /app/apps/d
 COPY --from=production-pruned --chown=node:node /app/apps/worker /app/apps/worker
 COPY --from=production-pruned --chown=node:node /app/packages /app/packages
 
+# Git preserves the checkout directory modes supplied by the packaging host.
+# Normalize read/traverse access so the dedicated Review UID (65532) can run
+# the immutable image even when the release checkout was created under 0077.
+RUN chmod -R a+rX /app
+
 USER node
