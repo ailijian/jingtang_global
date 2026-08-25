@@ -1,7 +1,7 @@
 # JINGTANG Operations Authority
 
 - Status: Approved operating procedure; production evidence pending D7
-- Operations Revision: 19
+- Operations Revision: 21
 - Effective Date: 2026-08-25
 - Owner: JINGTANG Operations Owner
 - Architecture dependency: [`docs/architecture/README.md`](architecture/README.md)
@@ -10,6 +10,10 @@
 ## Boundary
 
 This document owns the repeatable operating procedures for the SaaS/BFF, worker, PostgreSQL, object storage, OAuth lifecycle, monitoring, backup/restore, incident response, vulnerability management, and production access. Architecture owns topology; Security/Data owns policy and retention; code and infrastructure configuration own implemented mechanics. R2 evidence may support accurate claims about the current account-controlled Seoul service; D7 must still attach protected Tencent Cloud evidence before any final-production-only control is described as implemented.
+
+### Manual deployment and Seoul maintenance
+
+The executable operator sequence for installing the official website and the current account-controlled SaaS on a new Seoul host, plus routine commands for the already deployed Seoul host, is maintained in [`infra/tencent/MANUAL_DEPLOYMENT.md`](../infra/tencent/MANUAL_DEPLOYMENT.md). That runbook is a derived implementation guide: this document remains the authority for change control, secrets, backup/restore, incident and environment boundaries, while repository scripts and infrastructure configuration remain the implemented mechanics. The manual explicitly does not promote the temporary Review profile to D7 production or authorize an in-place data migration.
 
 ## Environment and Change Control
 
@@ -155,3 +159,4 @@ Every change runs lint, type/static checks, tests, secret scanning, and producti
 - Revision 18 — 2026-08-24: after Tencent KMS was confirmed to require a paid instance, the Human Owner explicitly approved a Review-only local envelope key while keeping formal production on KMS. The Review release now generates one root-only 256-bit key, shares a protected detached `local:v2` key store between platform/worker, excludes both from backup, and removes all Review KMS, wrapped-key-Bucket and related CAM permissions. The already created OAuth-key Bucket remains empty/uncredentialed until teardown. Staging/production KMS and KMS-sealed runtime-secret requirements are unchanged. No cloud, credential, deployment or production write was performed by this revision.
 - Revision 19 — 2026-08-25: aligned operations with Human-approved Social Platform Review Baseline Revision 3. The official website may now target the real current SaaS login and the SaaS must omit internal environment labeling, while pre-created accounts, `noindex`, capacity, isolation, local-envelope, non-promotion and future-production boundaries remain unchanged. Activation now verifies formal bilingual product presentation and both official Sign in links; teardown must migrate or accurately disable that link before service removal. No external deployment or credential write was performed by this revision.
 - Revision 20 — 2026-08-25: recorded the authorized R2 formal-presentation deployment. Commit `15213db673cc8ff15357c96d4bba841a1681cc87` passed blocking CI, local and remote Review-archive SHA256 validation, immutable Review activation, the protected public-website workflow, all 19 authoritative website production-smoke routes, bilingual formal-copy and policy-version checks, exact Sign in navigation, HTTPS/`noindex` checks, and zero-restart runtime health checks. The Seoul Review runtime and website release pointers both identify that commit. This evidence applies only to the temporary account-controlled Review service; it does not claim D7 production deployment, remove `noindex`, open self-registration or authorize promotion.
+- Revision 21 — 2026-08-25: added the derived manual deployment and Seoul maintenance runbook for a clean host, immutable website/Review activation, protected secret installation, DNS cutover validation, routine health/log/capacity checks, encrypted backup and isolated restore drills, controlled restart and compatibility-gated rollback. It preserves the Review-versus-D7 boundary and makes live-data continuity a separate migration stop condition. This documentation revision performs no cloud, DNS, credential or deployment write.
