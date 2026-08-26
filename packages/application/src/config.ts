@@ -15,6 +15,11 @@ const optionalStateSecret = z.preprocess(
   z.string().min(32).optional(),
 );
 
+const optionalNumericId = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().regex(/^\d+$/u).optional(),
+);
+
 const optionalEncryptionKey = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.string().min(43).optional(),
@@ -107,6 +112,7 @@ const schema = z
     YOUTUBE_OAUTH_STATE_SECRET: optionalStateSecret,
     FACEBOOK_OAUTH_ENABLED: booleanString,
     FACEBOOK_APP_ID: optionalSecret,
+    FACEBOOK_LOGIN_CONFIGURATION_ID: optionalNumericId,
     FACEBOOK_APP_SECRET: optionalSecret,
     FACEBOOK_OAUTH_STATE_SECRET: optionalStateSecret,
     FACEBOOK_GRAPH_API_VERSION: z
@@ -214,7 +220,11 @@ const schema = z
       }
     }
     if (value.FACEBOOK_OAUTH_ENABLED) {
-      for (const key of ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"] as const) {
+      for (const key of [
+        "FACEBOOK_APP_ID",
+        "FACEBOOK_LOGIN_CONFIGURATION_ID",
+        "FACEBOOK_APP_SECRET",
+      ] as const) {
         if (!value[key]) {
           context.addIssue({
             code: "custom",

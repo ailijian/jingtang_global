@@ -53,6 +53,7 @@ x-common-environment: &common-environment
   YOUTUBE_TEST_FAULT: none
   FACEBOOK_OAUTH_ENABLED: "true"
   FACEBOOK_APP_ID: ${REVIEW_FACEBOOK_APP_ID:?required}
+  FACEBOOK_LOGIN_CONFIGURATION_ID: ${REVIEW_FACEBOOK_LOGIN_CONFIGURATION_ID:?required}
   FACEBOOK_GRAPH_API_VERSION: v26.0
   OAUTH_TOKEN_VAULT_PROVIDER: local
   LOCAL_TOKEN_KEY_STORE_PATH: /var/lib/jingtang/oauth-envelope-keys.json

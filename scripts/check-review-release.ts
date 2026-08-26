@@ -85,6 +85,7 @@ for (const marker of [
   "OAUTH_TOKEN_ENCRYPTION_KEY_FILE: /run/jingtang-secrets/oauth-token-encryption-key",
   'FACEBOOK_OAUTH_ENABLED: "true"',
   "FACEBOOK_APP_ID: ${REVIEW_FACEBOOK_APP_ID:?required}",
+  "FACEBOOK_LOGIN_CONFIGURATION_ID: ${REVIEW_FACEBOOK_LOGIN_CONFIGURATION_ID:?required}",
   "FACEBOOK_GRAPH_API_VERSION: v26.0",
   "FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret",
   "FACEBOOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/facebook-state-secret",

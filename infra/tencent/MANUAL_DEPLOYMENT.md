@@ -144,6 +144,8 @@ pages_manage_posts
 
 `public_profile` 是 Meta 自动登录权限；不得增加 `email`、`publish_video`、Ads、Insights、Messaging、Webhook、Instagram、Threads 或其他权限。配置以下公开和回调地址：
 
+在 `Facebook Login for Business` 中创建并冻结一个使用“用户访问口令”的登录配置，将上述三项权限加入该配置。运行时必须通过这个配置编号发起授权，不得在 OAuth URL 中另行拼接权限。记录该非敏感配置编号。
+
 ```text
 App domain: jingtangai.com
 Privacy Policy: https://jingtangai.com/en/privacy/
@@ -155,7 +157,7 @@ Data deletion callback: https://review.jingtangai.com/api/v1/channels/facebook/d
 Support: developer@jingtangai.com
 ```
 
-记录非敏感 App ID；App Secret 只通过后面的交互式安装脚本写入服务器。外部 App Review 提交、Advanced Access 获批、切换 Live 和公开 `Available` 都是后续 Gate，本 Runbook 的部署步骤不授权执行。
+记录非敏感 App ID 与 Facebook Login for Business 配置编号；App Secret 只通过后面的交互式安装脚本写入服务器。外部 App Review 提交、Advanced Access 获批、切换 Live 和公开 `Available` 都是后续 Gate，本 Runbook 的部署步骤不授权执行。
 
 ### 4.3 初始化 Ubuntu 主机
 
@@ -323,6 +325,7 @@ ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
 - `REVIEW_COS_BUCKET`：完整 Bucket 名称，包含 APPID；
 - `REVIEW_YOUTUBE_OAUTH_CLIENT_ID`：Review 专用 OAuth Client ID；
 - `REVIEW_FACEBOOK_APP_ID`：公司 Business Portfolio 持有的非敏感 Meta App ID；
+- `REVIEW_FACEBOOK_LOGIN_CONFIGURATION_ID`：该 App 中冻结三项已批准 Page 权限的非敏感 Facebook Login for Business 配置编号；
 - `REVIEW_IDENTITY_EMAIL` 和 `REVIEW_IDENTITY_NAME`：首个预创建账号的邮箱和显示名。
 
 `JINGTANG_IMAGE` 和 `JINGTANG_MIGRATION_IMAGE` 由激活生成的 `release.env` 覆盖。`runtime.env` 中不得出现任何 `SECRET`、`PASSWORD` 或 `DATABASE_URL` 项。

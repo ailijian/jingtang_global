@@ -129,6 +129,29 @@ describe("environment isolation", () => {
     ).toThrow();
   });
 
+  it("requires a numeric Facebook Login for Business configuration ID", () => {
+    const facebook = {
+      ...base,
+      FACEBOOK_OAUTH_ENABLED: "true",
+      FACEBOOK_APP_ID: "1779590139842024",
+      FACEBOOK_APP_SECRET: "facebook-app-secret",
+      FACEBOOK_OAUTH_STATE_SECRET: "a-separate-facebook-state-secret-value",
+    };
+    expect(() => parseAppConfig(facebook)).toThrow();
+    expect(
+      parseAppConfig({
+        ...facebook,
+        FACEBOOK_LOGIN_CONFIGURATION_ID: "1409921321080910",
+      }).FACEBOOK_LOGIN_CONFIGURATION_ID,
+    ).toBe("1409921321080910");
+    expect(() =>
+      parseAppConfig({
+        ...facebook,
+        FACEBOOK_LOGIN_CONFIGURATION_ID: "not-a-configuration-id",
+      }),
+    ).toThrow();
+  });
+
   it("requires complete YouTube OAuth secrets when the integration is enabled", () => {
     expect(() => parseAppConfig({ ...base, YOUTUBE_OAUTH_ENABLED: "true" })).toThrow();
     expect(

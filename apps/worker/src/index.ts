@@ -104,6 +104,7 @@ const facebookProvider = config.FACEBOOK_OAUTH_ENABLED
   ? new MetaFacebookOAuthProvider({
       appId: config.FACEBOOK_APP_ID ?? "",
       appSecret: config.FACEBOOK_APP_SECRET ?? "",
+      loginConfigurationId: config.FACEBOOK_LOGIN_CONFIGURATION_ID ?? "",
       graphApiVersion: config.FACEBOOK_GRAPH_API_VERSION,
     })
   : undefined;

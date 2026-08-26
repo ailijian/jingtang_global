@@ -14,6 +14,7 @@ function provider(
   return new MetaFacebookOAuthProvider({
     appId: "meta-app-id",
     appSecret,
+    loginConfigurationId: "1409921321080910",
     graphApiVersion: "v26.0",
     fetchImplementation,
   });
@@ -26,13 +27,14 @@ function signedRequest(payload: Record<string, unknown>, secret: string = appSec
 }
 
 describe("Meta Facebook provider", () => {
-  it("builds the pinned authorization URL with exactly the approved Page scopes", () => {
+  it("builds the pinned Facebook Login for Business authorization URL", () => {
     const url = provider().authorizationUrl({
       state: "opaque-state",
       redirectUri: "https://review.jingtangai.com/api/v1/channels/facebook/oauth/callback",
     });
     expect(url.origin + url.pathname).toBe("https://www.facebook.com/v26.0/dialog/oauth");
-    expect(url.searchParams.get("scope")?.split(",")).toEqual(facebookOAuthScopes);
+    expect(url.searchParams.get("config_id")).toBe("1409921321080910");
+    expect(url.searchParams.has("scope")).toBe(false);
     expect(url.searchParams.get("state")).toBe("opaque-state");
     expect(url.searchParams.has("client_secret")).toBe(false);
   });

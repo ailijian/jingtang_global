@@ -64,17 +64,20 @@ function combineSignal(signal: AbortSignal | undefined, timeout: number): AbortS
 export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
   readonly #appId: string;
   readonly #appSecret: string;
+  readonly #loginConfigurationId: string;
   readonly #version: string;
   readonly #fetch: typeof fetch;
 
   public constructor(input: {
     readonly appId: string;
     readonly appSecret: string;
+    readonly loginConfigurationId: string;
     readonly graphApiVersion: string;
     readonly fetchImplementation?: typeof fetch;
   }) {
     this.#appId = input.appId;
     this.#appSecret = input.appSecret;
+    this.#loginConfigurationId = input.loginConfigurationId;
     this.#version = input.graphApiVersion;
     this.#fetch = input.fetchImplementation ?? globalThis.fetch;
   }
@@ -104,9 +107,9 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
     const url = new URL(`${this.#version}/dialog/oauth`, "https://www.facebook.com/");
     url.search = new URLSearchParams({
       client_id: this.#appId,
+      config_id: this.#loginConfigurationId,
       redirect_uri: input.redirectUri,
       response_type: "code",
-      scope: facebookOAuthScopes.join(","),
       state: input.state,
     }).toString();
     return url;
