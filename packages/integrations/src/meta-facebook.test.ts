@@ -116,19 +116,116 @@ describe("Meta Facebook provider", () => {
       {
         id: "eligible-page",
         displayName: "JINGTANG",
-        tasks: ["MODERATE", "CREATE_CONTENT"],
+        capabilities: ["MODERATE", "CREATE_CONTENT"],
         accessToken: "eligible-page-token",
       },
       {
         id: "profile-plus-page",
         displayName: "Jingtang",
-        tasks: ["PROFILE_PLUS_FULL_CONTROL", "PROFILE_PLUS_CREATE_CONTENT"],
+        capabilities: ["PROFILE_PLUS_FULL_CONTROL", "PROFILE_PLUS_CREATE_CONTENT"],
         accessToken: "profile-plus-page-token",
       },
     ]);
     const [url] = fetchImplementation.mock.calls[0] ?? [];
     expect((url as URL).pathname).toBe("/v26.0/me/accounts");
     expect((url as URL).searchParams.get("fields")).toBe("id,name,tasks,access_token");
+  });
+
+  it("falls back to Pages targeted by all approved granular permissions", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ data: [] }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: {
+            app_id: "meta-app-id",
+            type: "USER",
+            is_valid: true,
+            user_id: "meta-user-id",
+            scopes: [...facebookOAuthScopes, "public_profile"],
+            granular_scopes: [
+              { scope: "pages_show_list", target_ids: ["1280459905148968", "111"] },
+              { scope: "pages_read_engagement", target_ids: ["1280459905148968"] },
+              { scope: "pages_manage_posts", target_ids: ["1280459905148968"] },
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          id: "1280459905148968",
+          name: "Jingtang",
+          access_token: "targeted-page-token",
+        }),
+      );
+
+    await expect(provider(fetchImplementation).readManagedPages("user-token")).resolves.toEqual([
+      {
+        id: "1280459905148968",
+        displayName: "Jingtang",
+        accessToken: "targeted-page-token",
+        capabilities: [...facebookOAuthScopes],
+      },
+    ]);
+    const [debugUrl, debugInit] = fetchImplementation.mock.calls[1] ?? [];
+    expect((debugUrl as URL).pathname).toBe("/v26.0/debug_token");
+    expect((debugUrl as URL).searchParams.get("input_token")).toBe("user-token");
+    expect((debugUrl as URL).searchParams.has("access_token")).toBe(false);
+    expect(new Headers(debugInit?.headers).get("authorization")).toBe(
+      `Bearer meta-app-id|${appSecret}`,
+    );
+    const [pageUrl] = fetchImplementation.mock.calls[2] ?? [];
+    expect((pageUrl as URL).pathname).toBe("/v26.0/1280459905148968");
+    expect((pageUrl as URL).searchParams.get("fields")).toBe("name,access_token");
+  });
+
+  it("does not fetch a Page unless every approved permission targets it", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ data: [] }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: {
+            app_id: "meta-app-id",
+            type: "USER",
+            is_valid: true,
+            user_id: "meta-user-id",
+            scopes: [...facebookOAuthScopes, "public_profile"],
+            granular_scopes: [
+              { scope: "pages_show_list", target_ids: ["111"] },
+              { scope: "pages_read_engagement", target_ids: ["111"] },
+              { scope: "pages_manage_posts", target_ids: ["222"] },
+            ],
+          },
+        }),
+      );
+
+    await expect(
+      provider(fetchImplementation).readManagedPages("user-token"),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects granular targets issued for a different Meta App", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ data: [] }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: {
+            app_id: "different-app-id",
+            type: "USER",
+            is_valid: true,
+            user_id: "meta-user-id",
+            scopes: [...facebookOAuthScopes, "public_profile"],
+            granular_scopes: [],
+          },
+        }),
+      );
+
+    await expect(
+      provider(fetchImplementation).readManagedPages("user-token"),
+    ).rejects.toMatchObject({ code: "authentication_failed" });
   });
 
   it("streams one resumable MP4 upload and publishes its handle to the exact Page", async () => {

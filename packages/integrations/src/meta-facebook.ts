@@ -13,10 +13,21 @@ const requestTimeoutMs = 30_000;
 const uploadTimeoutMs = 15 * 60_000;
 const maximumJsonResponseBytes = 1024 * 1024;
 const maximumSignedRequestAgeSeconds = 5 * 60;
+const maximumTargetedPages = 100;
+const targetedPageBatchSize = 10;
 const facebookPageContentTasks = new Set(["CREATE_CONTENT", "PROFILE_PLUS_CREATE_CONTENT"]);
+const facebookPageIdPattern = /^\d{1,32}$/u;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isFacebookPageIdArray(value: unknown): value is string[] {
+  return isStringArray(value) && value.every((entry) => facebookPageIdPattern.test(entry));
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -263,18 +274,148 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
           id: entry.id,
           displayName: entry.name,
           accessToken: entry.access_token,
-          tasks: entry.tasks,
+          capabilities: entry.tasks,
         },
       ];
     });
-    if (pages.length === 0) {
+    if (pages.length > 0) return pages;
+
+    const targetIds = await this.#readGranularPageTargets(userAccessToken);
+    const targetedPages: FacebookPageAuthorization[] = [];
+    for (let offset = 0; offset < targetIds.length; offset += targetedPageBatchSize) {
+      targetedPages.push(
+        ...(await Promise.all(
+          targetIds
+            .slice(offset, offset + targetedPageBatchSize)
+            .map((pageId) => this.#readTargetedPage(userAccessToken, pageId)),
+        )),
+      );
+    }
+    if (targetedPages.length === 0) {
       throw new ApplicationError(
         "not_found",
         "No manageable Facebook Page is available for this account",
         404,
       );
     }
-    return pages;
+    return targetedPages;
+  }
+
+  async #readGranularPageTargets(userAccessToken: string): Promise<readonly string[]> {
+    const url = this.#graphUrl("debug_token");
+    url.search = new URLSearchParams({ input_token: userAccessToken }).toString();
+    const response = await this.#request(
+      url,
+      {
+        headers: { authorization: `Bearer ${this.#appId}|${this.#appSecret}` },
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      },
+      "Facebook Page authorization targets could not be verified",
+    );
+    const body = await readJson(response);
+    if (!response.ok) {
+      throw graphError(response, "Facebook Page authorization targets could not be verified");
+    }
+    const data = isRecord(body) && isRecord(body.data) ? body.data : undefined;
+    if (
+      !data ||
+      data.app_id !== this.#appId ||
+      data.is_valid !== true ||
+      typeof data.type !== "string" ||
+      data.type.toUpperCase() !== "USER" ||
+      typeof data.user_id !== "string" ||
+      !isStringArray(data.scopes) ||
+      !Array.isArray(data.granular_scopes)
+    ) {
+      throw new ApplicationError(
+        "authentication_failed",
+        "Meta returned invalid Page authorization targets",
+        401,
+      );
+    }
+    const scopes = data.scopes;
+    const allowedScopes = new Set<string>([...facebookOAuthScopes, "public_profile"]);
+    if (
+      !facebookOAuthScopes.every((scope) => scopes.includes(scope)) ||
+      scopes.some((scope) => !allowedScopes.has(scope))
+    ) {
+      throw new ApplicationError(
+        "permission_denied",
+        "Facebook did not grant all approved Page permissions",
+        403,
+      );
+    }
+
+    const targetsByScope = new Map<string, Set<string>>(
+      facebookOAuthScopes.map((scope) => [scope, new Set<string>()]),
+    );
+    for (const granularScope of data.granular_scopes) {
+      if (!isRecord(granularScope) || typeof granularScope.scope !== "string") {
+        throw new ApplicationError(
+          "service_unavailable",
+          "Meta returned invalid granular Page authorization data",
+          503,
+        );
+      }
+      const targets = targetsByScope.get(granularScope.scope);
+      if (!targets) continue;
+      if (!isFacebookPageIdArray(granularScope.target_ids)) {
+        throw new ApplicationError(
+          "service_unavailable",
+          "Meta returned invalid granular Page authorization data",
+          503,
+        );
+      }
+      for (const targetId of granularScope.target_ids) targets.add(targetId);
+    }
+
+    const [firstScope, ...remainingScopes] = facebookOAuthScopes;
+    const firstTargets = targetsByScope.get(firstScope);
+    const targetIds = [...(firstTargets ?? [])]
+      .filter((targetId) =>
+        remainingScopes.every((scope) => targetsByScope.get(scope)?.has(targetId) === true),
+      )
+      .sort();
+    if (targetIds.length > maximumTargetedPages) {
+      throw new ApplicationError(
+        "service_unavailable",
+        "Meta returned too many Page authorization targets",
+        503,
+      );
+    }
+    return targetIds;
+  }
+
+  async #readTargetedPage(
+    userAccessToken: string,
+    pageId: string,
+  ): Promise<FacebookPageAuthorization> {
+    const url = this.#graphUrl(pageId);
+    url.search = new URLSearchParams({
+      fields: "name,access_token",
+      access_token: userAccessToken,
+    }).toString();
+    const response = await this.#request(
+      url,
+      { signal: AbortSignal.timeout(requestTimeoutMs) },
+      "Facebook Page could not be read",
+    );
+    const body = await readJson(response);
+    if (!response.ok) throw graphError(response, "Facebook Page could not be read");
+    if (
+      !isRecord(body) ||
+      body.id !== pageId ||
+      typeof body.name !== "string" ||
+      typeof body.access_token !== "string"
+    ) {
+      throw new ApplicationError("service_unavailable", "Meta omitted targeted Page data", 503);
+    }
+    return {
+      id: pageId,
+      displayName: body.name,
+      accessToken: body.access_token,
+      capabilities: [...facebookOAuthScopes],
+    };
   }
 
   public async revokeAuthorization(userAccessToken: string): Promise<void> {

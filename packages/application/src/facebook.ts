@@ -21,7 +21,7 @@ export interface FacebookPageAuthorization {
   readonly id: string;
   readonly displayName: string;
   readonly accessToken: string;
-  readonly tasks: readonly string[];
+  readonly capabilities: readonly string[];
 }
 
 export interface StoredFacebookAuthorization {
@@ -39,16 +39,27 @@ export interface StoredFacebookConnectionCandidate {
   readonly pages: readonly FacebookPageAuthorization[];
 }
 
-function isFacebookPageAuthorization(value: unknown): value is FacebookPageAuthorization {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+function parseFacebookPageAuthorization(value: unknown): FacebookPageAuthorization {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("token_envelope_invalid");
+  }
   const page = value as Record<string, unknown>;
-  return (
-    typeof page.id === "string" &&
-    typeof page.displayName === "string" &&
-    typeof page.accessToken === "string" &&
-    Array.isArray(page.tasks) &&
-    page.tasks.every((task: unknown) => typeof task === "string")
-  );
+  const capabilities = page.capabilities ?? page.tasks;
+  if (
+    typeof page.id !== "string" ||
+    typeof page.displayName !== "string" ||
+    typeof page.accessToken !== "string" ||
+    !Array.isArray(capabilities) ||
+    !capabilities.every((capability: unknown) => typeof capability === "string")
+  ) {
+    throw new Error("token_envelope_invalid");
+  }
+  return {
+    id: page.id,
+    displayName: page.displayName,
+    accessToken: page.accessToken,
+    capabilities,
+  };
 }
 
 export function parseStoredFacebookConnectionCandidate(
@@ -59,15 +70,14 @@ export function parseStoredFacebookConnectionCandidate(
   if (
     typeof entry.userAccessToken !== "string" ||
     typeof entry.expiresAt !== "string" ||
-    !Array.isArray(entry.pages) ||
-    !entry.pages.every(isFacebookPageAuthorization)
+    !Array.isArray(entry.pages)
   ) {
     throw new Error("token_envelope_invalid");
   }
   return {
     userAccessToken: entry.userAccessToken,
     expiresAt: entry.expiresAt,
-    pages: entry.pages,
+    pages: entry.pages.map(parseFacebookPageAuthorization),
   };
 }
 
