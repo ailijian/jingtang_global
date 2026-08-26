@@ -80,7 +80,7 @@ describe("Meta Facebook provider", () => {
     });
   });
 
-  it("returns only Pages with the CREATE_CONTENT task", async () => {
+  it("returns Pages with either supported Page content task", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json({
         data: [
@@ -91,10 +91,21 @@ describe("Meta Facebook provider", () => {
             access_token: "eligible-page-token",
           },
           {
-            id: "read-only-page",
-            name: "Read only",
-            tasks: ["MODERATE"],
+            id: "profile-plus-page",
+            name: "Jingtang",
+            tasks: ["PROFILE_PLUS_FULL_CONTROL", "PROFILE_PLUS_CREATE_CONTENT"],
+            access_token: "profile-plus-page-token",
+          },
+          {
+            id: "non-content-page",
+            name: "No explicit content task",
+            tasks: ["MODERATE", "PROFILE_PLUS_FULL_CONTROL"],
             access_token: "must-be-discarded",
+          },
+          {
+            id: "malformed-page",
+            name: "Malformed",
+            tasks: ["MODERATE"],
           },
         ],
       }),
@@ -105,6 +116,12 @@ describe("Meta Facebook provider", () => {
         displayName: "JINGTANG",
         tasks: ["MODERATE", "CREATE_CONTENT"],
         accessToken: "eligible-page-token",
+      },
+      {
+        id: "profile-plus-page",
+        displayName: "Jingtang",
+        tasks: ["PROFILE_PLUS_FULL_CONTROL", "PROFILE_PLUS_CREATE_CONTENT"],
+        accessToken: "profile-plus-page-token",
       },
     ]);
     const [url] = fetchImplementation.mock.calls[0] ?? [];

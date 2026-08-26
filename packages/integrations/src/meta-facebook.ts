@@ -13,6 +13,7 @@ const requestTimeoutMs = 30_000;
 const uploadTimeoutMs = 15 * 60_000;
 const maximumJsonResponseBytes = 1024 * 1024;
 const maximumSignedRequestAgeSeconds = 5 * 60;
+const facebookPageContentTasks = new Set(["CREATE_CONTENT", "PROFILE_PLUS_CREATE_CONTENT"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -253,7 +254,7 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       ) {
         return [];
       }
-      if (!entry.tasks.includes("CREATE_CONTENT")) return [];
+      if (!entry.tasks.some((task) => facebookPageContentTasks.has(task))) return [];
       return [
         {
           id: entry.id,
