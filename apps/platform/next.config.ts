@@ -11,7 +11,10 @@ const config: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   logging: {
     incomingRequests: {
-      ignore: [/\/api\/v1\/channels\/youtube\/oauth\/callback/u],
+      ignore: [
+        /\/api\/v1\/channels\/(?:youtube|facebook)\/oauth\/callback/u,
+        /\/api\/v1\/channels\/facebook\/(?:deauthorize|data-deletion)/u,
+      ],
     },
   },
   reactStrictMode: true,

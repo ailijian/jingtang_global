@@ -31,9 +31,9 @@ test("bilingual Source Asset, connected platform version, approval, and separate
   await page.getByRole("button", { name: "Upload Source Asset" }).click();
   await expect(page.getByText("Source Asset stored privately.")).toBeVisible();
 
-  await expect(page.getByLabel("Connected channel")).toHaveValue(/UC_E2E_/);
+  await expect(page.locator('select[name="connectedChannel"]')).toHaveValue(/UC_E2E_/);
   await page.getByLabel("Language").selectOption("zh-CN");
-  await expect(page.getByLabel("已连接渠道")).toHaveValue(/UC_E2E_/);
+  await expect(page.locator('select[name="connectedChannel"]')).toHaveValue(/UC_E2E_/);
   await expect(page.getByRole("heading", { name: "选择平台版本" })).toBeVisible();
   await page.getByRole("button", { name: "继续" }).click();
 

@@ -14,6 +14,11 @@ channels:
     messages:
       youtubePublish:
         $ref: "#/components/messages/YouTubePublish"
+  facebookPublish:
+    address: platform.facebook.publish.v1
+    messages:
+      facebookPublish:
+        $ref: "#/components/messages/FacebookPublish"
 operations:
   receiveAuditEvent:
     action: receive
@@ -27,6 +32,12 @@ operations:
       $ref: "#/channels/youtubePublish"
     messages:
       - $ref: "#/channels/youtubePublish/messages/youtubePublish"
+  executeFacebookPublish:
+    action: receive
+    channel:
+      $ref: "#/channels/facebookPublish"
+    messages:
+      - $ref: "#/channels/facebookPublish/messages/facebookPublish"
 components:
   messages:
     AuditEvent:
@@ -36,6 +47,16 @@ components:
         $ref: ../schemas/audit/v1/audit-event.schema.json
     YouTubePublish:
       name: YouTubePublish
+      contentType: application/json
+      payload:
+        type: object
+        additionalProperties: false
+        required: [workspace_id, platform_execution_id]
+        properties:
+          workspace_id: { type: string, format: uuid }
+          platform_execution_id: { type: string, format: uuid }
+    FacebookPublish:
+      name: FacebookPublish
       contentType: application/json
       payload:
         type: object

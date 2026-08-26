@@ -70,7 +70,8 @@ enum SourceAssetStatus {
 }
 
 enum Platform {
-  YOUTUBE @map("youtube")
+  YOUTUBE  @map("youtube")
+  FACEBOOK @map("facebook")
 
   @@map("platform")
 }
@@ -185,56 +186,58 @@ enum LifecycleStepState {
 }
 
 model User {
-  id                  String             @id @default(uuid()) @db.Uuid
-  cognitoSubject      String             @unique @map("cognito_subject") @db.VarChar(255)
-  email               String             @unique @db.VarChar(320)
-  name                String             @db.VarChar(160)
-  localePreference    Locale             @default(EN) @map("locale_preference")
-  lastWorkspaceId     String?            @map("last_workspace_id") @db.Uuid
-  lifecycleState      String             @default("active") @map("lifecycle_state") @db.VarChar(32)
-  deletionRequestedAt DateTime?          @map("deletion_requested_at") @db.Timestamptz(3)
-  deletedAt           DateTime?          @map("deleted_at") @db.Timestamptz(3)
-  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
-  memberships         Membership[]
-  sessions            Session[]
-  consents            ConsentRecord[]
-  createdWorkspaces   Workspace[]        @relation("WorkspaceCreator")
-  invitedMembers      Invitation[]       @relation("InvitationActor")
-  auditEvents         AuditEvent[]       @relation("AuditActor")
-  uploadedAssets      SourceAsset[]      @relation("SourceAssetUploader")
-  createdContents     Content[]          @relation("ContentCreator")
-  createdRevisions    ContentRevision[]  @relation("RevisionCreator")
-  approvalDecisions   ApprovalDecision[] @relation("ApprovalActor")
-  confirmedIntents    PublishingIntent[] @relation("PublishingConfirmer")
+  id                           String                        @id @default(uuid()) @db.Uuid
+  cognitoSubject               String                        @unique @map("cognito_subject") @db.VarChar(255)
+  email                        String                        @unique @db.VarChar(320)
+  name                         String                        @db.VarChar(160)
+  localePreference             Locale                        @default(EN) @map("locale_preference")
+  lastWorkspaceId              String?                       @map("last_workspace_id") @db.Uuid
+  lifecycleState               String                        @default("active") @map("lifecycle_state") @db.VarChar(32)
+  deletionRequestedAt          DateTime?                     @map("deletion_requested_at") @db.Timestamptz(3)
+  deletedAt                    DateTime?                     @map("deleted_at") @db.Timestamptz(3)
+  createdAt                    DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships                  Membership[]
+  sessions                     Session[]
+  consents                     ConsentRecord[]
+  createdWorkspaces            Workspace[]                   @relation("WorkspaceCreator")
+  invitedMembers               Invitation[]                  @relation("InvitationActor")
+  auditEvents                  AuditEvent[]                  @relation("AuditActor")
+  uploadedAssets               SourceAsset[]                 @relation("SourceAssetUploader")
+  createdContents              Content[]                     @relation("ContentCreator")
+  createdRevisions             ContentRevision[]             @relation("RevisionCreator")
+  approvalDecisions            ApprovalDecision[]            @relation("ApprovalActor")
+  confirmedIntents             PublishingIntent[]            @relation("PublishingConfirmer")
+  facebookConnectionCandidates FacebookConnectionCandidate[]
 
   @@map("users")
 }
 
 model Workspace {
-  id                   String                  @id @default(uuid()) @db.Uuid
-  name                 String                  @db.VarChar(160)
-  createdByUserId      String                  @map("created_by_user_id") @db.Uuid
-  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  lifecycleState       WorkspaceLifecycleState @default(ACTIVE) @map("lifecycle_state")
-  deletionRequestedAt  DateTime?               @map("deletion_requested_at") @db.Timestamptz(3)
-  deletedAt            DateTime?               @map("deleted_at") @db.Timestamptz(3)
-  createdBy            User                    @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  memberships          Membership[]
-  invitations          Invitation[]
-  auditEvents          AuditEvent[]
-  channels             Channel[]
-  sourceAssets         SourceAsset[]
-  contents             Content[]
-  contentRevisions     ContentRevision[]
-  platformVersions     PlatformVersion[]
-  approvalDecisions    ApprovalDecision[]
-  publishingIntents    PublishingIntent[]
-  platformExecutions   PlatformExecution[]
-  outboxMessages       OutboxMessage[]
-  dataDeletionRequests DataDeletionRequest[]
-  lifecycleOperations  LifecycleOperation[]
+  id                           String                        @id @default(uuid()) @db.Uuid
+  name                         String                        @db.VarChar(160)
+  createdByUserId              String                        @map("created_by_user_id") @db.Uuid
+  createdAt                    DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lifecycleState               WorkspaceLifecycleState       @default(ACTIVE) @map("lifecycle_state")
+  deletionRequestedAt          DateTime?                     @map("deletion_requested_at") @db.Timestamptz(3)
+  deletedAt                    DateTime?                     @map("deleted_at") @db.Timestamptz(3)
+  createdBy                    User                          @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships                  Membership[]
+  invitations                  Invitation[]
+  auditEvents                  AuditEvent[]
+  channels                     Channel[]
+  sourceAssets                 SourceAsset[]
+  contents                     Content[]
+  contentRevisions             ContentRevision[]
+  platformVersions             PlatformVersion[]
+  approvalDecisions            ApprovalDecision[]
+  publishingIntents            PublishingIntent[]
+  platformExecutions           PlatformExecution[]
+  outboxMessages               OutboxMessage[]
+  dataDeletionRequests         DataDeletionRequest[]
+  lifecycleOperations          LifecycleOperation[]
+  facebookConnectionCandidates FacebookConnectionCandidate[]
 
   @@index([createdByUserId])
   @@map("workspaces")
@@ -277,16 +280,17 @@ model Invitation {
 }
 
 model ConsentRecord {
-  id                 String    @id @default(uuid()) @db.Uuid
-  userId             String    @map("user_id") @db.Uuid
-  termsVersion       String    @map("terms_version") @db.VarChar(80)
-  privacyVersion     String    @map("privacy_version") @db.VarChar(80)
-  dataPurposeVersion String    @map("data_purpose_version") @db.VarChar(80)
-  displayedLocale    Locale    @map("displayed_locale")
-  acceptanceMethod   String    @map("acceptance_method") @db.VarChar(40)
-  acceptedAt         DateTime  @default(now()) @map("accepted_at") @db.Timestamptz(3)
-  user               User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  channels           Channel[] @relation("ChannelConsent")
+  id                           String                        @id @default(uuid()) @db.Uuid
+  userId                       String                        @map("user_id") @db.Uuid
+  termsVersion                 String                        @map("terms_version") @db.VarChar(80)
+  privacyVersion               String                        @map("privacy_version") @db.VarChar(80)
+  dataPurposeVersion           String                        @map("data_purpose_version") @db.VarChar(80)
+  displayedLocale              Locale                        @map("displayed_locale")
+  acceptanceMethod             String                        @map("acceptance_method") @db.VarChar(40)
+  acceptedAt                   DateTime                      @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  user                         User                          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  channels                     Channel[]                     @relation("ChannelConsent")
+  facebookConnectionCandidates FacebookConnectionCandidate[]
 
   @@index([userId, acceptedAt])
   @@map("consent_records")
@@ -307,36 +311,78 @@ model Session {
 }
 
 model Channel {
-  id                       String         @id @default(uuid()) @db.Uuid
-  workspaceId              String         @map("workspace_id") @db.Uuid
-  platform                 String         @db.VarChar(40)
-  externalAccountId        String?        @map("external_account_id") @db.VarChar(255)
-  displayName              String?        @map("display_name") @db.VarChar(255)
-  state                    ChannelState   @default(NOT_CONNECTED)
-  grantedScopes            String[]       @default([]) @map("granted_scopes")
-  consentRecordId          String?        @map("consent_record_id") @db.Uuid
-  tokenCiphertextReference String?        @map("token_ciphertext_reference") @db.VarChar(500)
-  tokenEnvelopeCiphertext  String?        @map("token_envelope_ciphertext") @db.Text
-  authorizedAt             DateTime?      @map("authorized_at") @db.Timestamptz(3)
-  refreshedAt              DateTime?      @map("refreshed_at") @db.Timestamptz(3)
-  deniedAt                 DateTime?      @map("denied_at") @db.Timestamptz(3)
-  authorizedDataExpiresAt  DateTime?      @map("authorized_data_expires_at") @db.Timestamptz(3)
-  disconnectRequestedAt    DateTime?      @map("disconnect_requested_at") @db.Timestamptz(3)
-  disconnectedAt           DateTime?      @map("disconnected_at") @db.Timestamptz(3)
-  revokeFailureCategory    String?        @map("revoke_failure_category") @db.VarChar(80)
-  revokeAttemptCount       Int            @default(0) @map("revoke_attempt_count")
-  operationLeaseId         String?        @map("operation_lease_id") @db.Uuid
-  operationLeaseUntil      DateTime?      @map("operation_lease_until") @db.Timestamptz(3)
-  operationGeneration      BigInt         @default(0) @map("operation_generation")
-  operationLeaseGeneration BigInt?        @map("operation_lease_generation")
-  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  workspace                Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  consent                  ConsentRecord? @relation("ChannelConsent", fields: [consentRecordId], references: [id], onDelete: Restrict)
+  id                            String                        @id @default(uuid()) @db.Uuid
+  workspaceId                   String                        @map("workspace_id") @db.Uuid
+  platform                      String                        @db.VarChar(40)
+  externalAccountId             String?                       @map("external_account_id") @db.VarChar(255)
+  displayName                   String?                       @map("display_name") @db.VarChar(255)
+  state                         ChannelState                  @default(NOT_CONNECTED)
+  grantedScopes                 String[]                      @default([]) @map("granted_scopes")
+  consentRecordId               String?                       @map("consent_record_id") @db.Uuid
+  tokenCiphertextReference      String?                       @map("token_ciphertext_reference") @db.VarChar(500)
+  tokenEnvelopeCiphertext       String?                       @map("token_envelope_ciphertext") @db.Text
+  authorizationSubjectReference String?                       @map("authorization_subject_reference") @db.VarChar(255)
+  oauthStateDigest              String?                       @map("oauth_state_digest") @db.Char(64)
+  authorizedAt                  DateTime?                     @map("authorized_at") @db.Timestamptz(3)
+  refreshedAt                   DateTime?                     @map("refreshed_at") @db.Timestamptz(3)
+  deniedAt                      DateTime?                     @map("denied_at") @db.Timestamptz(3)
+  authorizedDataExpiresAt       DateTime?                     @map("authorized_data_expires_at") @db.Timestamptz(3)
+  disconnectRequestedAt         DateTime?                     @map("disconnect_requested_at") @db.Timestamptz(3)
+  disconnectedAt                DateTime?                     @map("disconnected_at") @db.Timestamptz(3)
+  revokeFailureCategory         String?                       @map("revoke_failure_category") @db.VarChar(80)
+  revokeAttemptCount            Int                           @default(0) @map("revoke_attempt_count")
+  operationLeaseId              String?                       @map("operation_lease_id") @db.Uuid
+  operationLeaseUntil           DateTime?                     @map("operation_lease_until") @db.Timestamptz(3)
+  operationGeneration           BigInt                        @default(0) @map("operation_generation")
+  operationLeaseGeneration      BigInt?                       @map("operation_lease_generation")
+  createdAt                     DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                     DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace                     Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  consent                       ConsentRecord?                @relation("ChannelConsent", fields: [consentRecordId], references: [id], onDelete: Restrict)
+  facebookConnectionCandidates  FacebookConnectionCandidate[]
 
   @@unique([workspaceId, platform])
   @@index([workspaceId, state])
   @@map("channels")
+}
+
+model FacebookConnectionCandidate {
+  id                       String        @id @default(uuid()) @db.Uuid
+  workspaceId              String        @map("workspace_id") @db.Uuid
+  channelId                String        @map("channel_id") @db.Uuid
+  actorUserId              String        @map("actor_user_id") @db.Uuid
+  consentRecordId          String        @map("consent_record_id") @db.Uuid
+  metaUserId               String        @map("meta_user_id") @db.VarChar(255)
+  metaUserDisplayName      String        @map("meta_user_display_name") @db.VarChar(255)
+  grantedScopes            String[]      @map("granted_scopes")
+  pageOptions              Json          @map("page_options")
+  tokenCiphertextReference String        @map("token_ciphertext_reference") @db.VarChar(500)
+  tokenEnvelopeCiphertext  String        @map("token_envelope_ciphertext") @db.Text
+  expiresAt                DateTime      @map("expires_at") @db.Timestamptz(3)
+  createdAt                DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace                Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel                  Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  actor                    User          @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  consent                  ConsentRecord @relation(fields: [consentRecordId], references: [id], onDelete: Restrict)
+
+  @@unique([channelId])
+  @@index([workspaceId, expiresAt])
+  @@map("facebook_connection_candidates")
+}
+
+model ProviderDataDeletionRequest {
+  id               String    @id @default(uuid()) @db.Uuid
+  provider         String    @db.VarChar(40)
+  subjectHash      String    @map("subject_hash") @db.Char(64)
+  confirmationCode String    @unique @map("confirmation_code") @db.VarChar(40)
+  channelIds       String[]  @map("channel_ids") @db.Uuid
+  state            String    @default("pending") @db.VarChar(20)
+  requestedAt      DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([provider, subjectHash, requestedAt(sort: Desc)])
+  @@map("provider_data_deletion_requests")
 }
 
 model SourceAsset {

@@ -1,0 +1,287 @@
+import { createHash, createHmac } from "node:crypto";
+
+import { describe, expect, it, vi } from "vitest";
+
+import { facebookOAuthScopes } from "@jingtang/application";
+
+import { MetaFacebookOAuthProvider } from "./meta-facebook.js";
+
+const appSecret = "company-meta-app-secret";
+
+function provider(
+  fetchImplementation: typeof fetch = vi.fn<typeof fetch>(),
+): MetaFacebookOAuthProvider {
+  return new MetaFacebookOAuthProvider({
+    appId: "meta-app-id",
+    appSecret,
+    graphApiVersion: "v26.0",
+    fetchImplementation,
+  });
+}
+
+function signedRequest(payload: Record<string, unknown>, secret: string = appSecret): string {
+  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", secret).update(encodedPayload).digest("base64url");
+  return `${signature}.${encodedPayload}`;
+}
+
+describe("Meta Facebook provider", () => {
+  it("builds the pinned authorization URL with exactly the approved Page scopes", () => {
+    const url = provider().authorizationUrl({
+      state: "opaque-state",
+      redirectUri: "https://review.jingtangai.com/api/v1/channels/facebook/oauth/callback",
+    });
+    expect(url.origin + url.pathname).toBe("https://www.facebook.com/v26.0/dialog/oauth");
+    expect(url.searchParams.get("scope")?.split(",")).toEqual(facebookOAuthScopes);
+    expect(url.searchParams.get("state")).toBe("opaque-state");
+    expect(url.searchParams.has("client_secret")).toBe(false);
+  });
+
+  it("exchanges and verifies only the approved scopes plus automatic public_profile", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ access_token: "short-token" }))
+      .mockResolvedValueOnce(Response.json({ access_token: "long-token", expires_in: 5_184_000 }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: [
+            ...facebookOAuthScopes.map((permission) => ({ permission, status: "granted" })),
+            { permission: "public_profile", status: "granted" },
+          ],
+        }),
+      );
+    const tokens = await provider(fetchImplementation).exchangeAuthorizationCode({
+      code: "authorization-code",
+      redirectUri: "https://review.jingtangai.com/api/v1/channels/facebook/oauth/callback",
+    });
+    expect(tokens.userAccessToken).toBe("long-token");
+    const [shortUrl] = fetchImplementation.mock.calls[0] ?? [];
+    expect(shortUrl).toBeInstanceOf(URL);
+    expect((shortUrl as URL).searchParams.get("client_secret")).toBe(appSecret);
+    expect((shortUrl as URL).searchParams.get("code")).toBe("authorization-code");
+  });
+
+  it.each([
+    { permissions: facebookOAuthScopes.slice(0, 2) },
+    { permissions: [...facebookOAuthScopes, "pages_manage_engagement"] },
+  ])("rejects missing or additional granted permissions", async ({ permissions }) => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ access_token: "long-token", expires_in: 5_184_000 }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: permissions.map((permission) => ({ permission, status: "granted" })),
+        }),
+      );
+    await expect(
+      provider(fetchImplementation).refreshAuthorization("short-token"),
+    ).rejects.toMatchObject({
+      code: "permission_denied",
+    });
+  });
+
+  it("returns only Pages with the CREATE_CONTENT task", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        data: [
+          {
+            id: "eligible-page",
+            name: "JINGTANG",
+            tasks: ["MODERATE", "CREATE_CONTENT"],
+            access_token: "eligible-page-token",
+          },
+          {
+            id: "read-only-page",
+            name: "Read only",
+            tasks: ["MODERATE"],
+            access_token: "must-be-discarded",
+          },
+        ],
+      }),
+    );
+    await expect(provider(fetchImplementation).readManagedPages("user-token")).resolves.toEqual([
+      {
+        id: "eligible-page",
+        displayName: "JINGTANG",
+        tasks: ["MODERATE", "CREATE_CONTENT"],
+        accessToken: "eligible-page-token",
+      },
+    ]);
+    const [url] = fetchImplementation.mock.calls[0] ?? [];
+    expect((url as URL).pathname).toBe("/v26.0/me/accounts");
+    expect((url as URL).searchParams.get("fields")).toBe("id,name,tasks,access_token");
+  });
+
+  it("streams one resumable MP4 upload and publishes its handle to the exact Page", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: "upload-session" }))
+      .mockImplementationOnce(async (_url, init) => {
+        expect(new Uint8Array(await new Response(init?.body as BodyInit).arrayBuffer())).toEqual(
+          new Uint8Array([1, 2, 3]),
+        );
+        return Response.json({ h: "uploaded-file-handle" });
+      })
+      .mockResolvedValueOnce(Response.json({ id: "page-video-id" }));
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+        controller.close();
+      },
+    });
+    await expect(
+      provider(fetchImplementation).uploadPageVideo({
+        userAccessToken: "user-token",
+        pageAccessToken: "page-token",
+        pageId: "company-page",
+        title: "Approved title",
+        description: "Approved description",
+        mediaType: "video/mp4",
+        byteSize: 3,
+        sha256: createHash("sha256")
+          .update(new Uint8Array([1, 2, 3]))
+          .digest("hex"),
+        body,
+      }),
+    ).resolves.toEqual({
+      videoId: "page-video-id",
+      videoUrl: "https://www.facebook.com/company-page/videos/page-video-id",
+    });
+    const [sessionUrl] = fetchImplementation.mock.calls[0] ?? [];
+    expect((sessionUrl as URL).href).toContain("graph.facebook.com/v26.0/meta-app-id/uploads");
+    const [uploadUrl, uploadInit] = fetchImplementation.mock.calls[1] ?? [];
+    expect((uploadUrl as URL).href).toBe("https://rupload.facebook.com/upload:upload-session");
+    expect(uploadInit?.body).toBeInstanceOf(ReadableStream);
+    expect(new Headers(uploadInit?.headers).get("authorization")).toBe("OAuth user-token");
+    const [publishUrl, publishInit] = fetchImplementation.mock.calls[2] ?? [];
+    expect((publishUrl as URL).pathname).toBe("/v26.0/company-page/videos");
+    expect(publishInit?.body).toBeInstanceOf(FormData);
+    const form = publishInit?.body as FormData;
+    expect(form.get("access_token")).toBe("page-token");
+    expect(form.get("fbuploader_video_file_chunk")).toBe("uploaded-file-handle");
+    expect(form.get("title")).toBe("Approved title");
+  });
+
+  it("does not retry-classify an ambiguous upload or publish completion as safe", async () => {
+    const uploadFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: "upload-session" }))
+      .mockRejectedValueOnce(new Error("connection closed"));
+    await expect(
+      provider(uploadFetch).uploadPageVideo({
+        userAccessToken: "user-token",
+        pageAccessToken: "page-token",
+        pageId: "company-page",
+        title: "Approved title",
+        description: "",
+        mediaType: "video/mp4",
+        byteSize: 1,
+        sha256: createHash("sha256")
+          .update(new Uint8Array([1]))
+          .digest("hex"),
+        body: new ReadableStream<Uint8Array>(),
+      }),
+    ).rejects.toMatchObject({ code: "conflict" });
+
+    const publishFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: "upload-session" }))
+      .mockImplementationOnce(async (_url, init) => {
+        await new Response(init?.body as BodyInit).arrayBuffer();
+        return Response.json({ h: "handle" });
+      })
+      .mockResolvedValueOnce(Response.json({ error: { message: "private" } }, { status: 503 }));
+    await expect(
+      provider(publishFetch).uploadPageVideo({
+        userAccessToken: "user-token",
+        pageAccessToken: "page-token",
+        pageId: "company-page",
+        title: "Approved title",
+        description: "",
+        mediaType: "video/mp4",
+        byteSize: 1,
+        sha256: createHash("sha256")
+          .update(new Uint8Array([1]))
+          .digest("hex"),
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1]));
+            controller.close();
+          },
+        }),
+      }),
+    ).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("does not create a Page post when the streamed source hash differs from the approved asset", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: "upload-session" }))
+      .mockImplementationOnce(async (_url, init) => {
+        await new Response(init?.body as BodyInit).arrayBuffer();
+        return Response.json({ h: "unpublished-handle" });
+      });
+    await expect(
+      provider(fetchImplementation).uploadPageVideo({
+        userAccessToken: "user-token",
+        pageAccessToken: "page-token",
+        pageId: "company-page",
+        title: "Approved title",
+        description: "",
+        mediaType: "video/mp4",
+        byteSize: 1,
+        sha256: createHash("sha256")
+          .update(new Uint8Array([2]))
+          .digest("hex"),
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1]));
+            controller.close();
+          },
+        }),
+      }),
+    ).rejects.toThrow("source_asset_hash_mismatch");
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it("verifies HMAC-SHA256 callbacks and rejects tampering, stale requests, and algorithm changes", () => {
+    const now = Date.UTC(2026, 7, 26, 12, 0, 0);
+    const issuedAt = Math.floor(now / 1000);
+    const valid = signedRequest({
+      algorithm: "HMAC-SHA256",
+      issued_at: issuedAt,
+      user_id: "meta-user",
+    });
+    expect(provider().verifySignedRequest(valid, now)).toEqual({ userId: "meta-user", issuedAt });
+    expect(() => provider().verifySignedRequest(`${valid}x`, now)).toThrow();
+    expect(() =>
+      provider().verifySignedRequest(
+        signedRequest({ algorithm: "HMAC-SHA1", issued_at: issuedAt, user_id: "meta-user" }),
+        now,
+      ),
+    ).toThrow();
+    expect(() =>
+      provider().verifySignedRequest(
+        signedRequest({
+          algorithm: "HMAC-SHA256",
+          issued_at: issuedAt - 301,
+          user_id: "meta-user",
+        }),
+        now,
+      ),
+    ).toThrow();
+  });
+
+  it("bounds provider JSON responses", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ data: "x".repeat(1024 * 1024) }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    await expect(
+      provider(fetchImplementation).readAuthorizedUser("user-token"),
+    ).rejects.toMatchObject({
+      code: "service_unavailable",
+    });
+  });
+});

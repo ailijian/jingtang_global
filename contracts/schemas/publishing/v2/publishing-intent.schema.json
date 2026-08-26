@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:publishing:publishing-intent:v2",
+  "title": "PublishingIntent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "publishing_intent_id",
+    "workspace_id",
+    "content_id",
+    "revision_id",
+    "platform_version_ids",
+    "account_references",
+    "payload_snapshot",
+    "permission_decision",
+    "state",
+    "mode",
+    "confirmed_by_user_id",
+    "consent_version",
+    "payload_hash",
+    "idempotency_key",
+    "confirmed_at"
+  ],
+  "properties": {
+    "publishing_intent_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "content_id": { "type": "string", "format": "uuid" },
+    "revision_id": { "type": "string", "format": "uuid" },
+    "platform_version_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "format": "uuid" }
+    },
+    "account_references": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 255 }
+    },
+    "payload_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_id", "versions"],
+      "properties": {
+        "revision_id": { "type": "string", "format": "uuid" },
+        "versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "platform_version_id",
+              "platform",
+              "account_reference",
+              "title",
+              "description",
+              "privacy_status",
+              "made_for_kids"
+            ],
+            "properties": {
+              "platform_version_id": { "type": "string", "format": "uuid" },
+              "platform": { "type": "string", "enum": ["youtube", "facebook"] },
+              "account_reference": { "type": "string", "minLength": 1, "maxLength": 255 },
+              "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "description": { "type": "string", "maxLength": 5000 },
+              "privacy_status": { "type": "string", "enum": ["private", "unlisted", "public"] },
+              "made_for_kids": { "type": "boolean" }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "platform": { "const": "facebook" } },
+                  "required": ["platform"]
+                },
+                "then": {
+                  "properties": {
+                    "privacy_status": { "const": "public" },
+                    "made_for_kids": { "const": false }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "permission_decision": { "type": "string", "enum": ["allowed"] },
+    "state": { "type": "string", "enum": ["none", "ready", "scheduled", "cancelled"] },
+    "mode": { "type": "string", "enum": ["immediate", "scheduled"] },
+    "confirmed_by_user_id": { "type": "string", "format": "uuid" },
+    "consent_version": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "payload_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "confirmed_at": { "type": "string", "format": "date-time" }
+  }
+}

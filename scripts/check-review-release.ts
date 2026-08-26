@@ -74,15 +74,20 @@ if (
 }
 for (const marker of [
   "APP_ENV: review",
-  'TERMS_VERSION: "2026-08-25"',
-  'PRIVACY_VERSION: "2026-08-25"',
-  'DATA_PURPOSE_VERSION: "2026-08-25"',
+  'TERMS_VERSION: "2026-08-26"',
+  'PRIVACY_VERSION: "2026-08-26"',
+  'DATA_PURPOSE_VERSION: "2026-08-26"',
   'user: "65532:65532"',
   'ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360"',
   'MAX_SOURCE_ASSET_BYTES: "524288000"',
   "OAUTH_TOKEN_VAULT_PROVIDER: local",
   "LOCAL_TOKEN_KEY_STORE_PATH: /var/lib/jingtang/oauth-envelope-keys.json",
   "OAUTH_TOKEN_ENCRYPTION_KEY_FILE: /run/jingtang-secrets/oauth-token-encryption-key",
+  'FACEBOOK_OAUTH_ENABLED: "true"',
+  "FACEBOOK_APP_ID: ${REVIEW_FACEBOOK_APP_ID:?required}",
+  "FACEBOOK_GRAPH_API_VERSION: v26.0",
+  "FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret",
+  "FACEBOOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/facebook-state-secret",
   "/srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro",
   "DATABASE_URL_FILE:",
   "profiles: [tools]",
@@ -131,7 +136,7 @@ for (const marker of [
 }
 requireText(
   caddy,
-  "connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com;",
+  "connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com https://www.facebook.com;",
   "Review Content-Security-Policy",
 );
 
@@ -203,6 +208,7 @@ for (const marker of [
 const internalSecrets = read("infra/tencent/review/generate-internal-secrets.sh");
 for (const marker of [
   "oauth-token-encryption-key",
+  "facebook-state-secret",
   "openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n'",
 ]) {
   requireText(internalSecrets, marker, "review internal-secret generator");

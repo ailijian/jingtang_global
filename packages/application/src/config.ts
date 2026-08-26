@@ -21,7 +21,7 @@ const optionalEncryptionKey = z.preprocess(
 );
 
 const productionPolicy = {
-  version: "2026-08-25",
+  version: "2026-08-26",
   termsUrl: "https://jingtangai.com/en/terms/",
   privacyUrl: "https://jingtangai.com/en/privacy/",
 } as const;
@@ -105,6 +105,14 @@ const schema = z
     YOUTUBE_OAUTH_CLIENT_ID: optionalSecret,
     YOUTUBE_OAUTH_CLIENT_SECRET: optionalSecret,
     YOUTUBE_OAUTH_STATE_SECRET: optionalStateSecret,
+    FACEBOOK_OAUTH_ENABLED: booleanString,
+    FACEBOOK_APP_ID: optionalSecret,
+    FACEBOOK_APP_SECRET: optionalSecret,
+    FACEBOOK_OAUTH_STATE_SECRET: optionalStateSecret,
+    FACEBOOK_GRAPH_API_VERSION: z
+      .string()
+      .regex(/^v\d+\.\d+$/u)
+      .default("v26.0"),
     YOUTUBE_TEST_FAULT: z
       .enum(["none", "timeout", "quota", "oauth_expired", "processing_failed", "ambiguous_upload"])
       .default("none"),
@@ -203,6 +211,24 @@ const schema = z
             message: "Deployed Tencent resources are frozen to ap-seoul",
           });
         }
+      }
+    }
+    if (value.FACEBOOK_OAUTH_ENABLED) {
+      for (const key of ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"] as const) {
+        if (!value[key]) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Required when Facebook OAuth is enabled",
+          });
+        }
+      }
+      if (value.RUNTIME_SECRET_BUNDLE_ROLE === "platform" && !value.FACEBOOK_OAUTH_STATE_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["FACEBOOK_OAUTH_STATE_SECRET"],
+          message: "Required for the Facebook OAuth web flow",
+        });
       }
     }
     if (
@@ -517,5 +543,9 @@ export function usesSecureCookies(environment: AppConfig["APP_ENV"]): boolean {
 }
 
 export function allowsYouTubeTestOAuth(environment: AppConfig["APP_ENV"]): boolean {
+  return environment === "local" || environment === "test" || environment === "review";
+}
+
+export function allowsFacebookReviewOAuth(environment: AppConfig["APP_ENV"]): boolean {
   return environment === "local" || environment === "test" || environment === "review";
 }

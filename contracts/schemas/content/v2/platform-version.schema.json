@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:content:platform-version:v2",
+  "title": "PlatformVersion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "platform_version_id",
+    "workspace_id",
+    "revision_id",
+    "platform",
+    "account_reference",
+    "account_display_name",
+    "title",
+    "description",
+    "privacy_status",
+    "made_for_kids",
+    "validation_status",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "platform_version_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "revision_id": { "type": "string", "format": "uuid" },
+    "platform": { "type": "string", "enum": ["youtube", "facebook"] },
+    "account_reference": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "account_display_name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "description": { "type": "string", "maxLength": 5000 },
+    "privacy_status": { "type": "string", "enum": ["private", "unlisted", "public"] },
+    "made_for_kids": { "type": "boolean" },
+    "validation_status": { "type": "string", "enum": ["valid", "invalid"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "platform": { "const": "facebook" } }, "required": ["platform"] },
+      "then": {
+        "properties": {
+          "privacy_status": { "const": "public" },
+          "made_for_kids": { "const": false }
+        }
+      }
+    }
+  ]
+}

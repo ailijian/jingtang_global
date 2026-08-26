@@ -8,6 +8,7 @@ import {
   LifecycleStepState,
   MembershipStatus,
   OutboxState,
+  Platform,
   PlatformExecutionState,
   WorkspaceLifecycleState,
   type Prisma,
@@ -241,9 +242,10 @@ function pseudonymizeAuthorizedDataSnapshot(
   return value as Prisma.InputJsonValue;
 }
 
-export async function pseudonymizeYouTubeAuthorizedData(
+export async function pseudonymizePlatformAuthorizedData(
   transaction: Prisma.TransactionClient,
   input: {
+    readonly platform: "youtube" | "facebook";
     readonly workspaceId: string;
     readonly channelId: string;
     readonly accountReference: string;
@@ -254,7 +256,7 @@ export async function pseudonymizeYouTubeAuthorizedData(
   const versions = await transaction.platformVersion.findMany({
     where: {
       workspaceId: input.workspaceId,
-      platform: "YOUTUBE",
+      platform: input.platform === "youtube" ? Platform.YOUTUBE : Platform.FACEBOOK,
       accountReference: input.accountReference,
     },
     select: { id: true },
@@ -271,9 +273,10 @@ export async function pseudonymizeYouTubeAuthorizedData(
       where: { workspaceId: input.workspaceId, platformVersionId: { in: versionIds } },
       data: { providerId: null, providerUrl: null },
     });
-    await transaction.$executeRaw`SELECT pseudonymize_youtube_platform_versions(
+    await transaction.$executeRaw`SELECT pseudonymize_platform_versions(
       ${input.workspaceId}::uuid,
       ${input.channelId}::uuid,
+      ${input.platform}::platform,
       ${input.accountReference}::text,
       ${input.replacementAccountReference}::text,
       ${input.replacementDisplayName}::text
@@ -310,6 +313,13 @@ export async function pseudonymizeYouTubeAuthorizedData(
   ];
 }
 
+export async function pseudonymizeYouTubeAuthorizedData(
+  transaction: Prisma.TransactionClient,
+  input: Omit<Parameters<typeof pseudonymizePlatformAuthorizedData>[1], "platform">,
+): Promise<readonly string[]> {
+  return pseudonymizePlatformAuthorizedData(transaction, { ...input, platform: "youtube" });
+}
+
 async function terminalizeDisconnectedYouTubeExecutions(
   transaction: Prisma.TransactionClient,
   input: {
@@ -318,12 +328,13 @@ async function terminalizeDisconnectedYouTubeExecutions(
     readonly actorUserId?: string;
     readonly correlationId: string;
     readonly now: Date;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   const versions = await transaction.platformVersion.findMany({
     where: {
       workspaceId: input.workspaceId,
-      platform: "YOUTUBE",
+      platform: (input.platform ?? "youtube") === "youtube" ? Platform.YOUTUBE : Platform.FACEBOOK,
       accountReference: input.accountReference,
     },
     select: { id: true },
@@ -387,6 +398,7 @@ async function terminalizeDisconnectedYouTubeExecutions(
       result: processing ? "failed" : "success",
       correlationId: input.correlationId,
       metadata: {
+        platform: input.platform ?? "youtube",
         reason: processing ? "channel_disconnected_during_processing" : "channel_disconnected",
       },
     });
@@ -411,14 +423,23 @@ export async function prepareYouTubeDisconnect(
     readonly correlationId: string;
     readonly now?: Date;
     readonly deadlineAt?: Date;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<DisconnectPreparation> {
   return withTenant(client, input.workspaceId, async (transaction) => {
     await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.channelId}, 6))`;
     const channel = await transaction.channel.findFirst({
-      where: { id: input.channelId, workspaceId: input.workspaceId, platform: "youtube" },
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform } : {}),
+      },
     });
     if (!channel) throw new Error("channel_not_found");
+    if (channel.platform !== "youtube" && channel.platform !== "facebook") {
+      throw new Error("unsupported_channel_platform");
+    }
+    const platform = channel.platform;
     if (channel.state === ChannelState.DISCONNECTED) {
       return {
         channelId: channel.id,
@@ -501,7 +522,7 @@ export async function prepareYouTubeDisconnect(
       const versions = await transaction.platformVersion.findMany({
         where: {
           workspaceId: input.workspaceId,
-          platform: "YOUTUBE",
+          platform: platform === "youtube" ? Platform.YOUTUBE : Platform.FACEBOOK,
           accountReference: channel.externalAccountId ?? "__none__",
         },
         select: { id: true },
@@ -559,7 +580,7 @@ export async function prepareYouTubeDisconnect(
         targetId: channel.id,
         result: "success",
         correlationId: input.correlationId,
-        metadata: { platform: "youtube" },
+        metadata: { platform },
       });
     }
     const revocationDeferred = await channelLeaseIsActive(transaction, channel.id, input.now);
@@ -584,6 +605,7 @@ export async function failYouTubeDisconnect(
     readonly failureCategory: string;
     readonly now?: Date;
     readonly lifecycleClaim: LifecycleClaimGuard;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<boolean> {
   return withTenant(client, input.workspaceId, async (transaction) => {
@@ -613,7 +635,7 @@ export async function failYouTubeDisconnect(
       targetId: input.channelId,
       result: "failed",
       correlationId: input.correlationId,
-      metadata: { platform: "youtube", failure_category: input.failureCategory },
+      metadata: { platform: input.platform ?? "youtube", failure_category: input.failureCategory },
     });
     return true;
   });
@@ -631,6 +653,7 @@ export async function completeYouTubeDisconnect(
     readonly revocationOutcome?:
       "provider_revoked" | "provider_revoke_failed_local_erased" | "local_cleanup_deadline";
     readonly lifecycleClaim: LifecycleClaimGuard;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<boolean> {
   return withTenant(client, input.workspaceId, async (transaction) => {
@@ -641,10 +664,18 @@ export async function completeYouTubeDisconnect(
     });
     await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.channelId}, 6))`;
     let channel = await transaction.channel.findFirst({
-      where: { id: input.channelId, workspaceId: input.workspaceId, platform: "youtube" },
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform } : {}),
+      },
       include: { consent: { select: { userId: true } } },
     });
     if (!channel || channel.state === ChannelState.DISCONNECTED) return true;
+    if (channel.platform !== "youtube" && channel.platform !== "facebook") {
+      throw new Error("unsupported_channel_platform");
+    }
+    const platform = channel.platform;
     if (channel.state !== ChannelState.DISCONNECTING) throw new Error("channel_not_disconnecting");
     const now = (await readLifecycleClock(transaction, input.now)).now;
     const operationDeadline =
@@ -672,13 +703,16 @@ export async function completeYouTubeDisconnect(
           ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
           correlationId: input.correlationId,
           now,
+          platform,
         });
-        authorizedAuditTargetIds = await pseudonymizeYouTubeAuthorizedData(transaction, {
+        authorizedAuditTargetIds = await pseudonymizePlatformAuthorizedData(transaction, {
+          platform,
           workspaceId: input.workspaceId,
           channelId: channel.id,
           accountReference,
           replacementAccountReference: `disconnected:${channel.id}`,
-          replacementDisplayName: "Disconnected YouTube channel",
+          replacementDisplayName:
+            platform === "youtube" ? "Disconnected YouTube channel" : "Disconnected Facebook Page",
         });
       }
       await transaction.$executeRaw`SELECT pseudonymize_channel_audit(
@@ -700,6 +734,7 @@ export async function completeYouTubeDisconnect(
         data: {
           externalAccountId: null,
           displayName: null,
+          authorizationSubjectReference: null,
           grantedScopes: [],
           tokenCiphertextReference: null,
           tokenEnvelopeCiphertext: null,
@@ -735,6 +770,7 @@ export async function completeYouTubeDisconnect(
         state: ChannelState.DISCONNECTED,
         externalAccountId: null,
         displayName: null,
+        authorizationSubjectReference: null,
         grantedScopes: [],
         consentRecordId: null,
         tokenCiphertextReference: null,
@@ -759,7 +795,7 @@ export async function completeYouTubeDisconnect(
       result: "success",
       correlationId: input.correlationId,
       metadata: {
-        platform: "youtube",
+        platform,
         authorized_data_deleted: true,
         revocation_outcome: revocationOutcome,
       },
@@ -773,6 +809,7 @@ export async function completeYouTubeDisconnect(
       result: "success",
       correlationId: input.correlationId,
       metadata: {
+        platform,
         reason: "user_revocation",
         within_days: 7,
         revocation_outcome: revocationOutcome,
@@ -789,6 +826,7 @@ export interface ExpiredYouTubeAuthorization {
   readonly tokenCiphertextReference: string | null;
   readonly externalAccountId: string;
   readonly channelOperationGeneration: bigint;
+  readonly platform: "youtube" | "facebook";
 }
 
 export async function readExpiredYouTubeAuthorization(
@@ -815,6 +853,7 @@ export async function readExpiredYouTubeAuthorization(
         token_ciphertext_reference: string | null;
         external_account_id: string | null;
         operation_generation: bigint;
+        platform: string;
       }[]
     >`
       UPDATE channels
@@ -824,7 +863,6 @@ export async function readExpiredYouTubeAuthorization(
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ${input.channelId}::uuid
         AND workspace_id = ${input.workspaceId}::uuid
-        AND platform = 'youtube'
         AND state = 'connected'::channel_state
         AND authorized_data_expires_at = ${input.expectedAuthorizedDataExpiresAt}
         AND authorized_data_expires_at <=
@@ -837,7 +875,7 @@ export async function readExpiredYouTubeAuthorization(
           OR operation_lease_id = ${input.lifecycleClaim.operationId}::uuid
         )
       RETURNING token_envelope_ciphertext, token_ciphertext_reference,
-        external_account_id, operation_generation
+        external_account_id, operation_generation, platform
     `;
     const channel = rows[0];
     if (!channel?.token_envelope_ciphertext || !channel.external_account_id) {
@@ -858,7 +896,6 @@ export async function readExpiredYouTubeAuthorization(
         FROM channels
         WHERE id = ${input.channelId}::uuid
           AND workspace_id = ${input.workspaceId}::uuid
-          AND platform = 'youtube'
       `;
       if (status[0]?.cycle_current) {
         throw new Error(
@@ -876,6 +913,12 @@ export async function readExpiredYouTubeAuthorization(
       tokenCiphertextReference: channel.token_ciphertext_reference,
       externalAccountId: channel.external_account_id,
       channelOperationGeneration: channel.operation_generation,
+      platform:
+        channel.platform === "youtube" || channel.platform === "facebook"
+          ? channel.platform
+          : (() => {
+              throw new Error("unsupported_channel_platform");
+            })(),
     };
   });
 }
@@ -915,6 +958,7 @@ export interface PendingYouTubeDisconnect {
   readonly revokeAttemptCount: number;
   readonly disconnectRequestedAt: Date;
   readonly operationsInFlight: boolean;
+  readonly platform: "youtube" | "facebook";
 }
 
 export async function readYouTubeDisconnectMaterial(
@@ -935,7 +979,6 @@ export async function readYouTubeDisconnectMaterial(
       where: {
         id: input.channelId,
         workspaceId: input.workspaceId,
-        platform: "youtube",
       },
       select: {
         id: true,
@@ -944,9 +987,13 @@ export async function readYouTubeDisconnectMaterial(
         tokenCiphertextReference: true,
         revokeAttemptCount: true,
         disconnectRequestedAt: true,
+        platform: true,
       },
     });
     if (!channel?.disconnectRequestedAt) throw new Error("channel_disconnect_not_pending");
+    if (channel.platform !== "youtube" && channel.platform !== "facebook") {
+      throw new Error("unsupported_channel_platform");
+    }
     const activeOperations = await transaction.$queryRaw<{ present: boolean }[]>`
       SELECT EXISTS (
         SELECT 1
@@ -965,6 +1012,7 @@ export async function readYouTubeDisconnectMaterial(
       revokeAttemptCount: channel.revokeAttemptCount,
       disconnectRequestedAt: channel.disconnectRequestedAt,
       operationsInFlight: activeOperations[0]?.present ?? false,
+      platform: channel.platform,
     };
   });
 }
@@ -984,6 +1032,7 @@ export async function refreshYouTubeAuthorizedData(
     readonly now?: Date;
     readonly correlationId: string;
     readonly lifecycleClaim: LifecycleClaimGuard;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1058,7 +1107,7 @@ export async function refreshYouTubeAuthorizedData(
       targetId: input.channelId,
       result: "success",
       correlationId: input.correlationId,
-      metadata: { platform: "youtube", next_refresh_within_days: 30 },
+      metadata: { platform: input.platform ?? "youtube", next_refresh_within_days: 30 },
     });
   });
 }
@@ -1069,6 +1118,7 @@ export interface WorkspaceDeletionMaterial {
   readonly objectKeys: readonly string[];
   readonly channels: readonly {
     readonly id: string;
+    readonly platform: "youtube" | "facebook";
     readonly tokenEnvelopeCiphertext: string | null;
     readonly tokenCiphertextReference: string | null;
   }[];
@@ -1111,6 +1161,7 @@ export async function readWorkspaceDataDeletionMaterial(
             channels: {
               select: {
                 id: true,
+                platform: true,
                 tokenEnvelopeCiphertext: true,
                 tokenCiphertextReference: true,
                 operationLeaseId: true,
@@ -1145,6 +1196,12 @@ export async function readWorkspaceDataDeletionMaterial(
           : request.workspace.sourceAssets.map((entry) => entry.objectKey),
       channels: request.workspace.channels.map((channel) => ({
         id: channel.id,
+        platform:
+          channel.platform === "youtube" || channel.platform === "facebook"
+            ? channel.platform
+            : (() => {
+                throw new Error("unsupported_channel_platform");
+              })(),
         tokenEnvelopeCiphertext: channel.tokenEnvelopeCiphertext,
         tokenCiphertextReference: channel.tokenCiphertextReference,
       })),
@@ -1218,6 +1275,7 @@ export async function beginWorkspaceDataDeletion(
         where: { workspaceId: input.workspaceId },
         select: {
           id: true,
+          platform: true,
           tokenEnvelopeCiphertext: true,
           tokenCiphertextReference: true,
           operationLeaseId: true,
@@ -1283,6 +1341,7 @@ export async function beginWorkspaceDataDeletion(
                 "content",
                 "source_assets",
                 "youtube_authorized_data",
+                "facebook_authorized_data",
                 "oauth_tokens",
               ],
             },
@@ -1362,7 +1421,17 @@ export async function beginWorkspaceDataDeletion(
       requestId: request.id,
       requestReference: request.requestReference,
       objectKeys,
-      channels,
+      channels: channels.map((channel) => ({
+        id: channel.id,
+        platform:
+          channel.platform === "youtube" || channel.platform === "facebook"
+            ? channel.platform
+            : (() => {
+                throw new Error("unsupported_channel_platform");
+              })(),
+        tokenEnvelopeCiphertext: channel.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: channel.tokenCiphertextReference,
+      })),
       operationsInFlight,
     };
   });
@@ -1715,10 +1784,16 @@ export async function recordExpiredAuthorizedDataDeletion(
       where: {
         id: input.channelId,
         workspaceId: input.workspaceId,
-        platform: "youtube",
       },
-      select: { consent: { select: { userId: true } } },
+      select: { platform: true, consent: { select: { userId: true } } },
     });
+    if (
+      !retentionScope ||
+      (retentionScope.platform !== "youtube" && retentionScope.platform !== "facebook")
+    ) {
+      throw new Error("unsupported_channel_platform");
+    }
+    const platform = retentionScope.platform;
     const retentionDeadline = (
       await transaction.lifecycleOperation.findUniqueOrThrow({
         where: { id: input.lifecycleClaim.operationId },
@@ -1741,7 +1816,6 @@ export async function recordExpiredAuthorizedDataDeletion(
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ${input.channelId}::uuid
         AND workspace_id = ${input.workspaceId}::uuid
-        AND platform = 'youtube'
         AND state = 'connected'::channel_state
         AND token_ciphertext_reference IS NOT DISTINCT FROM ${input.expectedTokenCiphertextReference}
         AND operation_lease_id = ${input.lifecycleClaim.operationId}::uuid
@@ -1755,12 +1829,16 @@ export async function recordExpiredAuthorizedDataDeletion(
     const now = channel.denied_at;
     let authorizedAuditTargetIds: readonly string[] = [input.channelId];
     if (channel.external_account_id) {
-      authorizedAuditTargetIds = await pseudonymizeYouTubeAuthorizedData(transaction, {
+      authorizedAuditTargetIds = await pseudonymizePlatformAuthorizedData(transaction, {
+        platform,
         workspaceId: input.workspaceId,
         channelId: input.channelId,
         accountReference: channel.external_account_id,
         replacementAccountReference: `expired:${input.channelId}`,
-        replacementDisplayName: "Expired YouTube authorization",
+        replacementDisplayName:
+          platform === "youtube"
+            ? "Expired YouTube authorization"
+            : "Expired Facebook Page authorization",
       });
     }
     await transaction.$executeRaw`SELECT pseudonymize_channel_audit(
@@ -1782,6 +1860,7 @@ export async function recordExpiredAuthorizedDataDeletion(
       data: {
         externalAccountId: null,
         displayName: null,
+        authorizationSubjectReference: null,
         grantedScopes: [],
         tokenEnvelopeCiphertext: null,
         tokenCiphertextReference: null,

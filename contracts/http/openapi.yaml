@@ -117,6 +117,62 @@ paths:
         "200": { description: Membership removed without removing the last Owner/Admin. }
         "403": { $ref: "#/components/responses/PermissionDenied" }
         "409": { description: The change would remove the last Owner/Admin. }
+  /channels/facebook/oauth:
+    post:
+      operationId: beginFacebookPageConnection
+      description: Records explicit data-purpose consent, creates a tenant-bound connecting channel, and redirects to Meta OAuth for exactly pages_show_list, pages_read_engagement, and pages_manage_posts.
+      responses:
+        "303": { description: Redirect to Meta OAuth. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "503": { description: Facebook connection is not enabled in this environment. }
+  /channels/facebook/oauth/callback:
+    get:
+      operationId: completeFacebookOAuthCallback
+      description: Validates the sealed session-bound state, exchanges the code, and stores only a ten-minute encrypted Page-selection candidate.
+      responses:
+        "303": { description: Redirect to Page selection or a safe connection result. }
+  /channels/facebook/select:
+    post:
+      operationId: selectFacebookPage
+      description: Persists authorization for exactly one selected Page and destroys the temporary candidate key.
+      responses:
+        "303": { description: Redirect to the Channels result. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409": { description: Page selection expired or was superseded. }
+  /channels/facebook/disconnect:
+    post:
+      operationId: disconnectFacebookPage
+      description: Blocks new work and durably schedules Meta revocation plus local OAuth and Authorized Data deletion.
+      responses:
+        "303": { description: Redirect to the asynchronous disconnect result. }
+  /channels/facebook/deauthorize:
+    post:
+      operationId: receiveFacebookDeauthorization
+      security: []
+      description: Verifies Meta's signed_request and durably schedules local authorization deletion.
+      responses:
+        "200": { description: Deauthorization accepted. }
+        "403": { description: signed_request verification failed. }
+  /channels/facebook/data-deletion:
+    post:
+      operationId: receiveFacebookDataDeletionRequest
+      security: []
+      description: Verifies Meta's signed_request, starts authorized-data deletion, and returns an opaque confirmation code and status URL.
+      responses:
+        "200": { description: Data deletion request accepted. }
+        "403": { description: signed_request verification failed. }
+  /channels/facebook/data-deletion/status:
+    get:
+      operationId: readFacebookDataDeletionStatus
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema: { type: string, pattern: "^META-[A-F0-9]{24}$" }
+      responses:
+        "200": { description: Opaque deletion status. }
+        "404": { description: Confirmation code is absent. }
   /content/assets:
     post:
       operationId: uploadSourceAsset
@@ -229,7 +285,7 @@ paths:
                 confirmed: { type: boolean, const: true }
       responses:
         "202":
-          description: Exact approved private YouTube upload accepted for asynchronous execution.
+          description: Exact approved private YouTube upload or native Facebook Page MP4 publication accepted for asynchronous execution.
           content:
             application/json:
               schema:
@@ -239,7 +295,10 @@ paths:
                 properties:
                   intent_id: { type: string, format: uuid }
                   execution_id: { type: string, format: uuid }
-        "400": { description: Confirmation or the Test private-visibility restriction is invalid. }
+        "400":
+          {
+            description: Confirmation or the selected platform's controlled publication constraints are invalid.,
+          }
         "403": { $ref: "#/components/responses/PermissionDenied" }
         "404":
           { description: Content or connected target channel is absent from the active Workspace. }

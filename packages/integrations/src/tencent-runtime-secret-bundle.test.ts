@@ -47,6 +47,8 @@ describe("Tencent runtime secret bundles", () => {
       payload: {
         DATABASE_URL: "postgresql://app:secret@database.invalid/jingtang",
         SESSION_COOKIE_SECRET: "a-production-session-secret-over-32-bytes",
+        FACEBOOK_APP_SECRET: "meta-app-secret",
+        FACEBOOK_OAUTH_STATE_SECRET: "facebook-state-secret",
       },
       masterKeyId: "kms-secret-key",
       kms: kms(),
@@ -70,6 +72,8 @@ describe("Tencent runtime secret bundles", () => {
     await loadRuntimeSecretBundle(environment, "platform", { kms: kms(), store });
     expect(environment.DATABASE_URL).toBe("postgresql://app:secret@database.invalid/jingtang");
     expect(environment.SESSION_COOKIE_SECRET).toHaveLength(41);
+    expect(environment.FACEBOOK_APP_SECRET).toBe("meta-app-secret");
+    expect(environment.FACEBOOK_OAUTH_STATE_SECRET).toBe("facebook-state-secret");
     await expect(
       decryptRuntimeSecretBundle({ role: "worker", serialized: store.body, kms: kms() }),
     ).rejects.toThrow("runtime_secret_bundle_scope_mismatch");

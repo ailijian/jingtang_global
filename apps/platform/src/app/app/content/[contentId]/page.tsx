@@ -1,4 +1,4 @@
-import { getContentDetail, listYouTubeChannels } from "@jingtang/db";
+import { getContentDetail, listFacebookChannels, listYouTubeChannels } from "@jingtang/db";
 import { hasPermission, type Locale } from "@jingtang/domain";
 import { formatDateTime, formatNumber, translate } from "@jingtang/i18n";
 import Link from "next/link";
@@ -12,14 +12,23 @@ import { getRuntime } from "../../../../server/runtime";
 
 function platformAccountLabel(
   locale: Locale,
+  platform: "youtube" | "facebook",
   accountDisplayName: string,
   accountReference: string,
 ): string {
   if (accountReference.startsWith("disconnected:")) {
-    return translate(locale, "detail.publish.channelDisconnected");
+    return platform === "facebook"
+      ? locale === "zh-CN"
+        ? "已断开的 Facebook Page"
+        : "Disconnected Facebook Page"
+      : translate(locale, "detail.publish.channelDisconnected");
   }
   if (accountReference.startsWith("expired:")) {
-    return translate(locale, "detail.publish.channelExpired");
+    return platform === "facebook"
+      ? locale === "zh-CN"
+        ? "授权已过期的 Facebook Page"
+        : "Facebook Page authorization expired"
+      : translate(locale, "detail.publish.channelExpired");
   }
   return `${accountDisplayName} · ${accountReference}`;
 }
@@ -40,12 +49,15 @@ export default async function ContentDetailPage({
     version.accountReference.startsWith("expired:");
   const versionChannelLabel = platformAccountLabel(
     locale,
+    version.platform,
     version.accountDisplayName,
     version.accountReference,
   );
-  const currentConnectedChannel = (await listYouTubeChannels(getRuntime().db, workspaceId)).find(
-    (channel) => channel.state === "connected" && channel.externalAccountId,
-  );
+  const currentConnectedChannel = (
+    await (version.platform === "facebook"
+      ? listFacebookChannels(getRuntime().db, workspaceId)
+      : listYouTubeChannels(getRuntime().db, workspaceId))
+  ).find((channel) => channel.state === "connected" && channel.externalAccountId);
   const versionTargetsCurrentChannel =
     currentConnectedChannel?.externalAccountId === version.accountReference;
   const statusLabel = translate(locale, contentStatusMessage[content.status]);
@@ -112,7 +124,12 @@ export default async function ContentDetailPage({
                 <strong>{entry.title}</strong>
                 <small>
                   {translate(locale, "detail.publish.channel")}:{" "}
-                  {platformAccountLabel(locale, entry.accountDisplayName, entry.accountReference)}
+                  {platformAccountLabel(
+                    locale,
+                    entry.platform,
+                    entry.accountDisplayName,
+                    entry.accountReference,
+                  )}
                 </small>
               </div>
               <dl>
@@ -120,15 +137,17 @@ export default async function ContentDetailPage({
                   <dt>{translate(locale, "composer.privacy")}</dt>
                   <dd>{translate(locale, `composer.privacy.${entry.privacyStatus}`)}</dd>
                 </div>
-                <div>
-                  <dt>{translate(locale, "composer.audience")}</dt>
-                  <dd>
-                    {translate(
-                      locale,
-                      entry.madeForKids ? "composer.madeForKids" : "composer.notMadeForKids",
-                    )}
-                  </dd>
-                </div>
+                {entry.platform === "youtube" ? (
+                  <div>
+                    <dt>{translate(locale, "composer.audience")}</dt>
+                    <dd>
+                      {translate(
+                        locale,
+                        entry.madeForKids ? "composer.madeForKids" : "composer.notMadeForKids",
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
               <p>{entry.description || translate(locale, "composer.preview.noDescription")}</p>
             </article>
@@ -190,7 +209,11 @@ export default async function ContentDetailPage({
                           locale,
                           "channel.status.connected",
                         )}`
-                      : translate(locale, "detail.publish.currentChannelNone")}
+                      : version.platform === "facebook"
+                        ? locale === "zh-CN"
+                          ? "没有已连接的 Facebook Page"
+                          : "No connected Facebook Page"
+                        : translate(locale, "detail.publish.currentChannelNone")}
                   </dd>
                 </div>
               </dl>
@@ -205,7 +228,13 @@ export default async function ContentDetailPage({
                   {translate(locale, "detail.publish.openVideo")}
                 </a>
               ) : execution.state === "published" && historicalChannelIdentityCleared ? (
-                <small>{translate(locale, "detail.publish.providerLinkCleared")}</small>
+                <small>
+                  {version.platform === "facebook"
+                    ? locale === "zh-CN"
+                      ? "Facebook 授权数据已删除，因此不再保存外部帖子链接。"
+                      : "The external post link is no longer stored after Facebook Authorized Data deletion."
+                    : translate(locale, "detail.publish.providerLinkCleared")}
+                </small>
               ) : null}
               {execution.state === "needs_attention" ? (
                 <Link href="/app/channels">
@@ -239,7 +268,11 @@ export default async function ContentDetailPage({
               revisionId={content.revision.id}
               canPublish={
                 versionTargetsCurrentChannel &&
-                version.privacyStatus === "private" &&
+                (version.platform === "youtube"
+                  ? version.privacyStatus === "private"
+                  : version.privacyStatus === "public" &&
+                    content.sourceAsset.mediaType === "video/mp4" &&
+                    content.sourceAsset.byteSize <= 500 * 1024 * 1024) &&
                 hasPermission(role, "content.publish")
               }
               hasExecution={content.publishing.executionCount > 0}
@@ -249,6 +282,7 @@ export default async function ContentDetailPage({
               description={version.description}
               channel={versionChannelLabel}
               madeForKids={version.madeForKids}
+              platform={version.platform}
             />
           ) : null}
           <span className="unavailable-pill">{translate(locale, "composer.schedule")}</span>

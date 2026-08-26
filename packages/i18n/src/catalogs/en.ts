@@ -658,7 +658,7 @@ export const en = {
   "site.legal.approvalPending": "This policy revision is awaiting approval before publication.",
   "site.privacy.metaTitle": "Privacy Policy",
   "site.privacy.metaDescription":
-    "How JINGTANG collects, uses, stores, shares, retains, secures, and deletes website, Workspace, content, and YouTube-related data.",
+    "How JINGTANG collects, uses, stores, shares, retains, secures, and deletes website, Workspace, content, and authorized platform data.",
   "site.privacy.eyebrow": "Legal / Privacy",
   "site.privacy.title": "Privacy Policy",
   "site.privacy.lead":
@@ -674,13 +674,13 @@ export const en = {
     "We use data to provide requested identity, Workspace, approval, publishing, tracking, support, security, audit, revocation, and deletion functions; to preserve user choices; and to meet applicable platform and legal obligations. We do not silently repurpose authorized platform data for unrelated advertising or AI training.",
   "site.privacy.processors.title": "4. Processors, region, and transfers",
   "site.privacy.processors.body":
-    "The public website and account-controlled Workspace are hosted on JINGTANG-controlled Tencent Cloud resources in Seoul, South Korea. The website and authenticated service use separated application, database, private object-storage, configuration, and log boundaries. GitHub handles source and synthetic CI data. Google/YouTube handles data only after an explicit authorized platform action. Email providers handle messages sent by users.",
-  "site.privacy.youtube.title": "5. Google and YouTube data",
+    "The public website and account-controlled Workspace are hosted on JINGTANG-controlled Tencent Cloud resources in Seoul, South Korea. The website and authenticated service use separated application, database, private object-storage, configuration, and log boundaries. GitHub handles source and synthetic CI data. Google/YouTube and Meta/Facebook handle data only after an explicit authorized platform action. Email providers handle messages sent by users.",
+  "site.privacy.youtube.title": "5. Google, YouTube, Meta, and Facebook data",
   "site.privacy.youtube.body":
-    "When enabled for an account, JINGTANG uses YouTube API Services through official OAuth only for functions explicitly shown to the user. Use is also governed by the YouTube Terms of Service and Google's Privacy Policy. Users can disconnect in JINGTANG or revoke Google access from Google Security Settings.",
+    "When enabled for an account, JINGTANG uses YouTube API Services or the Meta Graph API through official OAuth only for functions explicitly shown to the user. Facebook access is limited to the Meta user ID and name, eligible Page ID/name/tasks, encrypted user and selected-Page tokens, and the exact video result created after confirmation; JINGTANG does not request Facebook email or read fans, comments, insights, messages, or unrelated Page content. The confirmed MP4, title, and description are sent to Meta for the selected Page, and the published copy remains under that Page's control. Users can disconnect in JINGTANG or revoke access in Google or Facebook settings. Each platform also processes data under its own terms and privacy policy.",
   "site.privacy.retention.title": "6. Retention and deletion",
   "site.privacy.retention.body":
-    "Active Workspace data is kept while needed for the service. Authorized deletion deny-marks access immediately and targets live data deletion within 7 days; encrypted backups expire within 35 days and replay the deletion ledger on restore. Website inquiries are removed after 180 days without an active relationship. Ordinary YouTube Authorized Data is refreshed or deleted within 30 days; applicable revocation or requested deletion data is removed as soon as possible and within 7 days.",
+    "Active Workspace data is kept while needed for the service. Authorized deletion deny-marks access immediately and targets live data deletion within 7 days; encrypted backups expire within 35 days and replay the deletion ledger on restore. Website inquiries are removed after 180 days without an active relationship. Ordinary YouTube Authorized Data and active Facebook authorization linkage are periodically validated or removed; applicable disconnect, deauthorization, or deletion-request data is removed as soon as possible and within 7 days. Minimized deletion and security evidence is kept for up to 365 days.",
   "site.privacy.cookies.title": "7. Cookies and website measurement",
   "site.privacy.cookies.body":
     "The public website does not use advertising trackers or analytics processors. A first-party locale preference may be stored when a visitor explicitly changes language. The Workspace uses secure session technology needed to provide the requested authenticated service.",
@@ -715,9 +715,9 @@ export const en = {
   "site.terms.control.title": "5. Publishing control",
   "site.terms.control.body":
     "Only an authorized user may select accounts, approve content, confirm publishing, schedule where verified, revoke authorization, or request deletion. Approval and publish are separate actions. Platform processing, moderation, quotas, and availability remain controlled by the relevant platform.",
-  "site.terms.youtube.title": "6. YouTube and external services",
+  "site.terms.youtube.title": "6. YouTube, Facebook, and external services",
   "site.terms.youtube.body":
-    "When YouTube functionality is enabled for an account, use of that functionality also means agreeing to the YouTube Terms of Service. Google and YouTube process data under their own terms and privacy policy. Other integrations remain unavailable unless JINGTANG marks them otherwise from verified capability.",
+    "When YouTube or Facebook functionality is enabled for an account, use is also governed by the applicable platform terms and privacy policy. Facebook Page publishing sends only the exact user-confirmed MP4, title, and description to the selected Page; Facebook controls processing, visibility, distribution, moderation, and the published copy. Disconnecting JINGTANG does not remove that copy. Other integrations remain unavailable unless JINGTANG marks them otherwise from verified capability.",
   "site.terms.prohibited.title": "7. Prohibited use",
   "site.terms.prohibited.body":
     "Do not use JINGTANG to violate law, platform rules, intellectual-property or privacy rights; bypass authorization or role boundaries; upload malware; probe another tenant; misrepresent identity; scrape credentials; or publish content you are not authorized to use.",
@@ -742,10 +742,10 @@ export const en = {
     "Account and Workspace deletion are separate in-product requests with explicit confirmation and durable references. Account deletion immediately disables access, removes the user's profile and memberships, and disconnects platform authorizations created by that account; shared Workspaces and their content remain available to eligible remaining members. Workspace deletion removes that Workspace, its memberships, source assets, content, publishing records, and applicable authorization data. Neither action deletes content already held by a third-party platform. For help, send a request from your account email to the support address below without including passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
   "site.deletion.disconnect.title": "Disconnect and revoke platform access",
   "site.deletion.disconnect.body":
-    "In-product disconnect stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Users may also revoke access through Google Security Settings.",
-  "site.deletion.thirdParty.title": "Delete content held by YouTube or another platform",
+    "In-product disconnect stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Users may also revoke access through Google Security Settings or Facebook Settings. Meta deauthorization and signed data-deletion requests enter the same deny-first durable cleanup path and return an opaque status reference where required.",
+  "site.deletion.thirdParty.title": "Delete content held by YouTube, Facebook, or another platform",
   "site.deletion.thirdParty.body":
-    "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube or another platform. Use that platform's own application or an authorized client that explicitly supports third-party content deletion. JINGTANG does not currently claim this capability.",
+    "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube, Facebook, or another platform. Delete a published Facebook Page video in Facebook and use the relevant platform's own controls for other hosted content. JINGTANG does not currently claim third-party content deletion capability.",
   "site.deletion.timeline.title": "Timing and backups",
   "site.deletion.timeline.body":
     "Applicable live user and Authorized Data is removed as soon as possible and within 7 days after an authorized request or in-product revocation. External revocation detected through validity checks is cleaned within the applicable 30-day maximum. Isolated encrypted backups expire within 35 days and replay deletion records before restored data can serve traffic.",

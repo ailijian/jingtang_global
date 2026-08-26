@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import {
   authorizationMaterialFailureRequiresLocalErasure,
   authorizedDataRefreshFailureRequiresDeletion,
+  facebookExecutionFailureDisposition,
   isApplicationError,
   parseAppConfig,
   parseStoredYouTubeAuthorization,
+  parseStoredFacebookAuthorization,
   persistSealedTokenEnvelope,
   runResilientPollingLoop,
   shouldResetYouTubeExecutionForRetry,
@@ -37,6 +39,7 @@ import {
   prepareAccountIdentityDeletion,
   prepareYouTubeDisconnect,
   readExpiredYouTubeAuthorization,
+  readFacebookExecutionWorkItem,
   readWorkspaceDataDeletionMaterial,
   readYouTubeDisconnectMaterial,
   readYouTubeExecutionWorkItem,
@@ -66,6 +69,7 @@ import {
   createTokenEnvelopeVault,
   DeterministicYouTubeTestAdapter,
   GoogleYouTubeOAuthProvider,
+  MetaFacebookOAuthProvider,
   loadRuntimeSecretBundle,
   loadRuntimeSecretFiles,
   MockIdentityProvider,
@@ -96,6 +100,13 @@ const provider =
   config.YOUTUBE_TEST_FAULT === "none"
     ? googleProvider
     : new DeterministicYouTubeTestAdapter(googleProvider, config.YOUTUBE_TEST_FAULT);
+const facebookProvider = config.FACEBOOK_OAUTH_ENABLED
+  ? new MetaFacebookOAuthProvider({
+      appId: config.FACEBOOK_APP_ID ?? "",
+      appSecret: config.FACEBOOK_APP_SECRET ?? "",
+      graphApiVersion: config.FACEBOOK_GRAPH_API_VERSION,
+    })
+  : undefined;
 const vault = createTokenEnvelopeVault(config);
 const identity =
   config.IDENTITY_PROVIDER === "ciam"
@@ -182,7 +193,51 @@ async function accessToken(
   return authorization.accessToken;
 }
 
+async function facebookAuthorization(
+  work: Awaited<ReturnType<typeof readFacebookExecutionWorkItem>>,
+): Promise<ReturnType<typeof parseStoredFacebookAuthorization>> {
+  if (!facebookProvider) throw new Error("facebook_configuration_required");
+  const stored = parseStoredFacebookAuthorization(
+    await vault.open<unknown>(work.tokenEnvelopeCiphertext, work.tokenCiphertextReference),
+  );
+  const refreshed = await facebookProvider.refreshAuthorization(stored.userAccessToken);
+  const [user, pages] = await Promise.all([
+    facebookProvider.readAuthorizedUser(refreshed.userAccessToken),
+    facebookProvider.readManagedPages(refreshed.userAccessToken),
+  ]);
+  const page = pages.find((entry) => entry.id === stored.pageId);
+  if (user.id !== stored.metaUserId || !page) {
+    throw new Error("authorized_channel_identity_mismatch");
+  }
+  const authorization = {
+    userAccessToken: refreshed.userAccessToken,
+    pageAccessToken: page.accessToken,
+    expiresAt: refreshed.expiresAt.toISOString(),
+    grantedScopes: [...refreshed.grantedScopes],
+    metaUserId: user.id,
+    pageId: page.id,
+  };
+  const envelope = await vault.seal(authorization);
+  try {
+    await updateChannelTokenEnvelope(db, {
+      workspaceId: work.workspaceId,
+      channelId: work.channelId,
+      executionId: work.executionId,
+      leaseGeneration: work.leaseGeneration,
+      tokenEnvelopeCiphertext: envelope.ciphertext,
+      tokenCiphertextReference: envelope.keyReference,
+      expectedTokenCiphertextReference: work.tokenCiphertextReference,
+    });
+  } catch (error) {
+    await vault.destroy(envelope.keyReference);
+    throw error;
+  }
+  return authorization;
+}
+
 async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ack" | "retry"> {
+  const platform =
+    message.topic === "platform.facebook.publish.v1" ? ("facebook" as const) : ("youtube" as const);
   let work: Awaited<ReturnType<typeof readYouTubeExecutionWorkItem>> | undefined;
   let providerReferencePersisted = false;
   let leaseLost = false;
@@ -213,25 +268,48 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
     });
   }, 30_000);
   try {
-    work = await readYouTubeExecutionWorkItem(db, message.workspaceId, message.platformExecutionId);
+    work =
+      platform === "facebook"
+        ? await readFacebookExecutionWorkItem(db, message.workspaceId, message.platformExecutionId)
+        : await readYouTubeExecutionWorkItem(db, message.workspaceId, message.platformExecutionId);
     providerReferencePersisted = Boolean(work.providerId);
-    const token = await accessToken(work);
+    const token =
+      platform === "youtube" ? await accessToken(work) : await facebookAuthorization(work);
     let videoId = work.providerId;
     if (!videoId) {
       const asset = await assets.open(work.objectKey);
       if (asset.contentLength !== undefined && asset.contentLength !== work.byteSize) {
         throw new Error("source_asset_size_mismatch");
       }
-      const uploaded = await provider.uploadPrivateVideo({
-        accessToken: token,
-        title: work.title,
-        description: work.description,
-        madeForKids: work.madeForKids,
-        mediaType: work.mediaType,
-        byteSize: work.byteSize,
-        body: asset.body,
-        signal: abortController.signal,
-      });
+      const uploaded =
+        platform === "facebook"
+          ? await (() => {
+              if (!facebookProvider) throw new Error("facebook_configuration_required");
+              if (work.mediaType !== "video/mp4") throw new Error("facebook_mp4_required");
+              if (typeof token === "string") throw new Error("token_envelope_invalid");
+              return facebookProvider.uploadPageVideo({
+                userAccessToken: token.userAccessToken,
+                pageAccessToken: token.pageAccessToken,
+                pageId: token.pageId,
+                title: work.title,
+                description: work.description,
+                mediaType: "video/mp4",
+                byteSize: work.byteSize,
+                sha256: work.sha256,
+                body: asset.body,
+                signal: abortController.signal,
+              });
+            })()
+          : await provider.uploadPrivateVideo({
+              accessToken: token as string,
+              title: work.title,
+              description: work.description,
+              madeForKids: work.madeForKids,
+              mediaType: work.mediaType,
+              byteSize: work.byteSize,
+              body: asset.body,
+              signal: abortController.signal,
+            });
       videoId = uploaded.videoId;
       await recordYouTubeUploadAccepted(db, {
         workspaceId: message.workspaceId,
@@ -240,10 +318,23 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
         leaseGeneration: work.leaseGeneration,
         providerId: uploaded.videoId,
         providerUrl: uploaded.videoUrl,
+        platform,
       });
       providerReferencePersisted = true;
     }
-    const status = await provider.readVideoStatus(token, videoId, abortController.signal);
+    if (!videoId) throw new Error("provider_reference_missing");
+    const status =
+      platform === "facebook"
+        ? await (() => {
+            if (!facebookProvider) throw new Error("facebook_configuration_required");
+            if (typeof token === "string") throw new Error("token_envelope_invalid");
+            return facebookProvider.readVideoStatus({
+              pageAccessToken: token.pageAccessToken,
+              videoId,
+              signal: abortController.signal,
+            });
+          })()
+        : await provider.readVideoStatus(token as string, videoId, abortController.signal);
     if (status.state === "published") {
       await recordYouTubeExecutionPublishedAndCompleteOutbox(db, {
         workspaceId: message.workspaceId,
@@ -253,6 +344,7 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
         outboxMessageId: message.id,
         claimOwner: message.claimOwner,
         claimGeneration: message.claimGeneration,
+        platform,
       });
       return "ack";
     }
@@ -269,6 +361,7 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
         outboxMessageId: message.id,
         claimOwner: message.claimOwner,
         claimGeneration: message.claimGeneration,
+        platform,
       });
       return "ack";
     }
@@ -292,7 +385,17 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
       });
       return "retry";
     }
-    const disposition = youtubeExecutionFailureDisposition(category, message.attempt);
+    const disposition =
+      platform === "facebook"
+        ? facebookExecutionFailureDisposition(category, message.attempt)
+        : youtubeExecutionFailureDisposition(category, message.attempt);
+    const requireReauthorization = [
+      "authentication_failed",
+      "permission_denied",
+      "channel_reauthorization_required",
+      "authorized_channel_identity_mismatch",
+      "token_envelope_invalid",
+    ].includes(category);
     if (disposition.terminal) {
       if (work) {
         await recordYouTubeExecutionFailureAndCompleteOutbox(db, {
@@ -302,10 +405,11 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
           leaseGeneration: work.leaseGeneration,
           failureCategory: category,
           needsAttention: disposition.needsAttention,
-          requireReauthorization: disposition.needsAttention,
+          requireReauthorization,
           outboxMessageId: message.id,
           claimOwner: message.claimOwner,
           claimGeneration: message.claimGeneration,
+          platform,
         });
       } else {
         await recordClaimedYouTubeExecutionFailureAndCompleteOutbox(db, {
@@ -316,6 +420,7 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
           claimGeneration: message.claimGeneration,
           failureCategory: category,
           needsAttention: disposition.needsAttention,
+          platform,
         });
       }
       return "ack";
@@ -433,14 +538,18 @@ async function processChannelDisconnect(
     "provider_revoked";
   await lifecycleStep(operation, "provider_revoke", 20, async () => {
     if (!material.tokenEnvelopeCiphertext) return false;
-    let stored: ReturnType<typeof parseStoredYouTubeAuthorization>;
+    let stored:
+      | ReturnType<typeof parseStoredYouTubeAuthorization>
+      | ReturnType<typeof parseStoredFacebookAuthorization>;
     try {
-      stored = parseStoredYouTubeAuthorization(
-        await vault.open<unknown>(
-          material.tokenEnvelopeCiphertext,
-          material.tokenCiphertextReference,
-        ),
+      const opened = await vault.open<unknown>(
+        material.tokenEnvelopeCiphertext,
+        material.tokenCiphertextReference,
       );
+      stored =
+        material.platform === "facebook"
+          ? parseStoredFacebookAuthorization(opened)
+          : parseStoredYouTubeAuthorization(opened);
     } catch (error) {
       const category = failureCategory(error, "token_envelope_invalid");
       const effectiveDeadlineExceeded = await deadlineExceededNow(operation, deadlineExceeded);
@@ -453,7 +562,14 @@ async function processChannelDisconnect(
       return false;
     }
     try {
-      await provider.revokeAuthorization(stored.refreshToken);
+      if (material.platform === "facebook") {
+        if (!facebookProvider) throw new Error("facebook_configuration_required");
+        if (!("userAccessToken" in stored)) throw new Error("token_envelope_invalid");
+        await facebookProvider.revokeAuthorization(stored.userAccessToken);
+      } else {
+        if (!("refreshToken" in stored)) throw new Error("token_envelope_invalid");
+        await provider.revokeAuthorization(stored.refreshToken);
+      }
     } catch (error) {
       if (!(await deadlineExceededNow(operation, deadlineExceeded))) throw error;
       revocationOutcome = "local_cleanup_deadline";
@@ -468,6 +584,7 @@ async function processChannelDisconnect(
       correlationId: operation.correlationId,
       deadlineAt: operation.deadlineAt,
       revocationOutcome,
+      platform: material.platform,
       lifecycleClaim: claimGuard(operation),
     }),
   );
@@ -504,14 +621,18 @@ async function processWorkspaceDeletion(
       let unavailable = 0;
       for (const channel of material.channels) {
         if (!channel.tokenEnvelopeCiphertext) continue;
-        let stored: ReturnType<typeof parseStoredYouTubeAuthorization>;
+        let stored:
+          | ReturnType<typeof parseStoredYouTubeAuthorization>
+          | ReturnType<typeof parseStoredFacebookAuthorization>;
         try {
-          stored = parseStoredYouTubeAuthorization(
-            await vault.open<unknown>(
-              channel.tokenEnvelopeCiphertext,
-              channel.tokenCiphertextReference,
-            ),
+          const opened = await vault.open<unknown>(
+            channel.tokenEnvelopeCiphertext,
+            channel.tokenCiphertextReference,
           );
+          stored =
+            channel.platform === "facebook"
+              ? parseStoredFacebookAuthorization(opened)
+              : parseStoredYouTubeAuthorization(opened);
         } catch (error) {
           const category = failureCategory(error, "token_envelope_invalid");
           effectiveDeadlineExceeded = await deadlineExceededNow(
@@ -529,7 +650,14 @@ async function processWorkspaceDeletion(
           continue;
         }
         try {
-          await provider.revokeAuthorization(stored.refreshToken);
+          if (channel.platform === "facebook") {
+            if (!facebookProvider) throw new Error("facebook_configuration_required");
+            if (!("userAccessToken" in stored)) throw new Error("token_envelope_invalid");
+            await facebookProvider.revokeAuthorization(stored.userAccessToken);
+          } else {
+            if (!("refreshToken" in stored)) throw new Error("token_envelope_invalid");
+            await provider.revokeAuthorization(stored.refreshToken);
+          }
           revoked += 1;
         } catch (error) {
           unavailable += 1;
@@ -622,39 +750,69 @@ async function processAuthorizedDataRetention(
       await deleteExpiredAuthorization("authorized_data_refresh_deadline_exceeded", true);
     } else {
       await lifecycleStep(operation, "refresh_exact_channel", 20, async () => {
-        const stored = parseStoredYouTubeAuthorization(
-          await vault.open<unknown>(
-            material.tokenEnvelopeCiphertext,
-            material.tokenCiphertextReference,
-          ),
+        const opened = await vault.open<unknown>(
+          material.tokenEnvelopeCiphertext,
+          material.tokenCiphertextReference,
         );
-        const refreshed = await provider.refreshAuthorization(stored.refreshToken);
-        const authorizedChannel = await provider.readAuthorizedChannel(refreshed.accessToken);
-        if (authorizedChannel.id !== material.externalAccountId) {
-          throw new Error("authorized_channel_identity_mismatch");
-        }
-        await persistSealedTokenEnvelope(
-          vault,
-          {
-            accessToken: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken ?? stored.refreshToken,
-            expiresAt: refreshed.expiresAt.toISOString(),
-            grantedScopes: [...refreshed.grantedScopes],
-          },
-          async (envelope) =>
-            refreshYouTubeAuthorizedData(db, {
-              workspaceId: operation.workspaceId!,
-              channelId: operation.channelId!,
-              tokenEnvelopeCiphertext: envelope.ciphertext,
-              tokenCiphertextReference: envelope.keyReference,
-              externalAccountId: material.externalAccountId,
-              expectedTokenCiphertextReference: material.tokenCiphertextReference,
-              expectedAuthorizedDataExpiresAt: operation.deadlineAt,
-              channelOperationGeneration: material.channelOperationGeneration,
-              displayName: authorizedChannel.displayName,
-              correlationId: operation.correlationId,
-              lifecycleClaim: claimGuard(operation),
-            }),
+        const refreshedAuthorization =
+          material.platform === "facebook"
+            ? await (async () => {
+                if (!facebookProvider) throw new Error("facebook_configuration_required");
+                const stored = parseStoredFacebookAuthorization(opened);
+                const refreshed = await facebookProvider.refreshAuthorization(
+                  stored.userAccessToken,
+                );
+                const user = await facebookProvider.readAuthorizedUser(refreshed.userAccessToken);
+                if (user.id !== stored.metaUserId) {
+                  throw new Error("authorized_channel_identity_mismatch");
+                }
+                const pages = await facebookProvider.readManagedPages(refreshed.userAccessToken);
+                const page = pages.find((entry) => entry.id === material.externalAccountId);
+                if (!page) throw new Error("authorized_channel_identity_mismatch");
+                return {
+                  envelope: {
+                    userAccessToken: refreshed.userAccessToken,
+                    pageAccessToken: page.accessToken,
+                    expiresAt: refreshed.expiresAt.toISOString(),
+                    grantedScopes: [...refreshed.grantedScopes],
+                    metaUserId: user.id,
+                    pageId: page.id,
+                  },
+                  displayName: page.displayName,
+                };
+              })()
+            : await (async () => {
+                const stored = parseStoredYouTubeAuthorization(opened);
+                const refreshed = await provider.refreshAuthorization(stored.refreshToken);
+                const channel = await provider.readAuthorizedChannel(refreshed.accessToken);
+                if (channel.id !== material.externalAccountId) {
+                  throw new Error("authorized_channel_identity_mismatch");
+                }
+                return {
+                  envelope: {
+                    accessToken: refreshed.accessToken,
+                    refreshToken: refreshed.refreshToken ?? stored.refreshToken,
+                    expiresAt: refreshed.expiresAt.toISOString(),
+                    grantedScopes: [...refreshed.grantedScopes],
+                  },
+                  displayName: channel.displayName,
+                };
+              })();
+        await persistSealedTokenEnvelope(vault, refreshedAuthorization.envelope, async (envelope) =>
+          refreshYouTubeAuthorizedData(db, {
+            workspaceId: operation.workspaceId!,
+            channelId: operation.channelId!,
+            tokenEnvelopeCiphertext: envelope.ciphertext,
+            tokenCiphertextReference: envelope.keyReference,
+            externalAccountId: material.externalAccountId,
+            expectedTokenCiphertextReference: material.tokenCiphertextReference,
+            expectedAuthorizedDataExpiresAt: operation.deadlineAt,
+            channelOperationGeneration: material.channelOperationGeneration,
+            displayName: refreshedAuthorization.displayName,
+            platform: material.platform,
+            correlationId: operation.correlationId,
+            lifecycleClaim: claimGuard(operation),
+          }),
         );
       });
     }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { NextRequest } from "next/server";
 
-import { hasTrustedSameOriginMetadata } from "./http";
+import { hasTrustedSameOriginMetadata, parseFormBody } from "./http";
 
 const expectedOrigin = "https://review.jingtangai.com";
 
@@ -40,4 +41,48 @@ describe("hasTrustedSameOriginMetadata", () => {
       expect(hasTrustedSameOriginMetadata(null, fetchSite, expectedOrigin)).toBe(false);
     },
   );
+});
+
+describe("parseFormBody", () => {
+  it("accepts a bounded form-encoded body", async () => {
+    const request = new NextRequest(`${expectedOrigin}/form`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded; charset=utf-8" },
+      body: "consent=accepted",
+    });
+    await expect(parseFormBody(request)).resolves.toEqual(new URLSearchParams("consent=accepted"));
+  });
+
+  it("rejects unsupported encoding and oversized declared or streamed bodies", async () => {
+    const wrongEncoding = new NextRequest(`${expectedOrigin}/form`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    await expect(parseFormBody(wrongEncoding)).rejects.toMatchObject({
+      code: "invalid_input",
+      status: 400,
+    });
+    const declaredTooLarge = new NextRequest(`${expectedOrigin}/form`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "content-length": "5000",
+      },
+      body: "x=1",
+    });
+    await expect(parseFormBody(declaredTooLarge)).rejects.toMatchObject({
+      code: "payload_too_large",
+      status: 413,
+    });
+    const streamedTooLarge = new NextRequest(`${expectedOrigin}/form`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: `x=${"a".repeat(32)}`,
+    });
+    await expect(parseFormBody(streamedTooLarge, 16)).rejects.toMatchObject({
+      code: "payload_too_large",
+      status: 413,
+    });
+  });
 });

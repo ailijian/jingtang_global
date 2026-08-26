@@ -608,7 +608,7 @@ export const zhCN: Record<keyof typeof en, string> = {
   "site.legal.approvalPending": "本政策修订在发布前仍待批准。",
   "site.privacy.metaTitle": "隐私政策",
   "site.privacy.metaDescription":
-    "JINGTANG 如何收集、使用、保存、共享、保留、保护和删除官网、工作空间、内容与 YouTube 相关数据。",
+    "JINGTANG 如何收集、使用、保存、共享、保留、保护和删除官网、工作空间、内容与获授权平台数据。",
   "site.privacy.eyebrow": "法律 / 隐私",
   "site.privacy.title": "隐私政策",
   "site.privacy.lead":
@@ -624,13 +624,13 @@ export const zhCN: Record<keyof typeof en, string> = {
     "我们使用数据提供用户请求的身份、工作空间、审批、发布、跟踪、支持、安全、审计、撤销与删除功能，保留用户选择，并履行适用的平台和法律义务。我们不会把授权平台数据静默用于无关广告或 AI 训练。",
   "site.privacy.processors.title": "4. 处理方、区域与跨境",
   "site.privacy.processors.body":
-    "公共官网与账号受控的工作空间托管在 JINGTANG 控制的腾讯云韩国首尔资源上。官网与认证服务使用相互隔离的应用、数据库、私有对象存储、配置和日志边界。GitHub 只处理源码和合成 CI 数据。Google/YouTube 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。",
-  "site.privacy.youtube.title": "5. Google 与 YouTube 数据",
+    "公共官网与账号受控的工作空间托管在 JINGTANG 控制的腾讯云韩国首尔资源上。官网与认证服务使用相互隔离的应用、数据库、私有对象存储、配置和日志边界。GitHub 只处理源码和合成 CI 数据。Google/YouTube 与 Meta/Facebook 只在用户明确授权平台操作后处理数据。邮件提供商处理用户发送的消息。",
+  "site.privacy.youtube.title": "5. Google、YouTube、Meta 与 Facebook 数据",
   "site.privacy.youtube.body":
-    "为账号启用 YouTube 后，JINGTANG 通过官方 OAuth 使用 YouTube API Services，并且只执行界面向用户明确说明的功能。相关使用同时受 YouTube 服务条款和 Google 隐私政策约束。用户可以在 JINGTANG 内断开，也可以在 Google 安全设置中撤销访问。",
+    "为账号启用相应功能后，JINGTANG 只通过官方 OAuth 使用 YouTube API Services 或 Meta Graph API，并且只执行界面明确说明的功能。Facebook 访问仅限 Meta 用户 ID/姓名、符合条件的 Page ID/名称/任务、加密用户与所选 Page Token，以及明确确认后创建的视频结果；JINGTANG 不申请 Facebook 邮箱，也不读取粉丝、评论、洞察、消息或无关 Page 内容。确认的 MP4、标题和描述会发送给 Meta 并发布到所选 Page，已发布副本由该 Page 控制。用户可以在 JINGTANG 内断开，也可以在 Google 或 Facebook 设置中撤销访问。各平台还会按自身条款和隐私政策处理数据。",
   "site.privacy.retention.title": "6. 保留与删除",
   "site.privacy.retention.body":
-    "工作空间有效期间保留提供服务所需的数据。获授权删除会立即禁止访问，并在 7 天内删除适用在线数据；加密备份在 35 天内到期，恢复时会重放删除账本。无持续业务关系的网站咨询在 180 天后删除。普通 YouTube Authorized Data 在 30 天内刷新或删除；撤销或请求删除的适用数据会尽快且最迟在 7 天内删除。",
+    "工作空间有效期间保留提供服务所需的数据。获授权删除会立即禁止访问，并在 7 天内删除适用在线数据；加密备份在 35 天内到期，恢复时会重放删除账本。无持续业务关系的网站咨询在 180 天后删除。普通 YouTube Authorized Data 与有效 Facebook 授权关联会定期验证或删除；断开、取消授权或删除请求涉及的数据会尽快且最迟在 7 天内删除。最小化删除与安全证据最多保留 365 天。",
   "site.privacy.cookies.title": "7. Cookie 与网站测量",
   "site.privacy.cookies.body":
     "公共官网不使用广告追踪或 Analytics 处理方。访客明确切换语言时，可能保存第一方语言偏好。工作空间使用提供认证服务所必需的安全会话技术。",
@@ -665,9 +665,9 @@ export const zhCN: Record<keyof typeof en, string> = {
   "site.terms.control.title": "5. 发布控制",
   "site.terms.control.body":
     "只有获授权用户可以选择账号、审批内容、确认发布、在能力已验证时安排定时、撤销授权或请求删除。审批与发布是两个独立操作。平台处理、审核、配额和可用性由对应平台控制。",
-  "site.terms.youtube.title": "6. YouTube 与外部服务",
+  "site.terms.youtube.title": "6. YouTube、Facebook 与外部服务",
   "site.terms.youtube.body":
-    "为账号启用 YouTube 功能后，使用该功能也表示同意 YouTube 服务条款。Google 与 YouTube 按其条款和隐私政策处理数据。其他 Integration 只有在 JINGTANG 根据已验证能力明确标注后才可使用。",
+    "为账号启用 YouTube 或 Facebook 功能后，相关使用还受对应平台条款和隐私政策约束。Facebook Page 发布只会把用户明确确认的 MP4、标题和描述发送到所选 Page；Facebook 控制处理、可见性、分发、审核和已发布副本。断开 JINGTANG 不会删除该副本。其他 Integration 只有在 JINGTANG 根据已验证能力明确标注后才可使用。",
   "site.terms.prohibited.title": "7. 禁止行为",
   "site.terms.prohibited.body":
     "不得利用 JINGTANG 违反法律、平台规则、知识产权或隐私权；绕过授权或角色边界；上传恶意软件；探测其他租户；歪曲身份；抓取凭据；或发布未获授权使用的内容。",
@@ -691,10 +691,10 @@ export const zhCN: Record<keyof typeof en, string> = {
     "账号删除与工作空间删除是两个相互独立的产品内申请，均要求明确确认并提供可追踪编号。账号删除会立即禁止该账号访问，删除用户资料与成员关系，并断开由该账号创建的平台授权；共享工作空间及其内容仍向符合条件的剩余成员保留。工作空间删除会删除该工作空间、成员关系、源素材、内容、发布记录及适用授权数据。两种操作都不会删除第三方平台已经保存的内容。如需帮助，请使用账号邮箱向下方支持地址发送请求，不要发送密码、OAuth Token 或无关内容。JINGTANG 会验证权限、立即禁止受影响访问，并在 7 天内删除适用在线数据。",
   "site.deletion.disconnect.title": "断开并撤销平台访问",
   "site.deletion.disconnect.body":
-    "产品内断开会停止新的 API 操作、尝试立即程序化吊销 Token、清除已保存 Token，并清理适用 Authorized Data。用户也可以通过 Google 安全设置撤销访问。",
-  "site.deletion.thirdParty.title": "删除 YouTube 或其他平台保存的内容",
+    "产品内断开会停止新的 API 操作、尝试立即程序化吊销 Token、清除已保存 Token，并清理适用 Authorized Data。用户也可以通过 Google 安全设置或 Facebook 设置撤销访问。Meta 取消授权和已签名数据删除请求会进入同一先禁止、后持久清理流程，并在平台要求时返回不透明状态编号。",
+  "site.deletion.thirdParty.title": "删除 YouTube、Facebook 或其他平台保存的内容",
   "site.deletion.thirdParty.body":
-    "删除 JINGTANG 数据或断开授权不会删除 YouTube 或其他平台保存的内容。请使用对应平台自身应用或明确支持第三方内容删除的授权客户端。JINGTANG 当前不宣称具备该能力。",
+    "删除 JINGTANG 数据或断开授权不会删除 YouTube、Facebook 或其他平台保存的内容。已发布 Facebook Page 视频应在 Facebook 内删除；其他平台托管内容请使用相应平台自身控制。JINGTANG 当前不宣称具备第三方内容删除能力。",
   "site.deletion.timeline.title": "时间与备份",
   "site.deletion.timeline.body":
     "获授权请求或产品内撤销后，适用在线用户数据与 Authorized Data 会尽快且最迟在 7 天内删除。通过有效性检查发现的外部撤销，会在适用的 30 天上限内清理。隔离加密备份在 35 天内到期，恢复数据对外服务前会重放删除记录。",

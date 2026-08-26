@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   LifecycleOperationKind,
   LifecycleOperationState,
@@ -96,6 +98,34 @@ export async function enqueueDueLifecycleOperations(workerClient: PrismaClient):
     SELECT enqueue_due_lifecycle_operations() AS count
   `;
   return rows[0]?.count ?? 0;
+}
+
+export async function requestFacebookAuthorizedDataDeletion(
+  client: PrismaClient,
+  subjectReference: string,
+): Promise<{ readonly confirmationCode: string; readonly state: "pending" | "completed" }> {
+  const subjectHash = createHash("sha256")
+    .update(`facebook:${subjectReference}`, "utf8")
+    .digest("hex");
+  const rows = await client.$queryRaw<
+    { confirmation_code: string; deletion_state: string }[]
+  >`SELECT * FROM request_facebook_authorized_data_deletion(${subjectReference}, ${subjectHash})`;
+  const row = rows[0];
+  if (!row || (row.deletion_state !== "pending" && row.deletion_state !== "completed")) {
+    throw new Error("provider_deletion_request_failed");
+  }
+  return { confirmationCode: row.confirmation_code, state: row.deletion_state };
+}
+
+export async function readProviderDataDeletionStatus(
+  client: PrismaClient,
+  confirmationCode: string,
+): Promise<"pending" | "completed" | null> {
+  const rows = await client.$queryRaw<{ state: string | null }[]>`
+    SELECT read_provider_data_deletion_status(${confirmationCode}) AS state
+  `;
+  const state = rows[0]?.state;
+  return state === "pending" || state === "completed" ? state : null;
 }
 
 export async function purgeExpiredLifecycleRecords(

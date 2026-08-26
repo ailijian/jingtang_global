@@ -67,9 +67,9 @@ for (const role of ["PLATFORM", "DISPATCHER", "WORKER"] as const) {
 }
 requireText(composeText, "RUNTIME_SECRET_BUNDLE_REGION: ap-seoul", "compose.yaml");
 for (const marker of [
-  'TERMS_VERSION: "2026-08-25"',
-  'PRIVACY_VERSION: "2026-08-25"',
-  'DATA_PURPOSE_VERSION: "2026-08-25"',
+  'TERMS_VERSION: "2026-08-26"',
+  'PRIVACY_VERSION: "2026-08-26"',
+  'DATA_PURPOSE_VERSION: "2026-08-26"',
 ] as const) {
   requireText(composeText, marker, "compose.yaml");
 }
@@ -105,7 +105,7 @@ requireText(
 
 const runtimeExample = read("infra/tencent/saas/runtime.env.example");
 if (
-  /^(?:DATABASE_(?:ADMIN_)?URL|DATABASE_WORKER_URL|CIAM_CLIENT_SECRET|SESSION_COOKIE_SECRET|TDMQ_AMQP_URL|YOUTUBE_OAUTH_CLIENT_SECRET|YOUTUBE_OAUTH_STATE_SECRET|TENCENT_CLOUD_SECRET_(?:ID|KEY))=/mu.test(
+  /^(?:DATABASE_(?:ADMIN_)?URL|DATABASE_WORKER_URL|CIAM_CLIENT_SECRET|SESSION_COOKIE_SECRET|TDMQ_AMQP_URL|YOUTUBE_OAUTH_CLIENT_SECRET|YOUTUBE_OAUTH_STATE_SECRET|FACEBOOK_APP_SECRET|FACEBOOK_OAUTH_STATE_SECRET|TENCENT_CLOUD_SECRET_(?:ID|KEY))=/mu.test(
     runtimeExample,
   )
 ) {

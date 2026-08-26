@@ -1,10 +1,11 @@
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 
-import type { AuditAction, AuditResult, Locale, Role } from "@jingtang/domain";
+import type { AuditAction, AuditResult, Locale, Platform, Role } from "@jingtang/domain";
 
 import {
   ChannelState,
   InvitationStatus,
+  LifecycleOperationKind,
   Locale as DbLocale,
   MembershipStatus,
   type PrismaClient,
@@ -84,6 +85,37 @@ async function lockChannelConnectionInvariant(
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${workspaceId}:${platform}:connection`}, 0))`;
 }
 
+async function enqueueFacebookCandidateKeyRetirement(
+  transaction: Transaction,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly keyReference: string;
+  },
+): Promise<void> {
+  const now = new Date();
+  await transaction.lifecycleOperation.createMany({
+    data: [
+      {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        workspaceId: input.workspaceId,
+        channelId: input.channelId,
+        dedupeKey: `token_key_retirement:${createHash("sha256")
+          .update(input.keyReference)
+          .digest("hex")}`,
+        requestReference: `KEY-${randomBytes(14).toString("hex").toUpperCase()}`,
+        correlationId: randomUUID(),
+        requestedAt: now,
+        deadlineAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        nextAttemptAt: now,
+        retentionExpiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
+        outcome: { key_reference: input.keyReference },
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
 async function countEligibleOwners(tx: Transaction, workspaceId: string): Promise<number> {
   return tx.membership.count({
     where: {
@@ -139,7 +171,8 @@ export async function recordConsent(
     readonly privacyVersion: string;
     readonly dataPurposeVersion: string;
     readonly displayedLocale: Locale;
-    readonly acceptanceMethod?: "registration_checkbox" | "youtube_connection_checkbox";
+    readonly acceptanceMethod?:
+      "registration_checkbox" | "youtube_connection_checkbox" | "facebook_connection_checkbox";
   },
 ): Promise<{ readonly id: string }> {
   return client.consentRecord.create({
@@ -158,7 +191,7 @@ export async function recordConsent(
 export interface ChannelView {
   readonly id: string;
   readonly workspaceId: string;
-  readonly platform: "youtube";
+  readonly platform: Platform;
   readonly externalAccountId: string | null;
   readonly displayName: string | null;
   readonly state:
@@ -187,10 +220,12 @@ const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> =
 };
 
 export const YOUTUBE_OAUTH_FLOW_TTL_MS = 10 * 60_000;
+export const FACEBOOK_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 
 function channelView(channel: {
   readonly id: string;
   readonly workspaceId: string;
+  readonly platform: string;
   readonly externalAccountId: string | null;
   readonly displayName: string | null;
   readonly state: ChannelState;
@@ -202,10 +237,13 @@ function channelView(channel: {
   readonly disconnectedAt: Date | null;
   readonly revokeFailureCategory: string | null;
 }): ChannelView {
+  if (channel.platform !== "youtube" && channel.platform !== "facebook") {
+    throw new Error("unsupported_channel_platform");
+  }
   return {
     id: channel.id,
     workspaceId: channel.workspaceId,
-    platform: "youtube",
+    platform: channel.platform,
     externalAccountId: channel.externalAccountId,
     displayName: channel.displayName,
     state: channelStateFromDb[channel.state],
@@ -219,33 +257,50 @@ function channelView(channel: {
   };
 }
 
-export async function listYouTubeChannels(
+async function listPlatformChannels(
   client: PrismaClient,
   workspaceId: string,
+  platform: Platform,
 ): Promise<readonly ChannelView[]> {
   return withTenant(client, workspaceId, async (transaction) => {
     const channels = await transaction.channel.findMany({
-      where: { workspaceId, platform: "youtube" },
+      where: { workspaceId, platform },
       orderBy: { updatedAt: "desc" },
     });
     return channels.map(channelView);
   });
 }
 
-export async function beginYouTubeConnection(
+export async function listYouTubeChannels(
+  client: PrismaClient,
+  workspaceId: string,
+): Promise<readonly ChannelView[]> {
+  return listPlatformChannels(client, workspaceId, "youtube");
+}
+
+export async function listFacebookChannels(
+  client: PrismaClient,
+  workspaceId: string,
+): Promise<readonly ChannelView[]> {
+  return listPlatformChannels(client, workspaceId, "facebook");
+}
+
+async function beginPlatformConnection(
   client: PrismaClient,
   input: {
+    readonly platform: Platform;
     readonly workspaceId: string;
     readonly consentRecordId: string;
     readonly actorUserId: string;
     readonly correlationId: string;
+    readonly oauthStateDigest?: string;
   },
 ): Promise<{ readonly id: string }> {
   return withTenant(client, input.workspaceId, async (transaction) => {
-    await lockChannelConnectionInvariant(transaction, input.workspaceId, "youtube");
+    await lockChannelConnectionInvariant(transaction, input.workspaceId, input.platform);
     const current = await transaction.channel.findUnique({
       where: {
-        workspaceId_platform: { workspaceId: input.workspaceId, platform: "youtube" },
+        workspaceId_platform: { workspaceId: input.workspaceId, platform: input.platform },
       },
       select: {
         id: true,
@@ -274,15 +329,18 @@ export async function beginYouTubeConnection(
             consentRecordId: input.consentRecordId,
             deniedAt: null,
             grantedScopes: [],
+            authorizationSubjectReference: null,
+            oauthStateDigest: input.oauthStateDigest ?? null,
           },
           select: { id: true },
         })
       : await transaction.channel.create({
           data: {
             workspaceId: input.workspaceId,
-            platform: "youtube",
+            platform: input.platform,
             state: ChannelState.CONNECTING,
             consentRecordId: input.consentRecordId,
+            oauthStateDigest: input.oauthStateDigest ?? null,
           },
           select: { id: true },
         });
@@ -295,7 +353,7 @@ export async function beginYouTubeConnection(
       result: "success",
       correlationId: input.correlationId,
       metadata: {
-        platform: "youtube",
+        platform: input.platform,
         supersededIncompleteAttempt: current?.state === ChannelState.CONNECTING,
       },
     });
@@ -303,13 +361,59 @@ export async function beginYouTubeConnection(
   });
 }
 
-export async function completeYouTubeConnection(
+export async function beginYouTubeConnection(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly consentRecordId: string;
+    readonly actorUserId: string;
+    readonly correlationId: string;
+  },
+): Promise<{ readonly id: string }> {
+  return beginPlatformConnection(client, { ...input, platform: "youtube" });
+}
+
+export async function beginFacebookConnection(
+  client: PrismaClient,
+  input: Parameters<typeof beginYouTubeConnection>[1] & { readonly oauthStateDigest: string },
+): Promise<{ readonly id: string }> {
+  return beginPlatformConnection(client, { ...input, platform: "facebook" });
+}
+
+export async function claimFacebookOAuthCallback(
   client: PrismaClient,
   input: {
     readonly workspaceId: string;
     readonly channelId: string;
     readonly consentRecordId: string;
+    readonly oauthStateDigest: string;
+  },
+): Promise<boolean> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const claimed = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: "facebook",
+        state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
+        oauthStateDigest: input.oauthStateDigest,
+      },
+      data: { oauthStateDigest: null },
+    });
+    return claimed.count === 1;
+  });
+}
+
+async function completePlatformConnection(
+  client: PrismaClient,
+  input: {
+    readonly platform: Platform;
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly consentRecordId: string;
     readonly actorUserId: string;
+    readonly authorizationSubjectReference?: string;
     readonly externalAccountId: string;
     readonly displayName: string;
     readonly grantedScopes: readonly string[];
@@ -324,7 +428,7 @@ export async function completeYouTubeConnection(
       where: {
         id: input.channelId,
         workspaceId: input.workspaceId,
-        platform: "youtube",
+        platform: input.platform,
         state: ChannelState.CONNECTING,
         consentRecordId: input.consentRecordId,
         tokenEnvelopeCiphertext: null,
@@ -333,6 +437,7 @@ export async function completeYouTubeConnection(
       data: {
         externalAccountId: input.externalAccountId,
         displayName: input.displayName,
+        authorizationSubjectReference: input.authorizationSubjectReference ?? null,
         state: ChannelState.CONNECTED,
         grantedScopes: [...input.grantedScopes],
         tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
@@ -355,10 +460,63 @@ export async function completeYouTubeConnection(
       targetId: input.channelId,
       result: "success",
       correlationId: input.correlationId,
-      metadata: {
-        platform: "youtube",
-        grantedScopes: [...input.grantedScopes],
+      metadata: { platform: input.platform, grantedScopes: [...input.grantedScopes] },
+    });
+  });
+}
+
+export async function completeYouTubeConnection(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly consentRecordId: string;
+    readonly actorUserId: string;
+    readonly externalAccountId: string;
+    readonly displayName: string;
+    readonly grantedScopes: readonly string[];
+    readonly tokenEnvelopeCiphertext: string;
+    readonly tokenCiphertextReference: string;
+    readonly correlationId: string;
+  },
+): Promise<void> {
+  await completePlatformConnection(client, { ...input, platform: "youtube" });
+}
+
+async function denyPlatformConnection(
+  client: PrismaClient,
+  input: {
+    readonly platform: Platform;
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly consentRecordId: string;
+    readonly actorUserId: string;
+    readonly correlationId: string;
+    readonly reason:
+      "provider_denied" | "invalid_callback" | "exchange_failed" | "initiation_failed";
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    const result = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: input.platform,
+        state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
       },
+      data: { state: ChannelState.NOT_CONNECTED, deniedAt: new Date(), oauthStateDigest: null },
+    });
+    if (result.count !== 1) return;
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      actorUserId: input.actorUserId,
+      action: "channel.connection_denied",
+      targetType: "channel",
+      targetId: input.channelId,
+      result: "denied",
+      correlationId: input.correlationId,
+      metadata: { platform: input.platform, reason: input.reason },
     });
   });
 }
@@ -375,28 +533,241 @@ export async function denyYouTubeConnection(
       "provider_denied" | "invalid_callback" | "exchange_failed" | "initiation_failed";
   },
 ): Promise<void> {
-  await withTenant(client, input.workspaceId, async (transaction) => {
-    const result = await transaction.channel.updateMany({
+  await denyPlatformConnection(client, { ...input, platform: "youtube" });
+}
+
+export async function denyFacebookConnection(
+  client: PrismaClient,
+  input: Parameters<typeof denyYouTubeConnection>[1],
+): Promise<void> {
+  await denyPlatformConnection(client, { ...input, platform: "facebook" });
+}
+
+export async function createFacebookConnectionCandidate(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly actorUserId: string;
+    readonly consentRecordId: string;
+    readonly metaUserId: string;
+    readonly metaUserDisplayName: string;
+    readonly grantedScopes: readonly string[];
+    readonly pageOptions: readonly { readonly id: string; readonly displayName: string }[];
+    readonly tokenEnvelopeCiphertext: string;
+    readonly tokenCiphertextReference: string;
+    readonly expiresAt: Date;
+  },
+): Promise<{ readonly retiredKeyReference: string | null }> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const channel = await transaction.channel.findFirst({
       where: {
         id: input.channelId,
         workspaceId: input.workspaceId,
-        platform: "youtube",
+        platform: "facebook",
         state: ChannelState.CONNECTING,
         consentRecordId: input.consentRecordId,
       },
-      data: { state: ChannelState.NOT_CONNECTED, deniedAt: new Date() },
+      select: { id: true },
     });
-    if (result.count !== 1) return;
+    if (!channel) throw new Error("channel_not_found");
+    const previous = await transaction.facebookConnectionCandidate.findUnique({
+      where: { channelId: input.channelId },
+      select: { tokenCiphertextReference: true },
+    });
+    await transaction.facebookConnectionCandidate.upsert({
+      where: { channelId: input.channelId },
+      create: {
+        workspaceId: input.workspaceId,
+        channelId: input.channelId,
+        actorUserId: input.actorUserId,
+        consentRecordId: input.consentRecordId,
+        metaUserId: input.metaUserId,
+        metaUserDisplayName: input.metaUserDisplayName,
+        grantedScopes: [...input.grantedScopes],
+        pageOptions: [...input.pageOptions],
+        tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: input.tokenCiphertextReference,
+        expiresAt: input.expiresAt,
+      },
+      update: {
+        actorUserId: input.actorUserId,
+        consentRecordId: input.consentRecordId,
+        metaUserId: input.metaUserId,
+        metaUserDisplayName: input.metaUserDisplayName,
+        grantedScopes: [...input.grantedScopes],
+        pageOptions: [...input.pageOptions],
+        tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: input.tokenCiphertextReference,
+        expiresAt: input.expiresAt,
+      },
+    });
+    if (
+      previous?.tokenCiphertextReference &&
+      previous.tokenCiphertextReference !== input.tokenCiphertextReference
+    ) {
+      await enqueueFacebookCandidateKeyRetirement(transaction, {
+        workspaceId: input.workspaceId,
+        channelId: input.channelId,
+        keyReference: previous.tokenCiphertextReference,
+      });
+    }
+    return { retiredKeyReference: previous?.tokenCiphertextReference ?? null };
+  });
+}
+
+export interface FacebookConnectionCandidateView {
+  readonly id: string;
+  readonly channelId: string;
+  readonly consentRecordId: string;
+  readonly actorUserId: string;
+  readonly metaUserId: string;
+  readonly metaUserDisplayName: string;
+  readonly grantedScopes: readonly string[];
+  readonly pages: readonly { readonly id: string; readonly displayName: string }[];
+  readonly tokenEnvelopeCiphertext: string;
+  readonly tokenCiphertextReference: string;
+  readonly expiresAt: Date;
+}
+
+export async function readFacebookConnectionCandidate(
+  client: PrismaClient,
+  workspaceId: string,
+  actorUserId: string,
+): Promise<FacebookConnectionCandidateView | null> {
+  return withTenant(client, workspaceId, async (transaction) => {
+    const candidate = await transaction.facebookConnectionCandidate.findFirst({
+      where: { workspaceId, actorUserId, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!candidate || !Array.isArray(candidate.pageOptions)) return null;
+    const pages = candidate.pageOptions.flatMap((entry) => {
+      if (
+        typeof entry !== "object" ||
+        entry === null ||
+        Array.isArray(entry) ||
+        !("id" in entry) ||
+        !("displayName" in entry) ||
+        typeof entry.id !== "string" ||
+        typeof entry.displayName !== "string"
+      ) {
+        return [];
+      }
+      return [{ id: entry.id, displayName: entry.displayName }];
+    });
+    return {
+      id: candidate.id,
+      channelId: candidate.channelId,
+      consentRecordId: candidate.consentRecordId,
+      actorUserId: candidate.actorUserId,
+      metaUserId: candidate.metaUserId,
+      metaUserDisplayName: candidate.metaUserDisplayName,
+      grantedScopes: candidate.grantedScopes,
+      pages,
+      tokenEnvelopeCiphertext: candidate.tokenEnvelopeCiphertext,
+      tokenCiphertextReference: candidate.tokenCiphertextReference,
+      expiresAt: candidate.expiresAt,
+    };
+  });
+}
+
+export async function completeFacebookConnection(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly candidateId: string;
+    readonly channelId: string;
+    readonly consentRecordId: string;
+    readonly actorUserId: string;
+    readonly metaUserId: string;
+    readonly pageId: string;
+    readonly pageDisplayName: string;
+    readonly grantedScopes: readonly string[];
+    readonly tokenEnvelopeCiphertext: string;
+    readonly tokenCiphertextReference: string;
+    readonly correlationId: string;
+  },
+): Promise<{ readonly retiredKeyReference: string }> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const candidate = await transaction.facebookConnectionCandidate.findFirst({
+      where: {
+        id: input.candidateId,
+        workspaceId: input.workspaceId,
+        channelId: input.channelId,
+        actorUserId: input.actorUserId,
+        consentRecordId: input.consentRecordId,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (!candidate) throw new Error("facebook_page_selection_expired");
+    const pageOptions = Array.isArray(candidate.pageOptions) ? candidate.pageOptions : [];
+    const selectedPage = pageOptions.find(
+      (entry) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        !Array.isArray(entry) &&
+        "id" in entry &&
+        "displayName" in entry &&
+        entry.id === input.pageId &&
+        entry.displayName === input.pageDisplayName,
+    );
+    const candidateScopes = [...candidate.grantedScopes].sort();
+    const selectedScopes = [...input.grantedScopes].sort();
+    if (
+      !selectedPage ||
+      candidate.metaUserId !== input.metaUserId ||
+      candidateScopes.length !== selectedScopes.length ||
+      candidateScopes.some((scope, index) => scope !== selectedScopes[index])
+    ) {
+      throw new Error("facebook_page_selection_not_authorized");
+    }
+    const now = new Date();
+    const updated = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: "facebook",
+        state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
+        tokenEnvelopeCiphertext: null,
+        tokenCiphertextReference: null,
+      },
+      data: {
+        externalAccountId: input.pageId,
+        displayName: input.pageDisplayName,
+        authorizationSubjectReference: input.metaUserId,
+        oauthStateDigest: null,
+        state: ChannelState.CONNECTED,
+        grantedScopes: [...input.grantedScopes],
+        tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: input.tokenCiphertextReference,
+        authorizedAt: now,
+        refreshedAt: now,
+        authorizedDataExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        deniedAt: null,
+        disconnectRequestedAt: null,
+        disconnectedAt: null,
+        revokeFailureCategory: null,
+      },
+    });
+    if (updated.count !== 1) throw new Error("channel_not_found");
+    await enqueueFacebookCandidateKeyRetirement(transaction, {
+      workspaceId: input.workspaceId,
+      channelId: input.channelId,
+      keyReference: candidate.tokenCiphertextReference,
+    });
+    await transaction.facebookConnectionCandidate.delete({ where: { id: candidate.id } });
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       actorUserId: input.actorUserId,
-      action: "channel.connection_denied",
+      action: "channel.connected",
       targetType: "channel",
       targetId: input.channelId,
-      result: "denied",
+      result: "success",
       correlationId: input.correlationId,
-      metadata: { platform: "youtube", reason: input.reason },
+      metadata: { platform: "facebook", grantedScopes: [...input.grantedScopes] },
     });
+    return { retiredKeyReference: candidate.tokenCiphertextReference };
   });
 }
 

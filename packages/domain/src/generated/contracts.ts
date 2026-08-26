@@ -48,7 +48,11 @@ export interface ConsentRecord {
   privacy_version: string;
   data_purpose_version: string;
   displayed_locale: "en" | "zh-CN";
-  acceptance_method: "registration_checkbox" | "reconsent_gate";
+  acceptance_method:
+    | "registration_checkbox"
+    | "reconsent_gate"
+    | "youtube_connection_checkbox"
+    | "facebook_connection_checkbox";
   accepted_at: string;
 }
 
@@ -124,11 +128,13 @@ export interface Content {
   updated_at: string;
 }
 
-export interface PlatformVersion {
+export type PlatformVersion = {
+  [k: string]: unknown;
+} & {
   platform_version_id: string;
   workspace_id: string;
   revision_id: string;
-  platform: "youtube";
+  platform: "youtube" | "facebook";
   account_reference: string;
   account_display_name: string;
   title: string;
@@ -138,7 +144,7 @@ export interface PlatformVersion {
   validation_status: "valid" | "invalid";
   created_at: string;
   updated_at: string;
-}
+};
 
 export interface Approval {
   approval_id: string;
@@ -171,22 +177,10 @@ export interface PublishingIntent {
      */
     versions: [
       {
-        platform_version_id: string;
-        platform: "youtube";
-        account_reference: string;
-        title: string;
-        description: string;
-        privacy_status: "private" | "unlisted" | "public";
-        made_for_kids: boolean;
+        [k: string]: unknown;
       },
       ...{
-        platform_version_id: string;
-        platform: "youtube";
-        account_reference: string;
-        title: string;
-        description: string;
-        privacy_status: "private" | "unlisted" | "public";
-        made_for_kids: boolean;
+        [k: string]: unknown;
       }[],
     ];
   };
@@ -205,7 +199,7 @@ export interface PlatformExecution {
   workspace_id: string;
   publishing_intent_id: string;
   platform_version_id: string;
-  platform: "youtube";
+  platform: "youtube" | "facebook";
   account_reference: string;
   operation: "publish";
   attempt: number;

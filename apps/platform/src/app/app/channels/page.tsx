@@ -1,5 +1,9 @@
-import { allowsYouTubeTestOAuth } from "@jingtang/application";
-import { listYouTubeChannels } from "@jingtang/db";
+import { allowsFacebookReviewOAuth, allowsYouTubeTestOAuth } from "@jingtang/application";
+import {
+  listFacebookChannels,
+  listYouTubeChannels,
+  readFacebookConnectionCandidate,
+} from "@jingtang/db";
 import { hasPermission } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 
@@ -12,15 +16,23 @@ import { getRuntime } from "../../../server/runtime";
 export default async function ChannelsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ readonly youtube?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly youtube?: string | readonly string[];
+    readonly facebook?: string | readonly string[];
+  }>;
 }) {
-  const [{ locale, role, workspaceId }, query] = await Promise.all([
+  const [{ locale, role, workspaceId, session }, query] = await Promise.all([
     workspacePageContext(),
     searchParams,
   ]);
   const runtime = getRuntime();
-  const channels = await listYouTubeChannels(runtime.db, workspaceId);
+  const [channels, facebookChannels, facebookCandidate] = await Promise.all([
+    listYouTubeChannels(runtime.db, workspaceId),
+    listFacebookChannels(runtime.db, workspaceId),
+    readFacebookConnectionCandidate(runtime.db, workspaceId, session.user.id),
+  ]);
   const result = typeof query.youtube === "string" ? query.youtube : undefined;
+  const facebookResult = typeof query.facebook === "string" ? query.facebook : undefined;
   const connected = channels.find((channel) => channel.state === "connected");
   const reauthorization = channels.find((channel) => channel.state === "reauthorization_required");
   const disconnecting = channels.find((channel) => channel.state === "disconnecting");
@@ -33,6 +45,21 @@ export default async function ChannelsPage({
     runtime.config.YOUTUBE_OAUTH_ENABLED &&
     allowsYouTubeTestOAuth(runtime.config.APP_ENV);
   const canDisconnect = hasPermission(role, "channel.disconnect");
+  const facebookConnected = facebookChannels.find((channel) => channel.state === "connected");
+  const facebookReauthorization = facebookChannels.find(
+    (channel) => channel.state === "reauthorization_required",
+  );
+  const facebookDisconnecting = facebookChannels.find(
+    (channel) => channel.state === "disconnecting",
+  );
+  const facebookDisconnected = facebookChannels.find((channel) => channel.state === "disconnected");
+  const facebookDisconnectCompleted =
+    facebookResult === "disconnecting" && Boolean(facebookDisconnected);
+  const facebookActive = facebookConnected ?? facebookDisconnecting ?? facebookReauthorization;
+  const canConnectFacebook =
+    hasPermission(role, "channel.connect") &&
+    runtime.config.FACEBOOK_OAUTH_ENABLED &&
+    allowsFacebookReviewOAuth(runtime.config.APP_ENV);
   const legalLocale = locale === "zh-CN" ? "zh-cn" : "en";
   const connectionForm = (
     <>
@@ -82,10 +109,87 @@ export default async function ChannelsPage({
       </ChannelConnectionForm>
     </>
   );
+  const facebookConnectionForm = (
+    <>
+      <p>
+        {locale === "zh-CN"
+          ? "Meta 官方 OAuth 将请求三项最小 Page 权限。JINGTANG 不会索取你的 Facebook 密码。"
+          : "Meta OAuth requests the three minimum Page permissions. JINGTANG never asks for your Facebook password."}
+      </p>
+      <ul className="channel-scope-list">
+        <li>
+          pages_show_list — {locale === "zh-CN" ? "列出你管理的 Page" : "list Pages you manage"}
+        </li>
+        <li>
+          pages_read_engagement — {locale === "zh-CN" ? "读取发布结果" : "read publish results"}
+        </li>
+        <li>
+          pages_manage_posts —{" "}
+          {locale === "zh-CN"
+            ? "创建确认后的 Page 视频帖子"
+            : "create the confirmed Page video post"}
+        </li>
+      </ul>
+      <ChannelConnectionForm
+        action="/api/v1/channels/facebook/oauth"
+        canConnect={canConnectFacebook}
+        buttonLabel={
+          facebookReauthorization
+            ? locale === "zh-CN"
+              ? "重新连接 Facebook Page"
+              : "Reconnect Facebook Page"
+            : locale === "zh-CN"
+              ? "连接 Facebook Page"
+              : "Connect Facebook Page"
+        }
+        pendingLabel={locale === "zh-CN" ? "正在打开 Meta…" : "Opening Meta…"}
+        unavailableMessage={
+          canConnectFacebook
+            ? undefined
+            : hasPermission(role, "channel.connect")
+              ? locale === "zh-CN"
+                ? "Facebook 连接当前不可用。"
+                : "Facebook connection is not available right now."
+              : translate(locale, "permission.denied")
+        }
+      >
+        <label>
+          <input name="consent" type="checkbox" value="accepted" required />
+          <span>
+            {locale === "zh-CN"
+              ? "我理解以上数据用途，并同意当前服务条款与隐私政策。"
+              : "I understand this data purpose and agree to the current Terms and Privacy Policy."}
+          </span>
+        </label>
+        <p>
+          <a href={`https://jingtangai.com/${legalLocale}/terms/`} target="_blank" rel="noreferrer">
+            {translate(locale, "consent.terms")}
+          </a>{" "}
+          ·{" "}
+          <a
+            href={`https://jingtangai.com/${legalLocale}/privacy/`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {translate(locale, "consent.privacy")}
+          </a>{" "}
+          ·{" "}
+          <a href="https://www.facebook.com/legal/terms" target="_blank" rel="noreferrer">
+            Meta Terms
+          </a>
+        </p>
+      </ChannelConnectionForm>
+    </>
+  );
   return (
     <>
       <StatusAutoRefresh
-        enabled={result === "disconnecting" && Boolean(disconnecting) && !disconnectFailed}
+        enabled={
+          (result === "disconnecting" && Boolean(disconnecting) && !disconnectFailed) ||
+          (facebookResult === "disconnecting" &&
+            Boolean(facebookDisconnecting) &&
+            !facebookDisconnectCompleted)
+        }
       />
       <header className="page-heading">
         <p className="eyebrow">CHANNELS / YOUTUBE</p>
@@ -177,6 +281,141 @@ export default async function ChannelsPage({
             </>
           ) : (
             connectionForm
+          )}
+        </section>
+        <section className="channel-card" aria-labelledby="facebook-channel-title">
+          <div className="channel-card__heading">
+            <div>
+              <p className="detail-kicker">FACEBOOK · PAGE VIDEO PUBLISHING</p>
+              <h2 id="facebook-channel-title">Facebook</h2>
+            </div>
+            <span
+              className={`channel-status channel-status--${facebookConnected ? "connected" : "pending"}`}
+            >
+              {facebookConnected
+                ? translate(locale, "channel.status.connected")
+                : facebookDisconnecting
+                  ? translate(locale, "channel.status.disconnecting")
+                  : facebookReauthorization
+                    ? translate(locale, "channel.status.reauthorization")
+                    : facebookDisconnected
+                      ? translate(locale, "channel.status.disconnected")
+                      : locale === "zh-CN"
+                        ? "未连接"
+                        : "Not connected"}
+            </span>
+          </div>
+          {facebookResult === "connected" ? (
+            <p className="channel-notice channel-notice--success">
+              {locale === "zh-CN"
+                ? "Facebook Page 已连接。发布仍需审批和单独确认。"
+                : "The Facebook Page is connected. Publishing still requires approval and a separate confirmation."}
+            </p>
+          ) : null}
+          {facebookResult === "denied" ? (
+            <p className="channel-notice">
+              {locale === "zh-CN"
+                ? "Facebook 授权已取消，没有连接 Page。"
+                : "Facebook authorization was cancelled. No Page was connected."}
+            </p>
+          ) : null}
+          {facebookResult === "failed" || facebookResult === "disconnect_failed" ? (
+            <p className="channel-notice channel-notice--error">
+              {locale === "zh-CN"
+                ? "Facebook 操作未能安全完成，请重试。"
+                : "The Facebook operation could not be completed safely. Try again."}
+            </p>
+          ) : null}
+          {facebookResult === "disconnected" || facebookDisconnectCompleted ? (
+            <p className="channel-notice channel-notice--success">
+              {locale === "zh-CN"
+                ? "Facebook 授权已撤销，保存的连接数据已删除。"
+                : "Facebook authorization was revoked and stored connection data was deleted."}
+            </p>
+          ) : null}
+          {facebookResult === "disconnecting" && !facebookDisconnectCompleted ? (
+            <p className="channel-notice">
+              {locale === "zh-CN"
+                ? "正在撤销 Facebook 授权并清理本地授权数据。"
+                : "Facebook authorization revocation and local Authorized Data cleanup are in progress."}
+            </p>
+          ) : null}
+          {facebookResult === "select" && facebookCandidate ? (
+            <form
+              action="/api/v1/channels/facebook/select"
+              method="post"
+              className="channel-consent"
+            >
+              <h3>{locale === "zh-CN" ? "选择唯一发布目标 Page" : "Select the one target Page"}</h3>
+              <p>
+                {locale === "zh-CN"
+                  ? `已授权身份：${facebookCandidate.metaUserDisplayName}。未选择 Page 的 token 将立即销毁。`
+                  : `Authorized identity: ${facebookCandidate.metaUserDisplayName}. Tokens for unselected Pages are destroyed immediately.`}
+              </p>
+              <input type="hidden" name="candidate_id" value={facebookCandidate.id} />
+              <label className="content-field">
+                <span>{locale === "zh-CN" ? "Facebook Page" : "Facebook Page"}</span>
+                <select name="page_id" required defaultValue="">
+                  <option value="" disabled>
+                    {locale === "zh-CN" ? "请选择 Page" : "Select a Page"}
+                  </option>
+                  {facebookCandidate.pages.map((page) => (
+                    <option key={page.id} value={page.id}>
+                      {page.displayName} · {page.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="jt-button jt-button--primary" type="submit">
+                {locale === "zh-CN" ? "连接所选 Page" : "Connect selected Page"}
+              </button>
+            </form>
+          ) : facebookActive ? (
+            <div className="channel-identity">
+              <strong>{facebookActive.displayName ?? "Facebook Page"}</strong>
+              {facebookActive.externalAccountId ? (
+                <span>{facebookActive.externalAccountId}</span>
+              ) : null}
+              <p>
+                {locale === "zh-CN"
+                  ? "授权仅用于列出管理的 Page、读取发布状态，并在明确确认后创建 Page 帖子。"
+                  : "Authorization is used only to list managed Pages, read publish status, and create a Page post after explicit confirmation."}
+              </p>
+              {(facebookConnected || facebookDisconnecting) && canDisconnect ? (
+                <DestructiveActionDialog
+                  action="/api/v1/channels/facebook/disconnect"
+                  triggerLabel={locale === "zh-CN" ? "断开 Facebook" : "Disconnect Facebook"}
+                  title={
+                    locale === "zh-CN"
+                      ? "断开这个 Facebook Page？"
+                      : "Disconnect this Facebook Page?"
+                  }
+                  description={
+                    locale === "zh-CN"
+                      ? "JINGTANG 会阻止新发布、撤销 Meta 授权并删除保存的 token 与授权数据。"
+                      : "JINGTANG blocks new publishes, revokes Meta authorization, and deletes stored tokens and Authorized Data."
+                  }
+                  consequences={[
+                    locale === "zh-CN"
+                      ? "新的 Facebook API 操作立即停止。"
+                      : "New Facebook API operations stop immediately.",
+                    locale === "zh-CN"
+                      ? "保存的 OAuth token 与授权数据会被删除。"
+                      : "Stored OAuth tokens and Authorized Data are deleted.",
+                    locale === "zh-CN"
+                      ? "Facebook 已持有的视频不会被删除。"
+                      : "Videos already held by Facebook are not deleted.",
+                  ]}
+                  submitLabel={locale === "zh-CN" ? "确认断开" : "Disconnect Facebook"}
+                  pendingLabel={translate(locale, "channel.disconnect.pending")}
+                  cancelLabel={translate(locale, "action.cancel")}
+                  hiddenFields={{ channel_id: facebookActive.id, confirmation: "disconnect" }}
+                />
+              ) : null}
+              {facebookReauthorization ? facebookConnectionForm : null}
+            </div>
+          ) : (
+            facebookConnectionForm
           )}
         </section>
       </div>

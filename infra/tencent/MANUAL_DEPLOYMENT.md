@@ -65,7 +65,7 @@ ssh -o BatchMode=yes -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" \
 - 工作站为 Node.js `24.x`、pnpm `11.19.x`、Git、Docker Engine/BuildKit、SSH、rsync、gzip、`sha256sum` 和 `dig`；
 - 构建目标为 `linux/amd64`，新服务器为 Ubuntu 24.04 LTS `x86_64`；
 - 新服务器至少 2 vCPU、3.5 GiB 内存、1 GiB swap、10 GiB 可用磁盘；建议为发布包、镜像、数据库和日志预留至少 60 GiB 系统盘；
-- 已取得域名、腾讯云 Lighthouse/CVM、防火墙、COS、CAM 和 Google/YouTube OAuth 控制面的操作权限；
+- 已取得域名、腾讯云 Lighthouse/CVM、防火墙、COS、CAM、Google/YouTube OAuth 与公司 Meta Business Portfolio/App 控制面的操作权限；
 - 如果新服务器将接管现有流量，已降低两个域名的 DNS TTL，并已明确回退 IP；
 - 如果需要保留现有数据或授权，迁移方案已另行批准；否则只能创建全新的空环境。
 
@@ -129,6 +129,33 @@ https://review.jingtangai.com/api/v1/channels/youtube/oauth/callback
 ```
 
 记录非敏感 Client ID；Client Secret 只通过后面的交互式密钥安装脚本写入服务器。不要把 Client Secret 写进 `runtime.env`。
+
+#### Meta/Facebook App
+
+R3 使用公司 Business Portfolio 持有的 durable Meta App ID；App ID 可以跨未来基础设施迁移保留，但当前 Review 的 App Secret、OAuth Token、授权数据、回调 URL 和运行配置都属于本环境。公司 Portfolio 至少保留两名具名公司管理员，不使用共享 Facebook 登录，不把恢复码或个人身份证明写入仓库、聊天、截图或部署产物。
+
+在 Meta App Dashboard 中保持 Development 模式，并只配置 Facebook Login 与 Pages 发布所需产品。运行时权限只能是：
+
+```text
+pages_show_list
+pages_read_engagement
+pages_manage_posts
+```
+
+`public_profile` 是 Meta 自动登录权限；不得增加 `email`、`publish_video`、Ads、Insights、Messaging、Webhook、Instagram、Threads 或其他权限。配置以下公开和回调地址：
+
+```text
+App domain: jingtangai.com
+Privacy Policy: https://jingtangai.com/en/privacy/
+Terms: https://jingtangai.com/en/terms/
+Data Deletion instructions: https://jingtangai.com/en/data-deletion/
+OAuth redirect: https://review.jingtangai.com/api/v1/channels/facebook/oauth/callback
+Deauthorize callback: https://review.jingtangai.com/api/v1/channels/facebook/deauthorize
+Data deletion callback: https://review.jingtangai.com/api/v1/channels/facebook/data-deletion
+Support: developer@jingtangai.com
+```
+
+记录非敏感 App ID；App Secret 只通过后面的交互式安装脚本写入服务器。外部 App Review 提交、Advanced Access 获批、切换 Live 和公开 `Available` 都是后续 Gate，本 Runbook 的部署步骤不授权执行。
 
 ### 4.3 初始化 Ubuntu 主机
 
@@ -295,6 +322,7 @@ ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
 
 - `REVIEW_COS_BUCKET`：完整 Bucket 名称，包含 APPID；
 - `REVIEW_YOUTUBE_OAUTH_CLIENT_ID`：Review 专用 OAuth Client ID；
+- `REVIEW_FACEBOOK_APP_ID`：公司 Business Portfolio 持有的非敏感 Meta App ID；
 - `REVIEW_IDENTITY_EMAIL` 和 `REVIEW_IDENTITY_NAME`：首个预创建账号的邮箱和显示名。
 
 `JINGTANG_IMAGE` 和 `JINGTANG_MIGRATION_IMAGE` 由激活生成的 `release.env` 覆盖。`runtime.env` 中不得出现任何 `SECRET`、`PASSWORD` 或 `DATABASE_URL` 项。
@@ -306,14 +334,14 @@ ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
   "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/generate-internal-secrets.sh'"
 ```
 
-依次交互式安装七个外部密钥。脚本关闭回显，且拒绝覆盖已有值：
+依次交互式安装八个外部密钥。脚本关闭回显，且拒绝覆盖已有值：
 
 ```bash
 for JT_SECRET_NAME in \
   platform-cam-secret-id platform-cam-secret-key \
   worker-cam-secret-id worker-cam-secret-key \
   backup-cam-secret-id backup-cam-secret-key \
-  youtube-client-secret; do
+  youtube-client-secret facebook-app-secret; do
   ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
     "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/install-external-secret.sh' '$JT_SECRET_NAME'"
 done
@@ -435,7 +463,7 @@ ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" '
 
 1. 官网中英文页面的 Sign in 均进入真实 SaaS 登录页；
 2. 页面没有“测试、内测、审核环境”等内部标记；
-3. 登录、Workspace 权限、私有 COS 直传、明确发布确认、结果跟踪、YouTube 连接/断开和安全错误文案正常；
+3. 登录、Workspace 权限、私有 COS 直传、明确发布确认、结果跟踪、YouTube 与 Facebook Page 连接/断开和安全错误文案正常；
 4. SaaS 响应包含 `X-Robots-Tag: noindex, nofollow, noarchive`；
 5. 未登录用户无法注册或自助重置密码；
 6. 备份和隔离恢复演练通过。
@@ -685,6 +713,29 @@ Review 数据库迁移只允许前向。只有在确认当前 schema 与旧应�
 - 磁盘低于 8 GiB：停止新的发布/上传，检查旧 immutable release、Docker 镜像和日志；不得清理 live PostgreSQL、state 或密钥；
 - COS/CAM/OAuth 凭据疑似泄露：立即禁止受影响连接或 worker，撤销外部凭据并按受控流程安装新值；
 - token、跨租户访问、未授权外部写入或数据丢失：按 [Operations Incident Response](../../docs/OPERATIONS.md#incident-response) 宣告 P1，保护证据并执行 deny-first。
+
+Meta App Secret 疑似泄露或按迁移计划轮换时，先在 JINGTANG 中 deny/disconnect 受影响 Facebook 连接并停止 worker；在 Meta Dashboard 重置 Secret 后，通过受控交互会话原子替换主机文件，不能把值放入命令参数、环境变量或 shell history：
+
+```bash
+ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" jingtang-production '
+  sudo bash -c '\''
+    set -euo pipefail
+    read -rsp "New Meta App Secret: " JT_META_SECRET
+    echo
+    test -n "$JT_META_SECRET"
+    install -o 65532 -g 65532 -m 0400 /dev/null \
+      /srv/jingtang/review/secrets/facebook-app-secret.next
+    printf %s "$JT_META_SECRET" > \
+      /srv/jingtang/review/secrets/facebook-app-secret.next
+    unset JT_META_SECRET
+    mv -f /srv/jingtang/review/secrets/facebook-app-secret.next \
+      /srv/jingtang/review/secrets/facebook-app-secret
+  '\''
+  sudo docker restart jingtang-review-platform-1 jingtang-review-worker-1
+'
+```
+
+随后检查 health、OAuth callback 日志排除、Meta 签名删除回调和一个不产生发布写入的连接/断开流程。未来正式生产切换还必须移除 Review redirect/callback、轮换 Secret、撤销 Review Token、销毁 Review token key 并重新执行完整门禁；durable App ID 不等于复用 Review 凭据或数据。
 
 ### 5.10 周期性主机安全维护
 

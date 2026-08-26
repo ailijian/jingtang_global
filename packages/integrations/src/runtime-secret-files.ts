@@ -12,6 +12,8 @@ const fileKeys = {
     "OAUTH_TOKEN_ENCRYPTION_KEY",
     "YOUTUBE_OAUTH_CLIENT_SECRET",
     "YOUTUBE_OAUTH_STATE_SECRET",
+    "FACEBOOK_APP_SECRET",
+    "FACEBOOK_OAUTH_STATE_SECRET",
   ],
   worker: [
     "DATABASE_WORKER_URL",
@@ -20,6 +22,7 @@ const fileKeys = {
     "OBJECT_STORAGE_SECRET_ACCESS_KEY",
     "OAUTH_TOKEN_ENCRYPTION_KEY",
     "YOUTUBE_OAUTH_CLIENT_SECRET",
+    "FACEBOOK_APP_SECRET",
   ],
 } as const satisfies Record<RuntimeSecretFileRole, readonly string[]>;
 
@@ -41,6 +44,13 @@ export function loadRuntimeSecretFiles(
   environment: NodeJS.ProcessEnv,
   role: RuntimeSecretFileRole,
 ): void {
+  const allowedKeys = new Set<string>(fileKeys[role]);
+  const knownKeys = new Set<string>([...fileKeys.platform, ...fileKeys.worker]);
+  for (const key of knownKeys) {
+    if (environment[`${key}_FILE`] && !allowedKeys.has(key)) {
+      throw new Error("runtime_secret_file_role_forbidden");
+    }
+  }
   const entries = fileKeys[role].map((key) => [key, `${key}_FILE`] as const);
   const configured = entries.filter(([, fileKey]) => Boolean(environment[fileKey]));
   if (configured.length === 0) return;

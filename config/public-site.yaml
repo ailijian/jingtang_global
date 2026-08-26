@@ -1,7 +1,7 @@
 schema_version: 1
 revision: 8
 status: production
-effective_date: "2026-08-25"
+effective_date: "2026-08-26"
 owner: JINGTANG Human Owner
 
 identity:
@@ -18,10 +18,10 @@ identity:
     approval_provenance: Human Owner supplied and confirmed the exact values for D3 implementation
 
 legal:
-  policy_version: "2026-08-25"
-  effective_date: "2026-08-25"
+  policy_version: "2026-08-26"
+  effective_date: "2026-08-26"
   approval_status: approved
-  approval_provenance: Human Owner explicitly authorized Social Platform Review Baseline Revision 3 and the corresponding formal bilingual product, Legal, Security, Data Deletion, and Integration presentation on 2026-08-25
+  approval_provenance: Human Owner explicitly authorized the complete R3 Facebook Scope package, data and deletion boundary, and corresponding formal bilingual Legal, Security, Data Deletion, and Integration presentation on 2026-08-26
   deployment_status: deployed_verified
   routes:
     en:

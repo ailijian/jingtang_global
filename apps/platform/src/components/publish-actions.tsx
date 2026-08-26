@@ -18,6 +18,7 @@ export function PublishActions({
   description,
   channel,
   madeForKids,
+  platform,
 }: {
   readonly locale: Locale;
   readonly contentId: string;
@@ -30,6 +31,7 @@ export function PublishActions({
   readonly description: string;
   readonly channel: string;
   readonly madeForKids: boolean;
+  readonly platform: "youtube" | "facebook";
 }) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
@@ -92,7 +94,13 @@ export function PublishActions({
           <dd>{sourceFilename}</dd>
         </div>
         <div>
-          <dt>{t("composer.youtubeTitle")}</dt>
+          <dt>
+            {platform === "youtube"
+              ? t("composer.youtubeTitle")
+              : locale === "zh-CN"
+                ? "Facebook 视频标题"
+                : "Facebook video title"}
+          </dt>
           <dd>{title}</dd>
         </div>
         <div>
@@ -107,12 +115,16 @@ export function PublishActions({
         </div>
         <div>
           <dt>{t("composer.privacy")}</dt>
-          <dd>{t("composer.privacy.private")}</dd>
+          <dd>
+            {t(platform === "youtube" ? "composer.privacy.private" : "composer.privacy.public")}
+          </dd>
         </div>
-        <div>
-          <dt>{t("composer.audience")}</dt>
-          <dd>{t(madeForKids ? "composer.madeForKids" : "composer.notMadeForKids")}</dd>
-        </div>
+        {platform === "youtube" ? (
+          <div>
+            <dt>{t("composer.audience")}</dt>
+            <dd>{t(madeForKids ? "composer.madeForKids" : "composer.notMadeForKids")}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>{t("detail.publish.mode")}</dt>
           <dd>{t("detail.publish.mode.now")}</dd>
@@ -127,7 +139,13 @@ export function PublishActions({
               disabled={!canPublish || busy}
               onChange={(event) => setConfirmed(event.target.checked)}
             />
-            <span>{t("detail.publish.confirmation")}</span>
+            <span>
+              {platform === "youtube"
+                ? t("detail.publish.confirmation")
+                : locale === "zh-CN"
+                  ? "我确认将此准确 MP4、标题和描述立即发布为所选公司 Facebook Page 的原生视频帖子。"
+                  : "I confirm this exact MP4, title, and description for immediate publication as a native video post on the selected company Facebook Page."}
+            </span>
           </label>
           <Button disabled={!canPublish || !confirmed || busy} onClick={() => void publish()}>
             {busy ? t("detail.publish.working") : t("detail.publish.action")}

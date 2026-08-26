@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 7
+revision: 9
 status: approved
-effective_date: "2026-08-25"
+effective_date: "2026-08-26"
 owner: JINGTANG Integration Owner
-last_policy_verification_date: "2026-08-22"
-revision_note: The Human Owner approved formal product presentation for the current account-controlled Seoul service on 2026-08-25. Real YouTube OAuth, private upload, tracking, disconnect, revocation, and cleanup are available only to approved accounts; broader public availability remains Coming Soon and production_available remains false.
+last_policy_verification_date: "2026-08-26"
+revision_note: The Human Owner approved the complete R3 Facebook Scope package on 2026-08-26. Facebook remains publicly Coming Soon and production_available false while implementation begins; only pages_show_list, pages_read_engagement, and pages_manage_posts are approved, with public_profile automatic and every other Facebook/Instagram permission excluded.
 
 authority:
   owns:
@@ -40,6 +40,24 @@ policy_sources:
   youtube_data_api_discovery:
     url: https://www.googleapis.com/discovery/v1/apis/youtube/v3/rest
     verified_on: "2026-08-22"
+  meta_pages_show_list:
+    url: https://developers.facebook.com/docs/permissions/reference/pages_show_list
+    verified_on: "2026-08-26"
+  meta_pages_read_engagement:
+    url: https://developers.facebook.com/docs/permissions/reference/pages_read_engagement
+    verified_on: "2026-08-26"
+  meta_pages_manage_posts:
+    url: https://developers.facebook.com/docs/permissions/reference/pages_manage_posts
+    verified_on: "2026-08-26"
+  meta_page_video_publishing:
+    url: https://developers.facebook.com/docs/video-api/guides/publishing
+    verified_on: "2026-08-26"
+  meta_resumable_upload:
+    url: https://developers.facebook.com/docs/graph-api/guides/upload
+    verified_on: "2026-08-26"
+  meta_app_review:
+    url: https://developers.facebook.com/docs/resp-plat-initiatives/individual-processes/app-review/submission-guide
+    verified_on: "2026-08-26"
 
 integrations:
   youtube:
@@ -150,10 +168,10 @@ integrations:
   facebook:
     display_name: Facebook
     wave: wave_1
-    delivery_role: future_integration_not_in_plan
+    delivery_role: r3_facebook_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: not_in_current_plan
+    implementation_stage: review_r3_repository_candidate_verified
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -161,9 +179,96 @@ integrations:
       track_result: {state: not_available, public_label: Coming Soon}
       reauthorize: {state: not_available, public_label: Coming Soon}
       disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
+    controlled_access_state: repository_candidate_verified_deployment_pending
     authorization:
-      mechanism: none
-      requested_scopes: []
+      mechanism: meta_oauth_web_server
+      api_version_intent: v26.0
+      app_ownership: company_business_portfolio_durable_app_id
+      requested_scopes:
+        - scope: pages_show_list
+          request_state: approved_for_r3_implementation
+          purpose: show only Pages the authenticating person manages and verify the explicitly selected Page
+          ui_surface:
+            - Channels / Connect Facebook / permission explanation
+            - Channels / eligible Page selection
+          user_action:
+            - user explicitly connects Facebook
+            - user explicitly selects one eligible Page
+          api_methods:
+            - GET /me/accounts with minimum fields
+        - scope: pages_read_engagement
+          request_state: approved_for_r3_implementation
+          purpose: read the selected Page identity and track only the Page video returned by the user's confirmed publish
+          depends_on:
+            - pages_show_list
+          ui_surface:
+            - Channels / connected Facebook Page identity
+            - Content Detail / exact returned execution result
+          user_action:
+            - user explicitly connects and selects a Page
+            - system tracks only the returned video from an explicit publish
+          api_methods:
+            - read selected Page metadata
+            - read returned video ID with minimum supported result fields
+        - scope: pages_manage_posts
+          request_state: approved_for_r3_implementation
+          purpose: create one native video on the exact selected Page after a separate immutable Publish Now confirmation
+          depends_on:
+            - pages_show_list
+            - pages_read_engagement
+          ui_surface:
+            - Content Review / Facebook platform version
+            - Publish Confirmation / exact Page, MP4, title and description
+          user_action:
+            - authorized Publisher explicitly confirms the exact approved content and Page
+          api_methods:
+            - POST /{APP_ID}/uploads and /upload:{UPLOAD_SESSION_ID}
+            - POST /{PAGE_ID}/videos
+      automatic_scopes:
+        - scope: public_profile
+          purpose: minimum Meta login identity binding; email is not requested
+      excluded_scopes:
+        - scope: publish_video
+          reason: official allowed use is Live Video; R3 publishes an ordinary Page video
+        - scope: pages_manage_metadata
+          reason: no Page Webhooks or Page settings management
+        - scope: business_management
+          reason: no runtime Business Manager asset management
+        - scope: read_insights
+          reason: no analytics
+        - scope: pages_read_user_content
+          reason: no fan, comment, visitor-post or unrelated Page-content read
+        - scope: pages_manage_engagement
+          reason: no comment or reaction moderation
+        - scope: pages_messaging
+          reason: no Messenger capability
+        - scope: ads_management
+          reason: no Ads capability
+        - scope: user_videos
+          reason: no Profile video access
+        - scope: email
+          reason: local JINGTANG identity exists and Facebook email is unnecessary
+        - scope: instagram_and_threads_permissions
+          reason: excluded from R3 and require separate approval
+    current_constraints:
+      - public status remains Coming Soon and no public executable entry is rendered
+      - R3 is one selected Facebook Page, one approved MP4 up to 500 MiB, and Publish Now only
+      - no Page privacy selector; Facebook and Page settings control visibility and distribution
+      - no host media persistence or server-side transcoding
+      - tokens are server-only and use the per-connection environment envelope
+      - disconnect, deauthorization and deletion deny first, revoke permissions and remove provider linkage under the 7/30-day minimization controls
+      - JINGTANG does not claim that local deletion removes the already-published Facebook video
+      - company Business Portfolio owns the durable Meta App ID; Review secrets, tokens, URLs, data and runtime configuration are retired before future production cutover
+    r3_entry_gates:
+      - scope_approval: passed_2026_08_26
+      - security_data_processor_update: passed_2026_08_26
+      - business_portfolio_and_page: external_configuration_required
+      - meta_app_and_business_verification: external_configuration_required
+      - implementation_and_callbacks: repository_verified_deployment_pending
+      - code_review: pending
+      - acceptance_review: pending
+      - human_e2e: pending
+      - external_app_review_submission: separately_gated
 
   instagram:
     display_name: Instagram

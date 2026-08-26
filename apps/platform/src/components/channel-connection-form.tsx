@@ -8,17 +8,19 @@ export function ChannelConnectionForm({
   pendingLabel,
   unavailableMessage,
   children,
+  action = "/api/v1/channels/youtube/oauth",
 }: {
   readonly canConnect: boolean;
   readonly buttonLabel: string;
   readonly pendingLabel: string;
   readonly unavailableMessage: string | undefined;
   readonly children: ReactNode;
+  readonly action?: string;
 }) {
   const [pending, setPending] = useState(false);
   return (
     <form
-      action="/api/v1/channels/youtube/oauth"
+      action={action}
       method="post"
       className="channel-consent"
       onSubmit={() => setPending(true)}

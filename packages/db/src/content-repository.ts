@@ -34,8 +34,14 @@ const assetStatusToDomain: Readonly<Record<DbSourceAssetStatus, SourceAssetStatu
   FAILED: "failed",
 };
 
-const platformToDb: Readonly<Record<Platform, DbPlatform>> = { youtube: DbPlatform.YOUTUBE };
-const platformToDomain: Readonly<Record<DbPlatform, Platform>> = { YOUTUBE: "youtube" };
+const platformToDb: Readonly<Record<Platform, DbPlatform>> = {
+  youtube: DbPlatform.YOUTUBE,
+  facebook: DbPlatform.FACEBOOK,
+};
+const platformToDomain: Readonly<Record<DbPlatform, Platform>> = {
+  YOUTUBE: "youtube",
+  FACEBOOK: "facebook",
+};
 const privacyToDb: Readonly<Record<PrivacyStatus, DbPrivacyStatus>> = {
   private: DbPrivacyStatus.PRIVATE,
   unlisted: DbPrivacyStatus.UNLISTED,

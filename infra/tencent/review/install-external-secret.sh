@@ -11,7 +11,7 @@ fi
 readonly name="${1:-}"
 readonly service_uid=65532
 case "$name" in
-  platform-cam-secret-id|platform-cam-secret-key|worker-cam-secret-id|worker-cam-secret-key|backup-cam-secret-id|backup-cam-secret-key|youtube-client-secret) ;;
+  platform-cam-secret-id|platform-cam-secret-key|worker-cam-secret-id|worker-cam-secret-key|backup-cam-secret-id|backup-cam-secret-key|youtube-client-secret|facebook-app-secret) ;;
   *)
     echo "Unsupported secret name." >&2
     exit 3

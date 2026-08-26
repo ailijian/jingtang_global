@@ -1,5 +1,5 @@
 import { hasPermission } from "@jingtang/domain";
-import { listYouTubeChannels } from "@jingtang/db";
+import { listFacebookChannels, listYouTubeChannels } from "@jingtang/db";
 import { translate } from "@jingtang/i18n";
 import { redirect } from "next/navigation";
 
@@ -10,13 +10,19 @@ import { getRuntime } from "../../../../server/runtime";
 export default async function NewContentPage() {
   const { locale, role, workspaceId } = await workspacePageContext();
   if (!hasPermission(role, "content.create")) redirect("/app/content");
-  const channels = (await listYouTubeChannels(getRuntime().db, workspaceId))
+  const allChannels = await Promise.all([
+    listYouTubeChannels(getRuntime().db, workspaceId),
+    listFacebookChannels(getRuntime().db, workspaceId),
+  ]);
+  const channels = allChannels
+    .flat()
     .filter(
       (channel) =>
         channel.state === "connected" && channel.externalAccountId && channel.displayName,
     )
     .map((channel) => ({
       id: channel.id,
+      platform: channel.platform,
       externalAccountId: channel.externalAccountId ?? "",
       displayName: channel.displayName ?? "",
     }));

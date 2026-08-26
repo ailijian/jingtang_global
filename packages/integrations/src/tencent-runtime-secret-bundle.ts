@@ -22,9 +22,16 @@ const allowedKeys = {
     "SESSION_COOKIE_SECRET",
     "YOUTUBE_OAUTH_CLIENT_SECRET",
     "YOUTUBE_OAUTH_STATE_SECRET",
+    "FACEBOOK_APP_SECRET",
+    "FACEBOOK_OAUTH_STATE_SECRET",
   ],
   dispatcher: ["DATABASE_WORKER_URL", "TDMQ_AMQP_URL"],
-  worker: ["DATABASE_WORKER_URL", "YOUTUBE_OAUTH_CLIENT_SECRET", "TDMQ_AMQP_URL"],
+  worker: [
+    "DATABASE_WORKER_URL",
+    "YOUTUBE_OAUTH_CLIENT_SECRET",
+    "FACEBOOK_APP_SECRET",
+    "TDMQ_AMQP_URL",
+  ],
 } as const satisfies Record<RuntimeSecretRole, readonly string[]>;
 
 interface RuntimeSecretEnvelopeV1 {

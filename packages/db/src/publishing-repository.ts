@@ -16,6 +16,7 @@ import {
 } from "./generated/client.js";
 import {
   enqueueTokenKeyRetirement,
+  pseudonymizePlatformAuthorizedData,
   pseudonymizeYouTubeAuthorizedData,
 } from "./lifecycle-repository.js";
 import { appendAudit, withTenant } from "./repository.js";
@@ -144,16 +145,35 @@ export async function confirmContentPublishing(
     ) {
       throw new Error("content_not_publishable");
     }
-    if (revision.platformVersions.length !== 1 || version.platform !== Platform.YOUTUBE) {
+    if (
+      revision.platformVersions.length !== 1 ||
+      (version.platform !== Platform.YOUTUBE && version.platform !== Platform.FACEBOOK)
+    ) {
       throw new Error("unsupported_platform_selection");
     }
-    if (version.privacyStatus !== PrivacyStatus.PRIVATE) {
+    if (version.platform === Platform.YOUTUBE && version.privacyStatus !== PrivacyStatus.PRIVATE) {
       throw new Error("youtube_test_upload_must_be_private");
     }
+    if (
+      version.platform === Platform.FACEBOOK &&
+      (version.privacyStatus !== PrivacyStatus.PUBLIC || version.madeForKids)
+    ) {
+      throw new Error("facebook_page_publish_settings_invalid");
+    }
+    if (version.platform === Platform.FACEBOOK && content.sourceAsset.mediaType !== "video/mp4") {
+      throw new Error("facebook_mp4_required");
+    }
+    if (
+      version.platform === Platform.FACEBOOK &&
+      content.sourceAsset.byteSize > BigInt(500 * 1024 * 1024)
+    ) {
+      throw new Error("facebook_video_too_large");
+    }
+    const platform = version.platform === Platform.YOUTUBE ? "youtube" : "facebook";
     const channel = await transaction.channel.findFirst({
       where: {
         workspaceId: input.workspaceId,
-        platform: "youtube",
+        platform,
         externalAccountId: version.accountReference,
         state: ChannelState.CONNECTED,
       },
@@ -166,12 +186,12 @@ export async function confirmContentPublishing(
       versions: [
         {
           platform_version_id: version.id,
-          platform: "youtube",
+          platform,
           account_reference: version.accountReference,
           title: version.title,
           description: version.description,
-          privacy_status: "private",
-          made_for_kids: version.madeForKids,
+          privacy_status: version.privacyStatus === PrivacyStatus.PRIVATE ? "private" : "public",
+          made_for_kids: platform === "youtube" ? version.madeForKids : false,
         },
       ],
     } satisfies Prisma.InputJsonObject;
@@ -203,7 +223,7 @@ export async function confirmContentPublishing(
         platformVersionId: version.id,
         operation: "publish",
         attempt: 1,
-        idempotencyKey: `${input.idempotencyKey}:youtube`,
+        idempotencyKey: `${input.idempotencyKey}:${platform}`,
         state: PlatformExecutionState.NOT_STARTED,
       },
       select: { id: true },
@@ -212,7 +232,7 @@ export async function confirmContentPublishing(
       data: {
         workspaceId: input.workspaceId,
         platformExecutionId: execution.id,
-        topic: "platform.youtube.publish.v1",
+        topic: `platform.${platform}.publish.v1`,
       },
     });
     await appendAudit(transaction, {
@@ -223,7 +243,7 @@ export async function confirmContentPublishing(
       targetId: intent.id,
       result: "success",
       correlationId: input.correlationId,
-      metadata: { platform: "youtube", execution_id: execution.id },
+      metadata: { platform, execution_id: execution.id },
     });
     return { intentId: intent.id, executionId: execution.id };
   });
@@ -236,6 +256,7 @@ export interface ClaimedOutboxMessage {
   readonly attempt: number;
   readonly claimOwner: string;
   readonly claimGeneration: bigint;
+  readonly topic: "platform.youtube.publish.v1" | "platform.facebook.publish.v1";
 }
 
 export interface ClaimedOutboxDispatch {
@@ -376,6 +397,7 @@ export async function claimQueuedOutboxMessage(
       attempt: number;
       claim_owner: string;
       claim_generation: bigint;
+      topic: string;
     }[]
   >`
     UPDATE "outbox_messages"
@@ -392,7 +414,7 @@ export async function claimQueuedOutboxMessage(
         "state" IN ('dispatching'::"outbox_state", 'dispatched'::"outbox_state")
         OR ("state" = 'claimed'::"outbox_state" AND "claim_until" <= CURRENT_TIMESTAMP)
       )
-    RETURNING "id", "workspace_id", "platform_execution_id", "attempt", "claim_owner", "claim_generation"
+    RETURNING "id", "workspace_id", "platform_execution_id", "attempt", "claim_owner", "claim_generation", "topic"
   `;
   const row = rows[0];
   if (row) {
@@ -405,6 +427,10 @@ export async function claimQueuedOutboxMessage(
         attempt: row.attempt,
         claimOwner: row.claim_owner,
         claimGeneration: row.claim_generation,
+        topic:
+          row.topic === "platform.facebook.publish.v1"
+            ? "platform.facebook.publish.v1"
+            : "platform.youtube.publish.v1",
       },
     };
   }
@@ -434,6 +460,7 @@ export async function claimNextOutboxMessage(
       attempt: number;
       claim_owner: string;
       claim_generation: bigint;
+      topic: string;
     }[]
   >`
     UPDATE "outbox_messages"
@@ -457,7 +484,7 @@ export async function claimNextOutboxMessage(
       FOR UPDATE SKIP LOCKED
       LIMIT 1
     )
-    RETURNING "id", "workspace_id", "platform_execution_id", "attempt", "claim_owner", "claim_generation"
+    RETURNING "id", "workspace_id", "platform_execution_id", "attempt", "claim_owner", "claim_generation", "topic"
   `;
   const row = rows[0];
   return row
@@ -468,6 +495,10 @@ export async function claimNextOutboxMessage(
         attempt: row.attempt,
         claimOwner: row.claim_owner,
         claimGeneration: row.claim_generation,
+        topic:
+          row.topic === "platform.facebook.publish.v1"
+            ? "platform.facebook.publish.v1"
+            : "platform.youtube.publish.v1",
       }
     : null;
 }
@@ -627,6 +658,7 @@ export async function releaseYouTubeChannelOperationLease(
 
 export interface YouTubeExecutionWorkItem {
   readonly executionId: string;
+  readonly platform: "youtube" | "facebook";
   readonly workspaceId: string;
   readonly state: PlatformExecutionView["state"];
   readonly providerId: string | null;
@@ -637,6 +669,7 @@ export interface YouTubeExecutionWorkItem {
   readonly objectKey: string;
   readonly mediaType: string;
   readonly byteSize: number;
+  readonly sha256: string;
   readonly title: string;
   readonly description: string;
   readonly madeForKids: boolean;
@@ -646,6 +679,23 @@ export async function readYouTubeExecutionWorkItem(
   client: PrismaClient,
   workspaceId: string,
   executionId: string,
+): Promise<YouTubeExecutionWorkItem> {
+  return readPlatformExecutionWorkItem(client, workspaceId, executionId, Platform.YOUTUBE);
+}
+
+export async function readFacebookExecutionWorkItem(
+  client: PrismaClient,
+  workspaceId: string,
+  executionId: string,
+): Promise<YouTubeExecutionWorkItem> {
+  return readPlatformExecutionWorkItem(client, workspaceId, executionId, Platform.FACEBOOK);
+}
+
+async function readPlatformExecutionWorkItem(
+  client: PrismaClient,
+  workspaceId: string,
+  executionId: string,
+  expectedPlatform: Platform,
 ): Promise<YouTubeExecutionWorkItem> {
   return withTenant(client, workspaceId, async (transaction) => {
     const execution = await transaction.platformExecution.findFirst({
@@ -682,8 +732,10 @@ export async function readYouTubeExecutionWorkItem(
       content.status !== ContentStatus.APPROVED ||
       content.currentRevisionNumber !== revision.revisionNumber ||
       revision.approvalDecision?.result !== ApprovalResult.APPROVED ||
-      version.platform !== Platform.YOUTUBE ||
-      version.privacyStatus !== PrivacyStatus.PRIVATE ||
+      version.platform !== expectedPlatform ||
+      (expectedPlatform === Platform.YOUTUBE && version.privacyStatus !== PrivacyStatus.PRIVATE) ||
+      (expectedPlatform === Platform.FACEBOOK &&
+        (version.privacyStatus !== PrivacyStatus.PUBLIC || version.madeForKids)) ||
       version.validationStatus !== ValidationStatus.VALID ||
       !content.sourceAsset ||
       content.sourceAsset.status !== SourceAssetStatus.COMPLETE ||
@@ -691,10 +743,20 @@ export async function readYouTubeExecutionWorkItem(
     ) {
       throw new Error("execution_not_authorized");
     }
+    if (expectedPlatform === Platform.FACEBOOK && content.sourceAsset.mediaType !== "video/mp4") {
+      throw new Error("facebook_mp4_required");
+    }
+    if (
+      expectedPlatform === Platform.FACEBOOK &&
+      content.sourceAsset.byteSize > BigInt(500 * 1024 * 1024)
+    ) {
+      throw new Error("facebook_video_too_large");
+    }
+    const platform = expectedPlatform === Platform.YOUTUBE ? "youtube" : "facebook";
     const channel = await transaction.channel.findFirst({
       where: {
         workspaceId,
-        platform: "youtube",
+        platform,
         externalAccountId: version.accountReference,
         state: ChannelState.CONNECTED,
       },
@@ -732,11 +794,12 @@ export async function readYouTubeExecutionWorkItem(
         targetId: execution.id,
         result: "success",
         correlationId: execution.publishingIntent.id,
-        metadata: { platform: "youtube", attempt: execution.attempt },
+        metadata: { platform, attempt: execution.attempt },
       });
     }
     return {
       executionId: execution.id,
+      platform,
       workspaceId,
       state:
         execution.state === PlatformExecutionState.NOT_STARTED
@@ -750,6 +813,7 @@ export async function readYouTubeExecutionWorkItem(
       objectKey: content.sourceAsset.objectKey,
       mediaType: content.sourceAsset.mediaType,
       byteSize: Number(content.sourceAsset.byteSize),
+      sha256: content.sourceAsset.sha256,
       title: version.title,
       description: version.description,
       madeForKids: version.madeForKids,
@@ -814,6 +878,7 @@ export async function recordYouTubeUploadAccepted(
     readonly providerUrl: string;
     readonly channelId: string;
     readonly leaseGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -839,7 +904,7 @@ export async function recordYouTubeUploadAccepted(
       targetId: input.executionId,
       result: "success",
       correlationId: input.executionId,
-      metadata: { platform: "youtube", provider_reference_recorded: true },
+      metadata: { platform: input.platform ?? "youtube", provider_reference_recorded: true },
     });
   });
 }
@@ -851,6 +916,7 @@ export async function recordYouTubeExecutionPublished(
     readonly executionId: string;
     readonly channelId: string;
     readonly leaseGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -871,7 +937,7 @@ export async function recordYouTubeExecutionPublished(
       targetId: input.executionId,
       result: "success",
       correlationId: input.executionId,
-      metadata: { platform: "youtube" },
+      metadata: { platform: input.platform ?? "youtube" },
     });
   });
 }
@@ -886,6 +952,7 @@ export async function recordYouTubeExecutionPublishedAndCompleteOutbox(
     readonly outboxMessageId: string;
     readonly claimOwner: string;
     readonly claimGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -912,7 +979,7 @@ export async function recordYouTubeExecutionPublishedAndCompleteOutbox(
         targetId: input.executionId,
         result: "success",
         correlationId: input.executionId,
-        metadata: { platform: "youtube" },
+        metadata: { platform: input.platform ?? "youtube" },
       });
     } else if (execution.state !== PlatformExecutionState.PUBLISHED) {
       throw new Error("execution_not_processing");
@@ -949,6 +1016,7 @@ export async function recordYouTubeExecutionFailure(
     readonly needsAttention: boolean;
     readonly channelId: string;
     readonly leaseGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -976,7 +1044,7 @@ export async function recordYouTubeExecutionFailure(
       targetId: input.executionId,
       result: "failed",
       correlationId: input.executionId,
-      metadata: { platform: "youtube", failure_category: input.failureCategory },
+      metadata: { platform: input.platform ?? "youtube", failure_category: input.failureCategory },
     });
   });
 }
@@ -994,6 +1062,7 @@ export async function recordYouTubeExecutionFailureAndCompleteOutbox(
     readonly outboxMessageId: string;
     readonly claimOwner: string;
     readonly claimGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1030,7 +1099,10 @@ export async function recordYouTubeExecutionFailureAndCompleteOutbox(
         targetId: input.executionId,
         result: "failed",
         correlationId: input.executionId,
-        metadata: { platform: "youtube", failure_category: input.failureCategory },
+        metadata: {
+          platform: input.platform ?? "youtube",
+          failure_category: input.failureCategory,
+        },
       });
     }
     if (input.requireReauthorization) {
@@ -1067,6 +1139,7 @@ export async function recordClaimedYouTubeExecutionFailure(
     readonly claimGeneration: bigint;
     readonly failureCategory: string;
     readonly needsAttention: boolean;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1119,7 +1192,7 @@ export async function recordClaimedYouTubeExecutionFailure(
       targetId: input.executionId,
       result: "failed",
       correlationId: execution.publishingIntentId,
-      metadata: { platform: "youtube", failure_category: input.failureCategory },
+      metadata: { platform: input.platform ?? "youtube", failure_category: input.failureCategory },
     });
   });
 }
@@ -1134,6 +1207,7 @@ export async function recordClaimedYouTubeExecutionFailureAndCompleteOutbox(
     readonly claimGeneration: bigint;
     readonly failureCategory: string;
     readonly needsAttention: boolean;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1188,7 +1262,10 @@ export async function recordClaimedYouTubeExecutionFailureAndCompleteOutbox(
         targetId: input.executionId,
         result: "failed",
         correlationId: execution.publishingIntentId,
-        metadata: { platform: "youtube", failure_category: input.failureCategory },
+        metadata: {
+          platform: input.platform ?? "youtube",
+          failure_category: input.failureCategory,
+        },
       });
     }
     const published = execution.state === PlatformExecutionState.PUBLISHED;
@@ -1258,6 +1335,7 @@ async function requireYouTubeReauthorizationInTransaction(
     readonly channelId: string;
     readonly executionId: string;
     readonly leaseGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   const channel = await transaction.channel.findFirst({
@@ -1283,13 +1361,23 @@ async function requireYouTubeReauthorizationInTransaction(
   if (result.count === 0) return;
   let authorizedAuditTargetIds: readonly string[] = [input.channelId];
   if (channel.externalAccountId) {
-    authorizedAuditTargetIds = await pseudonymizeYouTubeAuthorizedData(transaction, {
-      workspaceId: input.workspaceId,
-      channelId: input.channelId,
-      accountReference: channel.externalAccountId,
-      replacementAccountReference: `expired:${input.channelId}`,
-      replacementDisplayName: "Expired YouTube authorization",
-    });
+    const platform = input.platform ?? "youtube";
+    authorizedAuditTargetIds = await (platform === "facebook"
+      ? pseudonymizePlatformAuthorizedData(transaction, {
+          platform,
+          workspaceId: input.workspaceId,
+          channelId: input.channelId,
+          accountReference: channel.externalAccountId,
+          replacementAccountReference: `expired:${input.channelId}`,
+          replacementDisplayName: "Expired Facebook Page authorization",
+        })
+      : pseudonymizeYouTubeAuthorizedData(transaction, {
+          workspaceId: input.workspaceId,
+          channelId: input.channelId,
+          accountReference: channel.externalAccountId,
+          replacementAccountReference: `expired:${input.channelId}`,
+          replacementDisplayName: "Expired YouTube authorization",
+        }));
   }
   await transaction.$executeRaw`SELECT pseudonymize_channel_audit(
       ${input.workspaceId}::uuid,
@@ -1307,6 +1395,7 @@ async function requireYouTubeReauthorizationInTransaction(
     data: {
       externalAccountId: null,
       displayName: null,
+      authorizationSubjectReference: null,
       tokenEnvelopeCiphertext: null,
       tokenCiphertextReference: null,
       grantedScopes: [],
@@ -1322,7 +1411,7 @@ async function requireYouTubeReauthorizationInTransaction(
     targetId: input.channelId,
     result: "failed",
     correlationId: input.executionId,
-    metadata: { platform: "youtube", execution_id: input.executionId },
+    metadata: { platform: input.platform ?? "youtube", execution_id: input.executionId },
   });
 }
 
@@ -1333,6 +1422,7 @@ export async function requireYouTubeReauthorization(
     readonly channelId: string;
     readonly executionId: string;
     readonly leaseGeneration: bigint;
+    readonly platform?: "youtube" | "facebook";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {

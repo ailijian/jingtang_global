@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertFacebookOAuthFlowBinding,
   assertYouTubeOAuthFlowBinding,
   createOAuthPkce,
+  facebookOAuthStateDigest,
+  FacebookOAuthFlowStateCodec,
   YouTubeOAuthFlowStateCodec,
 } from "./oauth-flow-state.js";
 
@@ -72,5 +75,56 @@ describe("YouTube OAuth flow state", () => {
     ]) {
       expect(() => assertYouTubeOAuthFlowBinding(binding, mismatch)).toThrow();
     }
+  });
+});
+
+describe("Facebook OAuth flow state", () => {
+  const facebookContext = {
+    state: "facebook-state",
+    sessionId: "session-id",
+    userId: "user-id",
+    workspaceId: "workspace-id",
+    channelId: "channel-id",
+    consentRecordId: "consent-record-id",
+    locale: "en" as const,
+    expiresAt: Date.now() + 600_000,
+  };
+
+  it("round-trips an opaque, authenticated session and Workspace binding", () => {
+    const codec = new FacebookOAuthFlowStateCodec(secret);
+    const sealed = codec.seal(facebookContext);
+    expect(sealed).not.toContain("workspace-id");
+    expect(codec.open(sealed, "facebook-state")).toEqual(facebookContext);
+  });
+
+  it("derives a stable non-reversible callback claim", () => {
+    expect(facebookOAuthStateDigest("facebook-state")).toMatch(/^[0-9a-f]{64}$/);
+    expect(facebookOAuthStateDigest("facebook-state")).not.toContain("facebook-state");
+    expect(facebookOAuthStateDigest("other-state")).not.toBe(
+      facebookOAuthStateDigest("facebook-state"),
+    );
+  });
+
+  it("rejects state mismatch, expiry, tampering, and active-context changes", () => {
+    const codec = new FacebookOAuthFlowStateCodec(secret);
+    const sealed = codec.seal(facebookContext);
+    expect(() => codec.open(sealed, "wrong-state")).toThrow();
+    expect(() =>
+      codec.open(codec.seal({ ...facebookContext, expiresAt: 1 }), "facebook-state", 2),
+    ).toThrow();
+    const segments = sealed.split(".");
+    segments[2] = `${segments[2]?.startsWith("A") ? "B" : "A"}${segments[2]?.slice(1)}`;
+    expect(() => codec.open(segments.join("."), "facebook-state")).toThrow();
+
+    const current = {
+      sessionId: facebookContext.sessionId,
+      userId: facebookContext.userId,
+      workspaceId: facebookContext.workspaceId,
+      locale: facebookContext.locale,
+    };
+    expect(() => assertFacebookOAuthFlowBinding(facebookContext, current)).not.toThrow();
+    expect(() =>
+      assertFacebookOAuthFlowBinding(facebookContext, { ...current, workspaceId: "other" }),
+    ).toThrow();
   });
 });

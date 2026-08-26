@@ -1,14 +1,31 @@
 import { z } from "zod";
 
-export const platformVersionInput = z.object({
-  platform: z.literal("youtube"),
-  accountReference: z.string().trim().min(1).max(255),
-  accountDisplayName: z.string().trim().min(1).max(255),
-  title: z.string().trim().min(1).max(100),
-  description: z.string().max(5000),
-  privacyStatus: z.enum(["private", "unlisted", "public"]),
-  madeForKids: z.boolean(),
-});
+export const platformVersionInput = z
+  .object({
+    platform: z.enum(["youtube", "facebook"]),
+    accountReference: z.string().trim().min(1).max(255),
+    accountDisplayName: z.string().trim().min(1).max(255),
+    title: z.string().trim().min(1).max(100),
+    description: z.string().max(5000),
+    privacyStatus: z.enum(["private", "unlisted", "public"]),
+    madeForKids: z.boolean(),
+  })
+  .superRefine((value, context) => {
+    if (value.platform === "facebook" && value.privacyStatus !== "public") {
+      context.addIssue({
+        code: "custom",
+        path: ["privacyStatus"],
+        message: "Facebook Page video publication uses Page-visible delivery",
+      });
+    }
+    if (value.platform === "facebook" && value.madeForKids) {
+      context.addIssue({
+        code: "custom",
+        path: ["madeForKids"],
+        message: "YouTube audience settings do not apply to Facebook",
+      });
+    }
+  });
 
 const platformVersionsInput = z
   .array(platformVersionInput)

@@ -8,10 +8,12 @@ import { useEffect, useState } from "react";
 
 interface DraftState {
   readonly step: number;
+  readonly platform: "youtube" | "facebook";
   readonly asset: {
     readonly id: string;
     readonly filename: string;
     readonly byteSize: number;
+    readonly mediaType: string;
   } | null;
   readonly accountReference: string;
   readonly accountDisplayName: string;
@@ -24,6 +26,7 @@ interface DraftState {
 
 const emptyDraft: DraftState = {
   step: 1,
+  platform: "youtube",
   asset: null,
   accountReference: "",
   accountDisplayName: "",
@@ -35,12 +38,18 @@ const emptyDraft: DraftState = {
 };
 
 function draftForChannels(
-  channels: readonly { readonly externalAccountId: string; readonly displayName: string }[],
+  channels: readonly {
+    readonly platform: "youtube" | "facebook";
+    readonly externalAccountId: string;
+    readonly displayName: string;
+  }[],
 ): DraftState {
+  const initialChannel = channels[0];
   return {
     ...emptyDraft,
-    accountReference: channels[0]?.externalAccountId ?? "",
-    accountDisplayName: channels[0]?.displayName ?? "",
+    platform: initialChannel?.platform ?? "youtube",
+    accountReference: initialChannel?.externalAccountId ?? "",
+    accountDisplayName: initialChannel?.displayName ?? "",
   };
 }
 
@@ -53,6 +62,7 @@ export function ContentComposer({
   readonly workspaceId: string;
   readonly channels: readonly {
     readonly id: string;
+    readonly platform: "youtube" | "facebook";
     readonly externalAccountId: string;
     readonly displayName: string;
   }[];
@@ -75,13 +85,16 @@ export function ContentComposer({
         try {
           const restored = { ...initial, ...(JSON.parse(saved) as Partial<DraftState>) };
           const connected = channels.find(
-            (channel) => channel.externalAccountId === restored.accountReference,
+            (channel) =>
+              channel.platform === restored.platform &&
+              channel.externalAccountId === restored.accountReference,
           );
           setDraft({
             ...restored,
             accountReference: connected?.externalAccountId ?? initial.accountReference,
             accountDisplayName: connected?.displayName ?? initial.accountDisplayName,
-            privacyStatus: "private",
+            privacyStatus: restored.platform === "facebook" ? "public" : "private",
+            madeForKids: restored.platform === "youtube" ? restored.madeForKids : false,
           });
         } catch {
           sessionStorage.removeItem(storageKey);
@@ -152,10 +165,16 @@ export function ContentComposer({
         asset_id: string;
         filename: string;
         byte_size: number;
+        media_type: string;
       };
       setDraft((current) => ({
         ...current,
-        asset: { id: payload.asset_id, filename: payload.filename, byteSize: payload.byte_size },
+        asset: {
+          id: payload.asset_id,
+          filename: payload.filename,
+          byteSize: payload.byte_size,
+          mediaType: payload.media_type,
+        },
         step: 2,
       }));
       setMessage("ready");
@@ -166,7 +185,11 @@ export function ContentComposer({
     }
   }
 
-  const platformsReady = draft.accountReference.trim() && draft.accountDisplayName.trim();
+  const platformsReady = Boolean(
+    draft.accountReference.trim() &&
+    draft.accountDisplayName.trim() &&
+    (draft.platform !== "facebook" || draft.asset?.mediaType === "video/mp4"),
+  );
   const customizeReady = draft.internalTitle.trim() && draft.platformTitle.trim();
 
   async function save(submit: boolean) {
@@ -182,7 +205,7 @@ export function ContentComposer({
           sourceAssetId: draft.asset.id,
           platformVersions: [
             {
-              platform: "youtube",
+              platform: draft.platform,
               accountReference: draft.accountReference,
               accountDisplayName: draft.accountDisplayName,
               title: draft.platformTitle,
@@ -267,45 +290,97 @@ export function ContentComposer({
           {draft.step === 2 ? (
             <section className="composer-section">
               <h2>{t("composer.platform.title")}</h2>
-              <article className="platform-choice platform-choice--active">
-                <strong>{t("composer.platform.youtube")}</strong>
-                <p>{t("composer.platform.youtube.help")}</p>
-              </article>
+              <div className="field-grid">
+                {(["youtube", "facebook"] as const).map((platform) => (
+                  <label
+                    className={`platform-choice ${draft.platform === platform ? "platform-choice--active" : ""}`}
+                    key={platform}
+                  >
+                    <input
+                      type="radio"
+                      name="platform"
+                      value={platform}
+                      checked={draft.platform === platform}
+                      onChange={() => {
+                        const first = channels.find((channel) => channel.platform === platform);
+                        setDraft((current) => ({
+                          ...current,
+                          platform,
+                          accountReference: first?.externalAccountId ?? "",
+                          accountDisplayName: first?.displayName ?? "",
+                          privacyStatus: platform === "facebook" ? "public" : "private",
+                          madeForKids: platform === "youtube" ? current.madeForKids : false,
+                        }));
+                      }}
+                    />
+                    <strong>{platform === "youtube" ? "YouTube" : "Facebook Page"}</strong>
+                    <p>
+                      {platform === "youtube"
+                        ? t("composer.platform.youtube.help")
+                        : locale === "zh-CN"
+                          ? "为已连接 Page 准备原生 MP4 视频；审批后仍需单独确认才会立即发布。"
+                          : "Prepare a native MP4 video for the connected Page; approval is followed by a separate Publish Now confirmation."}
+                    </p>
+                  </label>
+                ))}
+              </div>
               <label className="content-field">
                 <span>{t("composer.platform.connectedChannel")}</span>
                 <select
                   name="connectedChannel"
                   value={draft.accountReference}
-                  disabled={channels.length === 0}
+                  disabled={!channels.some((channel) => channel.platform === draft.platform)}
                   onChange={(event) => {
                     const channel = channels.find(
-                      (candidate) => candidate.externalAccountId === event.target.value,
+                      (candidate) =>
+                        candidate.platform === draft.platform &&
+                        candidate.externalAccountId === event.target.value,
                     );
                     update("accountReference", channel?.externalAccountId ?? "");
                     update("accountDisplayName", channel?.displayName ?? "");
                   }}
                 >
-                  {channels.length === 0 ? (
-                    <option value="">{t("composer.platform.noConnectedChannel")}</option>
-                  ) : null}
-                  {channels.map((channel) => (
-                    <option key={channel.id} value={channel.externalAccountId}>
-                      {channel.displayName} · {channel.externalAccountId}
+                  {!channels.some((channel) => channel.platform === draft.platform) ? (
+                    <option value="">
+                      {draft.platform === "youtube"
+                        ? t("composer.platform.noConnectedChannel")
+                        : locale === "zh-CN"
+                          ? "请先连接 Facebook Page"
+                          : "Connect a Facebook Page before continuing"}
                     </option>
-                  ))}
+                  ) : null}
+                  {channels
+                    .filter((channel) => channel.platform === draft.platform)
+                    .map((channel) => (
+                      <option key={channel.id} value={channel.externalAccountId}>
+                        {channel.displayName} · {channel.externalAccountId}
+                      </option>
+                    ))}
                 </select>
               </label>
               <div className="platform-coming-soon">
-                <span>Facebook · {t("composer.platform.comingSoon")}</span>
                 <span>Instagram · {t("composer.platform.comingSoon")}</span>
                 <small>{t("composer.platform.noAction")}</small>
               </div>
+              {draft.platform === "facebook" && draft.asset?.mediaType !== "video/mp4" ? (
+                <StatusMessage tone="danger">
+                  {locale === "zh-CN"
+                    ? "Facebook Page 发布只接受 MP4；请返回并上传 MP4 源素材。"
+                    : "Facebook Page publishing accepts MP4 only. Go back and upload an MP4 Source Asset."}
+                </StatusMessage>
+              ) : null}
             </section>
           ) : null}
 
           {draft.step === 3 ? (
             <section className="composer-section">
-              <h2>{t("composer.customize.title")}</h2>
+              <h2>
+                {draft.platform === "youtube"
+                  ? t("composer.customize.title")
+                  : locale === "zh-CN"
+                    ? "定制 Facebook Page 版本"
+                    : "Customize Facebook Page version"}
+              </h2>
               <label className="content-field">
                 <span>{t("composer.internalTitle")}</span>
                 <input
@@ -317,14 +392,26 @@ export function ContentComposer({
                 <small>{t("composer.internalTitle.help")}</small>
               </label>
               <label className="content-field">
-                <span>{t("composer.youtubeTitle")}</span>
+                <span>
+                  {draft.platform === "youtube"
+                    ? t("composer.youtubeTitle")
+                    : locale === "zh-CN"
+                      ? "Facebook 视频标题"
+                      : "Facebook video title"}
+                </span>
                 <input
                   name="platformTitle"
                   value={draft.platformTitle}
                   maxLength={100}
                   onChange={(event) => update("platformTitle", event.target.value)}
                 />
-                <small>{t("composer.youtubeTitle.help")}</small>
+                <small>
+                  {draft.platform === "youtube"
+                    ? t("composer.youtubeTitle.help")
+                    : locale === "zh-CN"
+                      ? "作为原生 Page 视频的标题发送给 Facebook。"
+                      : "Sent to Facebook as the native Page video's title."}
+                </small>
               </label>
               <label className="content-field">
                 <span>{t("composer.descriptionField")}</span>
@@ -340,21 +427,35 @@ export function ContentComposer({
                 <label className="content-field">
                   <span>{t("composer.privacy")}</span>
                   <select name="privacyStatus" value={draft.privacyStatus} disabled>
-                    <option value="private">{t("composer.privacy.private")}</option>
+                    <option value={draft.platform === "facebook" ? "public" : "private"}>
+                      {t(
+                        draft.platform === "facebook"
+                          ? "composer.privacy.public"
+                          : "composer.privacy.private",
+                      )}
+                    </option>
                   </select>
-                  <small>{t("composer.privacy.testOnly")}</small>
+                  <small>
+                    {draft.platform === "facebook"
+                      ? locale === "zh-CN"
+                        ? "视频将作为所选公司 Page 的原生帖子发布。"
+                        : "The video is published as a native post on the selected company Page."
+                      : t("composer.privacy.testOnly")}
+                  </small>
                 </label>
-                <label className="content-field">
-                  <span>{t("composer.audience")}</span>
-                  <select
-                    name="madeForKids"
-                    value={String(draft.madeForKids)}
-                    onChange={(event) => update("madeForKids", event.target.value === "true")}
-                  >
-                    <option value="false">{t("composer.notMadeForKids")}</option>
-                    <option value="true">{t("composer.madeForKids")}</option>
-                  </select>
-                </label>
+                {draft.platform === "youtube" ? (
+                  <label className="content-field">
+                    <span>{t("composer.audience")}</span>
+                    <select
+                      name="madeForKids"
+                      value={String(draft.madeForKids)}
+                      onChange={(event) => update("madeForKids", event.target.value === "true")}
+                    >
+                      <option value="false">{t("composer.notMadeForKids")}</option>
+                      <option value="true">{t("composer.madeForKids")}</option>
+                    </select>
+                  </label>
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -432,8 +533,18 @@ export function ContentComposer({
             <div className="preview-frame" aria-hidden="true">
               <span>16:9</span>
             </div>
-            <strong>{draft.platformTitle || t("composer.youtubeTitle")}</strong>
-            <small>{draft.accountDisplayName || t("composer.platform.youtube")}</small>
+            <strong>
+              {draft.platformTitle ||
+                (draft.platform === "youtube"
+                  ? t("composer.youtubeTitle")
+                  : locale === "zh-CN"
+                    ? "Facebook 视频标题"
+                    : "Facebook video title")}
+            </strong>
+            <small>
+              {draft.accountDisplayName ||
+                (draft.platform === "youtube" ? t("composer.platform.youtube") : "Facebook Page")}
+            </small>
             <p>{draft.description || t("composer.preview.noDescription")}</p>
           </aside>
         ) : null}

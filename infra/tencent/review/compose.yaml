@@ -33,9 +33,9 @@ x-common-environment: &common-environment
   IDENTITY_PROVIDER: mock
   ALLOW_TEST_IDENTITY: "false"
   LOCAL_IDENTITY_STORE_PATH: /var/lib/jingtang/identity.json
-  TERMS_VERSION: "2026-08-25"
-  PRIVACY_VERSION: "2026-08-25"
-  DATA_PURPOSE_VERSION: "2026-08-25"
+  TERMS_VERSION: "2026-08-26"
+  PRIVACY_VERSION: "2026-08-26"
+  DATA_PURPOSE_VERSION: "2026-08-26"
   TERMS_URL: https://jingtangai.com/en/terms/
   PRIVACY_URL: https://jingtangai.com/en/privacy/
   OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com
@@ -51,6 +51,9 @@ x-common-environment: &common-environment
   YOUTUBE_OAUTH_ENABLED: "true"
   YOUTUBE_OAUTH_CLIENT_ID: ${REVIEW_YOUTUBE_OAUTH_CLIENT_ID:?required}
   YOUTUBE_TEST_FAULT: none
+  FACEBOOK_OAUTH_ENABLED: "true"
+  FACEBOOK_APP_ID: ${REVIEW_FACEBOOK_APP_ID:?required}
+  FACEBOOK_GRAPH_API_VERSION: v26.0
   OAUTH_TOKEN_VAULT_PROVIDER: local
   LOCAL_TOKEN_KEY_STORE_PATH: /var/lib/jingtang/oauth-envelope-keys.json
   TENCENT_CREDENTIAL_PROVIDER: static
@@ -113,6 +116,10 @@ services:
       YOUTUBE_OAUTH_CLIENT_SECRET_FILE: /run/jingtang-secrets/youtube-client-secret
       YOUTUBE_OAUTH_STATE_SECRET: ""
       YOUTUBE_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/youtube-state-secret
+      FACEBOOK_APP_SECRET: ""
+      FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret
+      FACEBOOK_OAUTH_STATE_SECRET: ""
+      FACEBOOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/facebook-state-secret
       PORT: "3100"
     volumes:
       - /srv/jingtang/review/state:/var/lib/jingtang
@@ -123,6 +130,8 @@ services:
       - /srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro
       - /srv/jingtang/review/secrets/youtube-client-secret:/run/jingtang-secrets/youtube-client-secret:ro
       - /srv/jingtang/review/secrets/youtube-state-secret:/run/jingtang-secrets/youtube-state-secret:ro
+      - /srv/jingtang/review/secrets/facebook-app-secret:/run/jingtang-secrets/facebook-app-secret:ro
+      - /srv/jingtang/review/secrets/facebook-state-secret:/run/jingtang-secrets/facebook-state-secret:ro
     mem_limit: 768m
     cpus: 0.60
     healthcheck:
@@ -165,6 +174,8 @@ services:
       OAUTH_TOKEN_ENCRYPTION_KEY_FILE: /run/jingtang-secrets/oauth-token-encryption-key
       YOUTUBE_OAUTH_CLIENT_SECRET: ""
       YOUTUBE_OAUTH_CLIENT_SECRET_FILE: /run/jingtang-secrets/youtube-client-secret
+      FACEBOOK_APP_SECRET: ""
+      FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret
     volumes:
       - /srv/jingtang/review/state:/var/lib/jingtang
       - /srv/jingtang/review/secrets/database-worker-url:/run/jingtang-secrets/database-worker-url:ro
@@ -173,6 +184,7 @@ services:
       - /srv/jingtang/review/secrets/worker-cam-secret-key:/run/jingtang-secrets/worker-cam-secret-key:ro
       - /srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro
       - /srv/jingtang/review/secrets/youtube-client-secret:/run/jingtang-secrets/youtube-client-secret:ro
+      - /srv/jingtang/review/secrets/facebook-app-secret:/run/jingtang-secrets/facebook-app-secret:ro
     mem_limit: 768m
     cpus: 0.75
 

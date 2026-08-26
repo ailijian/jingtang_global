@@ -85,6 +85,24 @@ export async function parseBody<T>(request: NextRequest, schema: ZodType<T>): Pr
   return schema.parse(value);
 }
 
+export async function parseFormBody(
+  request: NextRequest,
+  maximumBytes = 4096,
+): Promise<URLSearchParams> {
+  if (!request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded")) {
+    throw new ApplicationError("invalid_input", "Form encoding is required", 400);
+  }
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > maximumBytes) {
+    throw new ApplicationError("payload_too_large", "Request body is too large", 413);
+  }
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > maximumBytes) {
+    throw new ApplicationError("payload_too_large", "Request body is too large", 413);
+  }
+  return new URLSearchParams(raw);
+}
+
 export function hasTrustedSameOriginMetadata(
   origin: string | null,
   fetchSite: string | null,

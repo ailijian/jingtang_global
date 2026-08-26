@@ -47,7 +47,7 @@ test("YouTube connection locks the form after the first valid submission", async
   await createWorkspace(page, "connect-once");
   await page.goto("/app/channels");
 
-  const connectionForm = page.locator(".channel-consent");
+  const connectionForm = page.locator('form[action="/api/v1/channels/youtube/oauth"]');
   await connectionForm.evaluate((form) => {
     const testWindow = window as typeof window & { connectionSubmitCount?: number };
     testWindow.connectionSubmitCount = 0;
@@ -57,7 +57,7 @@ test("YouTube connection locks the form after the first valid submission", async
     });
   });
 
-  await page.getByRole("checkbox").check();
+  await connectionForm.getByRole("checkbox").check();
   const connectButton = page.getByRole("button", { name: "Connect YouTube account" });
   await connectButton.click();
   await expect(page.getByRole("button", { name: "Opening Google…" })).toBeDisabled();

@@ -3,8 +3,8 @@
 Delivery: JINGTANG Social Platform Developer Review Enablement
 Scope: project
 Status: Approved
-Baseline Revision: 3
-Approval Source: Human Owner explicitly approved the recommended temporary review-environment plan on 2026-08-24 and authorized implementation after purchasing a 20 GB Tencent COS storage package. On 2026-08-24, the Human Owner additionally approved a cost-bounded amendment: the temporary Review environment uses a host-local envelope key, while staging and formal production continue to require KMS. On 2026-08-25, the Human Owner explicitly superseded the prior public-presentation decision: the current Seoul deployment remains a temporary review infrastructure boundary, while its website entry point and user-facing SaaS content must present the formal JINGTANG product without test, private-beta, or review-environment labeling.
+Baseline Revision: 4
+Approval Source: Human Owner explicitly approved the recommended temporary review-environment plan on 2026-08-24 and authorized implementation after purchasing a 20 GB Tencent COS storage package. On 2026-08-24, the Human Owner additionally approved a cost-bounded amendment: the temporary Review environment uses a host-local envelope key, while staging and formal production continue to require KMS. On 2026-08-25, the Human Owner explicitly superseded the prior public-presentation decision: the current Seoul deployment remains a temporary review infrastructure boundary, while its website entry point and user-facing SaaS content must present the formal JINGTANG product without test, private-beta, or review-environment labeling. On 2026-08-26, the Human Owner approved the complete R3 Facebook Scope Approval package: exactly `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts`; the documented data/deletion boundary; one controlled real Page-video Human E2E write; and a durable company-owned Meta App ID exception that preserves environment isolation for all runtime credentials, URLs, tokens and data.
 
 ## Goal
 
@@ -38,6 +38,8 @@ Approval Source: Human Owner explicitly approved the recommended temporary revie
 - 当前 SaaS 使用 `noindex`、HTTPS、速率限制、最小公网端口和专用账号；`noindex` 是当前受控访问策略，不得在 UI 中解释为测试状态。平台审核员可能来自不固定 IP，因此访问控制以应用账号和最小公开路由为主，不依赖全站 IP 白名单。
 - 真实生产能力 Registry 在第三方批准、正式生产实现与 Production Gate 完成前保持 `Coming Soon` / `production_available: false`。
 - 平台顺序为 Facebook 后 TikTok。每个平台先冻结 `Need → Permission → UI → User Action → Data → Retention → Deletion` 证据和最小 Scope，再使用外部凭证；不提前申请未实现权限。
+- R3 Facebook 仅申请 `pages_show_list`、`pages_read_engagement` 和 `pages_manage_posts`；`public_profile` 为 Meta 自动登录权限。范围只包括用户明确选择的一张 Facebook Page、一个已审批 MP4、Publish Now、真实结果跟踪和 deny-first revoke/deauthorize/delete。Live、Reels、Profile、Group、Ads、Insights、Messaging、Webhook、Instagram、Threads、Schedule 及其他 Scope 均不在批准范围。
+- Meta App ID 是由公司 Business Portfolio 持有的 durable external integration identity，可在 Review 到未来 production 的迁移中保留。Review user/Page tokens、授权记录、App Secret material、Redirect/Callback URL、数据、日志和运行配置不得复用；迁移前须撤销 Review 授权、销毁 Token Key、轮换 App Secret、移除 Review URL 并重新执行适用 Gate。Meta 是否延续 Advanced Access 或要求重新审核仍是外部状态。
 - 审核结束或 Human Owner 要求结束时，必须先把官网登录安全迁移到替代 SaaS 或恢复为准确的不可用状态，再停止 review 服务、撤销审核 OAuth/CAM 凭证、删除 review Workspace 和源素材、保留最小删除/审计证据，并验证官网无死链或错误能力声明。
 
 ## Preserved Constraints
@@ -45,7 +47,7 @@ Approval Source: Human Owner explicitly approved the recommended temporary revie
 - V1 Approved Baseline 的品牌、法律主体、用户控制、租户/RBAC、最小权限、真实撤销/删除、中英双语和真实能力状态约束继续适用。
 - 官网现有生产可用性、DNS、TLS、Legal 页面和静态部署不得因 review 环境变更而回退。
 - OAuth Token、平台 Secret、CAM 凭证和会话 Secret 不得进入 Git、容器镜像、浏览器、普通日志、错误消息、截图或审核视频。
-- review 数据和凭证不得与未来 production 数据库、Bucket、KMS Key、OAuth Client、Redirect URI、Secret 或日志目标共享；Review 本地根密钥和 detached key store 也不得复用于 staging/production。
+- review 数据和凭证不得与未来 production 数据库、Bucket、KMS Key、OAuth Client、Redirect URI、Secret 或日志目标共享；Review 本地根密钥和 detached key store 也不得复用于 staging/production。唯一例外是 Revision 4 批准的公司 Meta App ID：它不是运行时 Secret，可以保留；其 Review Secret、Token、授权数据和 URL 仍不得复用。
 - 用户只发布其拥有或获授权的素材；外部写入仍需有权用户对准确平台、账号、素材和平台字段进行独立明确确认。
 - Disconnect 必须先阻止新调用，再程序化撤销并清理 Token 和适用授权数据；Workspace/账号删除继续遵循既有 durable lifecycle 与 retention 约束。
 - 当前临时基础设施不得被包装为最终生产架构或形成未经证实的安全承诺；官网 Security、Legal 和 Integration 只能描述已验证的当前服务事实及用户需要了解的真实限制，不得暴露内部 Stage/Gate，也不得把未来正式生产设计写成当前能力。
@@ -82,3 +84,4 @@ Approval Source: Human Owner explicitly approved the recommended temporary revie
 - Revision 1 — 2026-08-24: Human Owner approved the temporary, non-sales Review environment on the existing Seoul Lighthouse and a 20 GB COS budget.
 - Revision 2 — 2026-08-24: Human Owner approved replacing paid Tencent KMS only in the temporary Review profile with the existing `local:v2` envelope implementation. Review root/wrapped-key files remain host-local and excluded from backup; staging and production KMS requirements are unchanged.
 - Revision 3 — 2026-08-25: Human Owner explicitly superseded the prior public-presentation decisions. The current Seoul deployment remains temporary, capacity-bounded, non-promoted review infrastructure, but the official website now links to its real login and all public/SaaS content presents the formal JINGTANG product without test, private-beta, pre-launch, internal Delivery, or review-environment labeling. Account controls, truthful platform limitations, future production architecture, and capability Registry gates remain unchanged.
+- Revision 4 — 2026-08-26: Human Owner approved the complete R3 Facebook Scope package. R3 is limited to `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts`, one selected Page, one explicitly confirmed MP4 Publish Now flow, real result tracking, provider revocation/deauthorization/deletion and one controlled real Human E2E write. A company-owned Meta App ID may remain durable across the later infrastructure migration, but Review tokens, Secret material, redirect/callback URLs, data and runtime configuration remain isolated and must be retired before final-production cutover. External App Review submission and public availability remain separately gated.

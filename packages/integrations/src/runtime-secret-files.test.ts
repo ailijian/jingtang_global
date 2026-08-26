@@ -49,6 +49,27 @@ describe("review runtime secret files", () => {
     },
   );
 
+  it("loads only the role-allowlisted Facebook Review secrets", () => {
+    const platformEnvironment: NodeJS.ProcessEnv = {
+      APP_ENV: "review",
+      FACEBOOK_APP_SECRET_FILE: secretFile("meta-app-secret"),
+      FACEBOOK_OAUTH_STATE_SECRET_FILE: secretFile("facebook-state-secret"),
+    };
+    loadRuntimeSecretFiles(platformEnvironment, "platform");
+    expect(platformEnvironment.FACEBOOK_APP_SECRET).toBe("meta-app-secret");
+    expect(platformEnvironment.FACEBOOK_OAUTH_STATE_SECRET).toBe("facebook-state-secret");
+
+    expect(() =>
+      loadRuntimeSecretFiles(
+        {
+          APP_ENV: "review",
+          FACEBOOK_OAUTH_STATE_SECRET_FILE: secretFile("must-not-reach-worker"),
+        },
+        "worker",
+      ),
+    ).toThrow();
+  });
+
   it("rejects review secret files outside review and files with open permissions", () => {
     expect(() =>
       loadRuntimeSecretFiles(

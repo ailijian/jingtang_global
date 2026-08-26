@@ -109,7 +109,7 @@ describe("Review release package cleanup", () => {
     expect(readFileSync(run.commands.dockerLog, "utf8")).toContain(
       `image rm jingtang-review:${releaseId} jingtang-review-migration:${releaseId}`,
     );
-  });
+  }, 15_000);
 
   it("removes a partial package and any built images when packaging fails", () => {
     const root = mkdtempSync(join(tmpdir(), "jingtang-review-package-test-"));

@@ -36,7 +36,8 @@ export function parsePublishCommandMessage(value: Buffer): PublishCommandMessage
     !uuidPattern.test(input.workspaceId) ||
     typeof input.platformExecutionId !== "string" ||
     !uuidPattern.test(input.platformExecutionId) ||
-    input.topic !== "platform.youtube.publish.v1"
+    (input.topic !== "platform.youtube.publish.v1" &&
+      input.topic !== "platform.facebook.publish.v1")
   ) {
     throw new Error("invalid_tdmq_command");
   }
@@ -58,6 +59,7 @@ async function assertTopology(channel: Channel, topology: RabbitTopology): Promi
     },
   });
   await channel.bindQueue(topology.queue, topology.exchange, "platform.youtube.publish.v1");
+  await channel.bindQueue(topology.queue, topology.exchange, "platform.facebook.publish.v1");
 }
 
 export class RabbitCommandPublisher {

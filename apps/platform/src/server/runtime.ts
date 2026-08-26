@@ -2,6 +2,7 @@ import {
   parseAppConfig,
   type AppConfig,
   type AssetStorage,
+  type FacebookOAuthProvider,
   type IdentityProvider,
   type TokenEnvelopeVault,
   type YouTubeOAuthProvider,
@@ -13,6 +14,7 @@ import {
   createObjectStorageCredentials,
   createTokenEnvelopeVault,
   GoogleYouTubeOAuthProvider,
+  MetaFacebookOAuthProvider,
   MockIdentityProvider,
   S3AssetStorage,
 } from "@jingtang/integrations";
@@ -23,6 +25,7 @@ interface Runtime {
   readonly identity: IdentityProvider;
   readonly assets: AssetStorage;
   readonly youtubeOAuth?: YouTubeOAuthProvider;
+  readonly facebookOAuth?: FacebookOAuthProvider;
   readonly tokenVault?: TokenEnvelopeVault;
 }
 
@@ -40,7 +43,17 @@ export function getRuntime(): Runtime {
         clientSecret: config.YOUTUBE_OAUTH_CLIENT_SECRET ?? "",
       })
     : undefined;
-  const tokenVault = config.YOUTUBE_OAUTH_ENABLED ? createTokenEnvelopeVault(config) : undefined;
+  const facebookOAuth = config.FACEBOOK_OAUTH_ENABLED
+    ? new MetaFacebookOAuthProvider({
+        appId: config.FACEBOOK_APP_ID ?? "",
+        appSecret: config.FACEBOOK_APP_SECRET ?? "",
+        graphApiVersion: config.FACEBOOK_GRAPH_API_VERSION,
+      })
+    : undefined;
+  const tokenVault =
+    config.YOUTUBE_OAUTH_ENABLED || config.FACEBOOK_OAUTH_ENABLED
+      ? createTokenEnvelopeVault(config)
+      : undefined;
   const runtime: Runtime = {
     config,
     db,
@@ -90,6 +103,7 @@ export function getRuntime(): Runtime {
       requestTimeoutMs: config.OBJECT_STORAGE_REQUEST_TIMEOUT_MS,
     }),
     ...(youtubeOAuth ? { youtubeOAuth } : {}),
+    ...(facebookOAuth ? { facebookOAuth } : {}),
     ...(tokenVault ? { tokenVault } : {}),
   };
   globalThis.__jingtangRuntime = runtime;

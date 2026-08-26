@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface VersionInput {
-  readonly platform: "youtube";
+  readonly platform: "youtube" | "facebook";
   readonly accountReference: string;
   readonly accountDisplayName: string;
   readonly title: string;
@@ -186,7 +186,13 @@ export function ContentActions({
                 />
               </label>
               <label className="content-field">
-                <span>{t("composer.youtubeTitle")}</span>
+                <span>
+                  {draftVersion.platform === "youtube"
+                    ? t("composer.youtubeTitle")
+                    : locale === "zh-CN"
+                      ? "Facebook 视频标题"
+                      : "Facebook video title"}
+                </span>
                 <input
                   name="editPlatformTitle"
                   value={draftVersion.title}
@@ -208,41 +214,49 @@ export function ContentActions({
                   }
                 />
               </label>
-              <div className="field-grid">
-                <label className="content-field">
-                  <span>{t("composer.privacy")}</span>
-                  <select
-                    name="editPrivacyStatus"
-                    value={draftVersion.privacyStatus}
-                    onChange={(event) =>
-                      setDraftVersion((current) => ({
-                        ...current,
-                        privacyStatus: event.target.value as PrivacyStatus,
-                      }))
-                    }
-                  >
-                    <option value="private">{t("composer.privacy.private")}</option>
-                    <option value="unlisted">{t("composer.privacy.unlisted")}</option>
-                    <option value="public">{t("composer.privacy.public")}</option>
-                  </select>
-                </label>
-                <label className="content-field">
-                  <span>{t("composer.audience")}</span>
-                  <select
-                    name="editAudience"
-                    value={String(draftVersion.madeForKids)}
-                    onChange={(event) =>
-                      setDraftVersion((current) => ({
-                        ...current,
-                        madeForKids: event.target.value === "true",
-                      }))
-                    }
-                  >
-                    <option value="false">{t("composer.notMadeForKids")}</option>
-                    <option value="true">{t("composer.madeForKids")}</option>
-                  </select>
-                </label>
-              </div>
+              {draftVersion.platform === "youtube" ? (
+                <div className="field-grid">
+                  <label className="content-field">
+                    <span>{t("composer.privacy")}</span>
+                    <select
+                      name="editPrivacyStatus"
+                      value={draftVersion.privacyStatus}
+                      onChange={(event) =>
+                        setDraftVersion((current) => ({
+                          ...current,
+                          privacyStatus: event.target.value as PrivacyStatus,
+                        }))
+                      }
+                    >
+                      <option value="private">{t("composer.privacy.private")}</option>
+                      <option value="unlisted">{t("composer.privacy.unlisted")}</option>
+                      <option value="public">{t("composer.privacy.public")}</option>
+                    </select>
+                  </label>
+                  <label className="content-field">
+                    <span>{t("composer.audience")}</span>
+                    <select
+                      name="editAudience"
+                      value={String(draftVersion.madeForKids)}
+                      onChange={(event) =>
+                        setDraftVersion((current) => ({
+                          ...current,
+                          madeForKids: event.target.value === "true",
+                        }))
+                      }
+                    >
+                      <option value="false">{t("composer.notMadeForKids")}</option>
+                      <option value="true">{t("composer.madeForKids")}</option>
+                    </select>
+                  </label>
+                </div>
+              ) : (
+                <p>
+                  {locale === "zh-CN"
+                    ? "此修订将作为原生视频帖子发布到所选 Facebook Page。"
+                    : "This revision will publish as a native video post on the selected Facebook Page."}
+                </p>
+              )}
               <Button
                 disabled={busy || !internalTitle.trim() || !draftVersion.title.trim()}
                 onClick={() => void saveEdit()}
