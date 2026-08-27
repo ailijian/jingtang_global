@@ -143,9 +143,17 @@ requireText(
 );
 
 const dockerfile = read("Dockerfile");
-requireText(dockerfile, `${pinnedNode} AS build`, "Dockerfile");
+requireText(dockerfile, `${pinnedNode} AS dependencies`, "Dockerfile");
 requireText(dockerfile, `${pinnedNode} AS runtime-base`, "Dockerfile");
-requireText(dockerfile, "FROM build AS production-pruned", "Dockerfile");
+requireText(dockerfile, "FROM dependencies AS packages-build", "Dockerfile");
+requireText(dockerfile, "FROM packages-build AS platform-build", "Dockerfile");
+requireText(dockerfile, "FROM packages-build AS dispatcher-build", "Dockerfile");
+requireText(dockerfile, "FROM packages-build AS worker-build", "Dockerfile");
+requireText(dockerfile, "FROM dependencies AS production-dependencies", "Dockerfile");
+requireText(dockerfile, "FROM packages-build AS package-code", "Dockerfile");
+requireText(dockerfile, "FROM platform-build AS platform-code", "Dockerfile");
+requireText(dockerfile, "FROM dispatcher-build AS dispatcher-code", "Dockerfile");
+requireText(dockerfile, "FROM worker-build AS worker-code", "Dockerfile");
 requireText(dockerfile, "FROM runtime-base AS runtime", "Dockerfile");
 requireText(dockerfile, "FROM runtime-base AS migration", "Dockerfile");
 const runtimeTargetIndex = dockerfile.indexOf("FROM runtime-base AS runtime");
@@ -155,11 +163,25 @@ if (revisionLabelIndex < runtimeTargetIndex) {
 }
 requireText(
   dockerfile,
-  "COPY --from=production-pruned --chown=node:node /app/node_modules /app/node_modules",
+  "COPY --from=production-dependencies --chown=node:node /app/node_modules /app/node_modules",
   "Dockerfile production dependency layer",
 );
 requireText(dockerfile, "RUN chmod -R a+rX /app/node_modules", "Dockerfile");
-requireText(dockerfile, "RUN chmod -R a+rX /app/apps /app/packages", "Dockerfile");
+requireText(dockerfile, "&& chmod -R a+rX /app/packages", "Dockerfile");
+const dependencyInstallIndex = dockerfile.indexOf("RUN pnpm install --frozen-lockfile");
+const applicationCopyIndex = dockerfile.indexOf("COPY packages /app/packages");
+if (dependencyInstallIndex < 0 || applicationCopyIndex <= dependencyInstallIndex) {
+  throw new Error("Dockerfile must install locked dependencies before copying application source");
+}
+const runtimeDependencyIndex = dockerfile.indexOf(
+  "COPY --from=production-dependencies --chown=node:node /app/node_modules /app/node_modules",
+);
+const runtimeApplicationIndex = dockerfile.indexOf(
+  "COPY --from=platform-code --chown=node:node /app/apps/platform /app/apps/platform",
+);
+if (runtimeDependencyIndex < 0 || runtimeApplicationIndex <= runtimeDependencyIndex) {
+  throw new Error("Dockerfile must keep runtime dependencies separate from application output");
+}
 
 const platformPackage = JSON.parse(read("apps/platform/package.json")) as {
   dependencies?: Record<string, string>;

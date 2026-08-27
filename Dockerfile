@@ -1,4 +1,4 @@
-FROM node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS build
+FROM node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS dependencies
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -10,16 +10,67 @@ RUN apt-get update \
   && corepack enable \
   && corepack prepare pnpm@11.19.0 --activate
 
-COPY . .
-RUN pnpm install --frozen-lockfile \
-  && pnpm build:packages \
-  && pnpm --filter @jingtang/platform build \
-  && pnpm --filter @jingtang/dispatcher build \
-  && pnpm --filter @jingtang/worker build
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/dispatcher/package.json apps/dispatcher/package.json
+COPY apps/platform/package.json apps/platform/package.json
+COPY apps/site/package.json apps/site/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY packages/application/package.json packages/application/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/i18n/package.json packages/i18n/package.json
+COPY packages/integrations/package.json packages/integrations/package.json
+COPY packages/observability/package.json packages/observability/package.json
+COPY packages/ui/package.json packages/ui/package.json
+RUN pnpm install --frozen-lockfile
 
-FROM build AS production-pruned
+FROM dependencies AS packages-build
+
+COPY tsconfig.base.json ./
+COPY packages /app/packages
+RUN pnpm build:packages
+
+FROM packages-build AS platform-build
+
+COPY apps/platform /app/apps/platform
+RUN pnpm --filter @jingtang/platform build
+
+FROM packages-build AS dispatcher-build
+
+COPY apps/dispatcher /app/apps/dispatcher
+RUN pnpm --filter @jingtang/dispatcher build
+
+FROM packages-build AS worker-build
+
+COPY apps/worker /app/apps/worker
+RUN pnpm --filter @jingtang/worker build
+
+FROM dependencies AS production-dependencies
 
 RUN CI=true pnpm install --prod --offline --frozen-lockfile
+
+FROM packages-build AS package-code
+
+# Workspace-level dependency links come from the production-only stage.
+RUN find packages -mindepth 2 -maxdepth 2 -type d -name node_modules \
+    -exec rm -rf -- '{}' + \
+  && chmod -R a+rX /app/packages
+
+FROM platform-build AS platform-code
+
+# Keep generated framework links inside build output such as .next.
+RUN rm -rf /app/apps/platform/node_modules \
+  && chmod -R a+rX /app/apps/platform
+
+FROM dispatcher-build AS dispatcher-code
+
+RUN rm -rf /app/apps/dispatcher/node_modules \
+  && chmod -R a+rX /app/apps/dispatcher
+
+FROM worker-build AS worker-code
+
+RUN rm -rf /app/apps/worker/node_modules \
+  && chmod -R a+rX /app/apps/worker
 
 FROM node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime-base
 
@@ -40,20 +91,21 @@ RUN apt-get update \
     /usr/local/bin/yarn \
     /usr/local/bin/yarnpkg
 
-COPY --from=production-pruned --chown=node:node /app/node_modules /app/node_modules
+COPY --from=production-dependencies --chown=node:node /app/node_modules /app/node_modules
 RUN chmod -R a+rX /app/node_modules
 
-COPY --from=production-pruned --chown=node:node /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/
-COPY --from=production-pruned --chown=node:node /app/apps/platform /app/apps/platform
-COPY --from=production-pruned --chown=node:node /app/apps/dispatcher /app/apps/dispatcher
-COPY --from=production-pruned --chown=node:node /app/apps/worker /app/apps/worker
-COPY --from=production-pruned --chown=node:node /app/packages /app/packages
+COPY --from=production-dependencies --chown=node:node /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/
+COPY --from=production-dependencies --chown=node:node /app/apps/platform /app/apps/platform
+COPY --from=production-dependencies --chown=node:node /app/apps/dispatcher /app/apps/dispatcher
+COPY --from=production-dependencies --chown=node:node /app/apps/worker /app/apps/worker
+COPY --from=production-dependencies --chown=node:node /app/packages /app/packages
 
-# Git preserves the checkout directory modes supplied by the packaging host.
-# Normalize only the smaller application layer here; the large dependency
-# permission layer above remains reusable when application code changes.
-RUN chmod -R a+rX /app/apps /app/packages \
-  && chmod a+r /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml
+# Application and build output remain separate from the stable production
+# dependency layers, so ordinary code releases do not resend dependencies.
+COPY --from=platform-code --chown=node:node /app/apps/platform /app/apps/platform
+COPY --from=dispatcher-code --chown=node:node /app/apps/dispatcher /app/apps/dispatcher
+COPY --from=worker-code --chown=node:node /app/apps/worker /app/apps/worker
+COPY --from=package-code --chown=node:node /app/packages /app/packages
 
 USER node
 
