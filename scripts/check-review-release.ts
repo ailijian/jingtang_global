@@ -309,6 +309,7 @@ for (const marker of [
   "prune_superseded_review_artifacts",
   '[[ "$marker" == "$candidate_id" ]]',
   "-name 'rollback-*'",
+  "Pruned bulky image archive while retaining rollback evidence",
   'docker image rm "$repository:$tag"',
 ]) {
   requireText(activation, marker, "review release retention");

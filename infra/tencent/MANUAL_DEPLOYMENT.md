@@ -370,7 +370,7 @@ ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
     '$JT_RELEASE_SHA' '$JT_IMAGES_SHA256' '$JT_CHANGE_REF'"
 ```
 
-激活会校验发布包、镜像 revision label、Compose、Caddy、`runtime.env` 和 live 配置，前向迁移数据库，启动 PostgreSQL、platform 和 worker，重建共享 Caddy，然后检查容器健康、官网 HTTPS 及 SaaS `noindex`。失败时会恢复进入激活前的官网/Review 配置；数据库迁移不会向后回滚。健康检查通过后，脚本只保留当前版本与上一可回滚版本，并按经过验证的完整 Git SHA 自动删除更早的 Review 发布目录、无 rollback 证据的废弃 SHA 候选及旧镜像标签；共享镜像层仍由 Docker 保留，不会清理 rollback 证据、数据库卷、state、secrets 或用户对象。
+激活会校验发布包、镜像 revision label、Compose、Caddy、`runtime.env` 和 live 配置，前向迁移数据库，启动 PostgreSQL、platform 和 worker，重建共享 Caddy，然后检查容器健康、官网 HTTPS 及 SaaS `noindex`。失败时会恢复进入激活前的官网/Review 配置；数据库迁移不会向后回滚。健康检查通过后，脚本只保留当前版本与上一可回滚版本，并按经过验证的完整 Git SHA 自动删除更早的 Review 发布目录、无 rollback 证据的废弃 SHA 候选、失败候选中的大镜像归档及旧镜像标签；共享镜像层仍由 Docker 保留，不会清理 rollback 配置证据、数据库卷、state、secrets 或用户对象。
 
 新空环境创建首个预授权账号：
 

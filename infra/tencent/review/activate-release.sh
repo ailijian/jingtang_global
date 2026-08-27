@@ -113,6 +113,10 @@ prune_superseded_review_artifacts() {
       marker="$(tr -d '\r\n' < "$candidate/RELEASE")"
       [[ "$marker" == "$candidate_id" ]] || continue
     elif find "$candidate" -maxdepth 1 -type d -name 'rollback-*' -print -quit | grep -q .; then
+      if [[ -f "$candidate/jingtang-review-images.tar" ]] \
+        && rm -f -- "$candidate/jingtang-review-images.tar"; then
+        echo "Pruned bulky image archive while retaining rollback evidence for $candidate_id"
+      fi
       continue
     fi
     if rm -rf -- "$candidate"; then
