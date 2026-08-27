@@ -130,12 +130,15 @@ function bearer(accessToken: string): HeadersInit {
 
 function isTikTokUploadUrl(uploadUrl: URL): boolean {
   const hostname = uploadUrl.hostname.toLowerCase().replace(/\.$/u, "");
+  const isProviderUploadHost = ["tiktokapis.com", "tiktokapis.us"].some(
+    (providerDomain) => hostname === providerDomain || hostname.endsWith(`.${providerDomain}`),
+  );
   return (
     uploadUrl.protocol === "https:" &&
     uploadUrl.username === "" &&
     uploadUrl.password === "" &&
     uploadUrl.port === "" &&
-    (hostname === "tiktokapis.com" || hostname.endsWith(".tiktokapis.com"))
+    isProviderUploadHost
   );
 }
 

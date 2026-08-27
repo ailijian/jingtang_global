@@ -211,6 +211,51 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
   });
 
+  it("accepts the TikTok Sandbox upload domain", async () => {
+    const uploadUrl =
+      "https://open-upload.tiktokapis.us/video/?upload_id=opaque&upload_token=opaque";
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        data: { publish_id: "publish-id", upload_url: uploadUrl },
+        error: { code: "ok" },
+      }),
+    );
+
+    await expect(
+      provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+        settings,
+      }),
+    ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
+  });
+
+  it("rejects hosts that only resemble a TikTok upload domain", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        data: {
+          publish_id: "publish-id",
+          upload_url: "https://open-upload.tiktokapis.us.example.com/video/",
+        },
+        error: { code: "ok" },
+      }),
+    );
+
+    await expect(
+      provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+        settings,
+      }),
+    ).rejects.toMatchObject({ code: "service_unavailable" });
+  });
+
   it("accepts provider-controlled TikTok upload paths as opaque", async () => {
     const uploadUrl =
       "https://open-upload-region.tiktokapis.com/direct-post-transfer?upload_id=opaque";
