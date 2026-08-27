@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   authorizationMaterialFailureRequiresLocalErasure,
   authorizedDataRefreshFailureRequiresDeletion,
+  facebookAuthorizationRequiresRefresh,
   facebookExecutionFailureDisposition,
   isApplicationError,
   parseAppConfig,
@@ -201,23 +202,40 @@ async function facebookAuthorization(
   const stored = parseStoredFacebookAuthorization(
     await vault.open<unknown>(work.tokenEnvelopeCiphertext, work.tokenCiphertextReference),
   );
-  const refreshed = await facebookProvider.refreshAuthorization(stored.userAccessToken);
+  const requiresRefresh = facebookAuthorizationRequiresRefresh(stored.expiresAt);
+  const refreshed = requiresRefresh
+    ? await facebookProvider.refreshAuthorization(stored.userAccessToken)
+    : null;
+  const tokens = refreshed
+    ? {
+        userAccessToken: refreshed.userAccessToken,
+        expiresAt: refreshed.expiresAt.toISOString(),
+        grantedScopes: [...refreshed.grantedScopes],
+      }
+    : stored;
   const [user, pages] = await Promise.all([
-    facebookProvider.readAuthorizedUser(refreshed.userAccessToken),
-    facebookProvider.readManagedPages(refreshed.userAccessToken),
+    facebookProvider.readAuthorizedUser(tokens.userAccessToken),
+    facebookProvider.readManagedPages(tokens.userAccessToken),
   ]);
   const page = pages.find((entry) => entry.id === stored.pageId);
   if (user.id !== stored.metaUserId || !page) {
     throw new Error("authorized_channel_identity_mismatch");
   }
   const authorization = {
-    userAccessToken: refreshed.userAccessToken,
+    userAccessToken: tokens.userAccessToken,
     pageAccessToken: page.accessToken,
-    expiresAt: refreshed.expiresAt.toISOString(),
-    grantedScopes: [...refreshed.grantedScopes],
+    expiresAt: tokens.expiresAt,
+    grantedScopes: [...tokens.grantedScopes],
     metaUserId: user.id,
     pageId: page.id,
   };
+  if (
+    !requiresRefresh &&
+    page.accessToken === stored.pageAccessToken &&
+    work.tokenCiphertextReference
+  ) {
+    return stored;
+  }
   const envelope = await vault.seal(authorization);
   try {
     await updateChannelTokenEnvelope(db, {
@@ -397,6 +415,14 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
       "authorized_channel_identity_mismatch",
       "token_envelope_invalid",
     ].includes(category);
+    safeLog(disposition.terminal ? "error" : "warn", "platform_publish_attempt_failed", {
+      platform,
+      workspaceId: message.workspaceId,
+      executionId: message.platformExecutionId,
+      failureCategory: category,
+      attempt: message.attempt,
+      terminal: disposition.terminal,
+    });
     if (disposition.terminal) {
       if (work) {
         await recordYouTubeExecutionFailureAndCompleteOutbox(db, {

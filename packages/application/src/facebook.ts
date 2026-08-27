@@ -105,6 +105,11 @@ export function parseStoredFacebookAuthorization(value: unknown): StoredFacebook
   };
 }
 
+export function facebookAuthorizationRequiresRefresh(expiresAt: string, now = Date.now()): boolean {
+  const expiresAtMs = new Date(expiresAt).getTime();
+  return !Number.isFinite(expiresAtMs) || expiresAtMs <= now + 60_000;
+}
+
 export interface FacebookOAuthProvider {
   authorizationUrl(input: { readonly state: string; readonly redirectUri: string }): URL;
   exchangeAuthorizationCode(input: {
