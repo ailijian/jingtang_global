@@ -46,7 +46,7 @@ if [[ -n "$ssh_identity" ]]; then
   rsync_shell+=" -o IdentitiesOnly=yes -i $quoted_identity"
 fi
 
-"${ssh_options[@]}" "$ssh_target" \
+ssh "${ssh_options[@]}" "$ssh_target" \
   "bash -s -- '$release_id'" <<'REMOTE_PREPARE'
 set -euo pipefail
 readonly release_id="${1:-}"
@@ -104,7 +104,7 @@ if [[ ! "$archive_sha256" =~ ^[0-9a-f]{64}$ ]]; then
   exit 3
 fi
 
-"${ssh_options[@]}" "$ssh_target" \
+ssh "${ssh_options[@]}" "$ssh_target" \
   "sudo bash -s -- '$release_id' '$archive_sha256'" <<'REMOTE_FINALIZE'
 set -euo pipefail
 readonly release_id="${1:-}"
