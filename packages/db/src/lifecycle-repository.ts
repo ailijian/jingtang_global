@@ -786,6 +786,29 @@ export async function completeYouTubeDisconnect(
         operationLeaseGeneration: null,
       },
     });
+    if (platform === "facebook") {
+      await transaction.$queryRaw<{ id: string }[]>`
+        SELECT deletion_request.id
+        FROM provider_data_deletion_requests deletion_request
+        WHERE deletion_request.provider = 'facebook'
+          AND deletion_request.state = 'pending'
+          AND ${channel.id}::uuid = ANY(deletion_request.channel_ids)
+        FOR UPDATE
+      `;
+      await transaction.$executeRaw`
+        UPDATE provider_data_deletion_requests deletion_request
+        SET state = 'completed', completed_at = ${now}, updated_at = ${now}
+        WHERE deletion_request.provider = 'facebook'
+          AND deletion_request.state = 'pending'
+          AND ${channel.id}::uuid = ANY(deletion_request.channel_ids)
+          AND NOT EXISTS (
+            SELECT 1
+            FROM channels remaining_channel
+            WHERE remaining_channel.id = ANY(deletion_request.channel_ids)
+              AND remaining_channel.state <> 'disconnected'::channel_state
+          )
+      `;
+    }
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),

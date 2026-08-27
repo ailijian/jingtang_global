@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 9
+revision: 16
 status: approved
-effective_date: "2026-08-26"
+effective_date: "2026-08-27"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-26"
-revision_note: The Human Owner approved the complete R3 Facebook Scope package on 2026-08-26. Facebook remains publicly Coming Soon and production_available false while implementation begins; only pages_show_list, pages_read_engagement, and pages_manage_posts are approved, with public_profile automatic and every other Facebook/Instagram permission excluded.
+revision_note: The R3 Facebook controlled-access slice is deployed in the Review environment; one exact Page-video publish, the in-product disconnect/reconnect journey, and one valid signed Meta deauthorization callback Human E2E completed on 2026-08-27. The callback deny-first removed the Page authorization, retired its envelope key, and disconnected the Channel. The implementation now also completes the provider deletion-confirmation record automatically after the final associated Channel finishes cleanup. A valid signed data-deletion callback Human E2E remains pending. Facebook remains publicly Coming Soon and production_available false while data-deletion-callback, reviewer-handoff, Business Verification, Advanced Access, App Review, Acceptance, and rollout gates remain open. Only pages_show_list, pages_read_engagement, and pages_manage_posts are approved, with public_profile automatic and every other Facebook/Instagram permission excluded.
 
 authority:
   owns:
@@ -171,7 +171,7 @@ integrations:
     delivery_role: r3_facebook_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: review_r3_repository_candidate_verified
+    implementation_stage: review_r3_deployed_human_e2e_in_progress
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -179,14 +179,14 @@ integrations:
       track_result: {state: not_available, public_label: Coming Soon}
       reauthorize: {state: not_available, public_label: Coming Soon}
       disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
-    controlled_access_state: repository_candidate_verified_deployment_pending
+    controlled_access_state: deployed_controlled_access_human_e2e_in_progress
     authorization:
       mechanism: meta_oauth_web_server
       api_version_intent: v26.0
       app_ownership: company_business_portfolio_durable_app_id
       requested_scopes:
         - scope: pages_show_list
-          request_state: approved_for_r3_implementation
+          request_state: implemented_controlled_access_app_review_pending
           purpose: show only Pages the authenticating person manages and verify the explicitly selected Page
           ui_surface:
             - Channels / Connect Facebook / permission explanation
@@ -197,7 +197,7 @@ integrations:
           api_methods:
             - GET /me/accounts with minimum fields
         - scope: pages_read_engagement
-          request_state: approved_for_r3_implementation
+          request_state: implemented_controlled_access_app_review_pending
           purpose: read the selected Page identity and track only the Page video returned by the user's confirmed publish
           depends_on:
             - pages_show_list
@@ -211,7 +211,7 @@ integrations:
             - read selected Page metadata
             - read returned video ID with minimum supported result fields
         - scope: pages_manage_posts
-          request_state: approved_for_r3_implementation
+          request_state: implemented_controlled_access_app_review_pending
           purpose: create one native video on the exact selected Page after a separate immutable Publish Now confirmation
           depends_on:
             - pages_show_list
@@ -262,12 +262,12 @@ integrations:
     r3_entry_gates:
       - scope_approval: passed_2026_08_26
       - security_data_processor_update: passed_2026_08_26
-      - business_portfolio_and_page: external_configuration_required
-      - meta_app_and_business_verification: external_configuration_required
-      - implementation_and_callbacks: repository_verified_deployment_pending
-      - code_review: pending
+      - business_portfolio_and_page: configured_2026_08_27
+      - meta_app_and_business_verification: app_configured_business_verification_pending
+      - implementation_and_callbacks: deployed_callbacks_configured_deauthorization_signed_e2e_pass
+      - code_review: passed_2026_08_27
       - acceptance_review: pending
-      - human_e2e: pending
+      - human_e2e: page_publish_disconnect_reconnect_and_deauthorization_callback_pass_data_deletion_callback_pending
       - external_app_review_submission: separately_gated
 
   instagram:

@@ -5,6 +5,7 @@ import {
   beginFacebookConnection,
   acquireYouTubeChannelOperationLease,
   completeFacebookConnection,
+  completeYouTubeDisconnect,
   claimFacebookOAuthCallback,
   completeSourceAsset,
   confirmContentPublishing,
@@ -16,6 +17,9 @@ import {
   createWorkspace,
   decideContent,
   listFacebookChannels,
+  finishLifecycleOperation,
+  LifecycleOperationKind,
+  LifecycleOperationState,
   readFacebookConnectionCandidate,
   readFacebookExecutionWorkItem,
   readProviderDataDeletionStatus,
@@ -25,6 +29,7 @@ import {
   submitContent,
   upsertIdentityUser,
   withTenant,
+  type LifecycleClaimGuard,
 } from "@jingtang/db";
 import { LocalEnvelopeTokenVault } from "@jingtang/integrations";
 import { afterAll, describe, expect, it } from "vitest";
@@ -62,6 +67,21 @@ async function fixture(label: string) {
     acceptanceMethod: "facebook_connection_checkbox",
   });
   return { user, workspace, consent };
+}
+
+async function forceClaim(operationId: string, workerId: string): Promise<LifecycleClaimGuard> {
+  const operation = await adminDb.lifecycleOperation.update({
+    where: { id: operationId },
+    data: {
+      state: "CLAIMED",
+      claimedBy: workerId,
+      claimedUntil: new Date(Date.now() + 120_000),
+      claimGeneration: { increment: 1 },
+      attempt: { increment: 1 },
+    },
+    select: { claimGeneration: true },
+  });
+  return { operationId, workerId, claimGeneration: operation.claimGeneration };
 }
 
 afterAll(async () =>
@@ -228,6 +248,24 @@ describe("R3 Facebook review slice persistence boundary", () => {
     });
     expect(completion.retiredKeyReference).toBe(candidateEnvelope.keyReference);
     await vault.destroy(completion.retiredKeyReference);
+    const candidateRetirement = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        channelId: channel.id,
+        state: { not: LifecycleOperationState.COMPLETED },
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+    const candidateRetirementGuard = await forceClaim(
+      candidateRetirement.id,
+      `facebook-candidate-retirement-${randomUUID()}`,
+    );
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...candidateRetirementGuard,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(true);
     await expect(listFacebookChannels(db, owner.workspace.id)).resolves.toMatchObject([
       {
         id: channel.id,
@@ -322,6 +360,80 @@ describe("R3 Facebook review slice persistence boundary", () => {
     ]);
     await expect(readProviderDataDeletionStatus(db, deletion.confirmationCode)).resolves.toBe(
       "pending",
+    );
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: {
+        operationLeaseId: null,
+        operationLeaseUntil: null,
+        operationLeaseGeneration: null,
+      },
+    });
+
+    const disconnectOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.CHANNEL_DISCONNECT,
+        channelId: channel.id,
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+    const disconnectGuard = await forceClaim(
+      disconnectOperation.id,
+      `facebook-disconnect-${randomUUID()}`,
+    );
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: disconnectOperation.correlationId,
+        revocationOutcome: "provider_revoked",
+        lifecycleClaim: disconnectGuard,
+        platform: "facebook",
+      }),
+    ).resolves.toBe(false);
+
+    const retirementOperation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: {
+        kind: LifecycleOperationKind.TOKEN_KEY_RETIREMENT,
+        channelId: channel.id,
+        correlationId: disconnectOperation.correlationId,
+      },
+    });
+    const retirementGuard = await forceClaim(
+      retirementOperation.id,
+      `facebook-token-retirement-${randomUUID()}`,
+    );
+    await vault.destroy(selectedEnvelope.keyReference);
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...retirementGuard,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(true);
+
+    await expect(
+      completeYouTubeDisconnect(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId: disconnectOperation.correlationId,
+        revocationOutcome: "provider_revoked",
+        lifecycleClaim: disconnectGuard,
+        platform: "facebook",
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      finishLifecycleOperation(workerDb, {
+        ...disconnectGuard,
+        state: LifecycleOperationState.COMPLETED,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      adminDb.providerDataDeletionRequest.findUniqueOrThrow({
+        where: { confirmationCode: deletion.confirmationCode },
+      }),
+    ).resolves.toMatchObject({ state: "completed", completedAt: expect.any(Date) });
+    await expect(readProviderDataDeletionStatus(db, deletion.confirmationCode)).resolves.toBe(
+      "completed",
     );
   });
 });
