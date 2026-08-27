@@ -21,10 +21,7 @@ FROM build AS production-pruned
 
 RUN CI=true pnpm install --prod --offline --frozen-lockfile
 
-FROM node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime
-
-ARG VCS_REF
-LABEL org.opencontainers.image.revision=$VCS_REF
+FROM node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runtime-base
 
 ENV NODE_ENV=production
 ENV NODE_OPTIONS=--enable-source-maps
@@ -60,10 +57,19 @@ RUN chmod -R a+rX /app/apps /app/packages \
 
 USER node
 
-FROM runtime AS migration
+FROM runtime-base AS runtime
+
+# Keep release identity in the final metadata-only stage so a new Git SHA does
+# not invalidate stable operating-system and production-dependency layers.
+ARG VCS_REF
+LABEL org.opencontainers.image.revision=$VCS_REF
+
+FROM runtime-base AS migration
 
 # The migration image shares the exact production dependency and application
 # layers. Only its execution identity/command differ, so releases do not carry
 # a second development dependency tree.
+ARG VCS_REF
+LABEL org.opencontainers.image.revision=$VCS_REF
 USER root
 CMD ["node", "apps/platform/scripts/migrate-review.mjs"]

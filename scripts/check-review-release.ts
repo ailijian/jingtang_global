@@ -143,9 +143,15 @@ requireText(
 
 const dockerfile = read("Dockerfile");
 requireText(dockerfile, `${pinnedNode} AS build`, "Dockerfile");
-requireText(dockerfile, `${pinnedNode} AS runtime`, "Dockerfile");
+requireText(dockerfile, `${pinnedNode} AS runtime-base`, "Dockerfile");
 requireText(dockerfile, "FROM build AS production-pruned", "Dockerfile");
-requireText(dockerfile, "FROM runtime AS migration", "Dockerfile");
+requireText(dockerfile, "FROM runtime-base AS runtime", "Dockerfile");
+requireText(dockerfile, "FROM runtime-base AS migration", "Dockerfile");
+const runtimeTargetIndex = dockerfile.indexOf("FROM runtime-base AS runtime");
+const revisionLabelIndex = dockerfile.indexOf("ARG VCS_REF", runtimeTargetIndex);
+if (revisionLabelIndex < runtimeTargetIndex) {
+  throw new Error("Dockerfile release identity must remain in the final runtime metadata stage");
+}
 requireText(
   dockerfile,
   "COPY --from=production-pruned --chown=node:node /app/node_modules /app/node_modules",
