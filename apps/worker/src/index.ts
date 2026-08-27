@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   authorizationMaterialFailureRequiresLocalErasure,
@@ -7,11 +7,15 @@ import {
   facebookExecutionFailureDisposition,
   isApplicationError,
   parseAppConfig,
-  parseStoredYouTubeAuthorization,
   parseStoredFacebookAuthorization,
+  parseStoredTikTokAuthorization,
+  parseStoredYouTubeAuthorization,
   persistSealedTokenEnvelope,
   runResilientPollingLoop,
   shouldResetYouTubeExecutionForRetry,
+  tikTokAuthorizationRequiresRefresh,
+  tikTokExecutionFailureDisposition,
+  tikTokUploadPlan,
   youtubeExecutionFailureDisposition,
 } from "@jingtang/application";
 import {
@@ -41,12 +45,15 @@ import {
   prepareYouTubeDisconnect,
   readExpiredYouTubeAuthorization,
   readFacebookExecutionWorkItem,
+  readTikTokExecutionWorkItem,
   readWorkspaceDataDeletionMaterial,
   readYouTubeDisconnectMaterial,
   readYouTubeExecutionWorkItem,
   recordClaimedYouTubeExecutionFailureAndCompleteOutbox,
   recordExpiredAuthorizedDataDeletion,
   recordLifecycleStep,
+  recordTikTokPublishInitialized,
+  recordTikTokUploadCompleted,
   recordYouTubeExecutionFailureAndCompleteOutbox,
   recordYouTubeExecutionPublishedAndCompleteOutbox,
   recordYouTubeUploadAccepted,
@@ -71,6 +78,7 @@ import {
   DeterministicYouTubeTestAdapter,
   GoogleYouTubeOAuthProvider,
   MetaFacebookOAuthProvider,
+  TikTokDirectPostProvider,
   metaFacebookFailureDiagnostics,
   loadRuntimeSecretBundle,
   loadRuntimeSecretFiles,
@@ -110,6 +118,13 @@ const facebookProvider = config.FACEBOOK_OAUTH_ENABLED
       graphApiVersion: config.FACEBOOK_GRAPH_API_VERSION,
     })
   : undefined;
+const tikTokProvider = config.TIKTOK_OAUTH_ENABLED
+  ? new TikTokDirectPostProvider({
+      clientKey: config.TIKTOK_CLIENT_KEY ?? "",
+      clientSecret: config.TIKTOK_CLIENT_SECRET ?? "",
+    })
+  : undefined;
+const tikTokMaximumStatusPollAttempts = 90;
 const vault = createTokenEnvelopeVault(config);
 const identity =
   config.IDENTITY_PROVIDER === "ciam"
@@ -255,7 +270,342 @@ async function facebookAuthorization(
   return authorization;
 }
 
+async function tikTokAuthorization(
+  work: Awaited<ReturnType<typeof readTikTokExecutionWorkItem>>,
+): Promise<ReturnType<typeof parseStoredTikTokAuthorization>> {
+  if (!tikTokProvider) throw new Error("tiktok_configuration_required");
+  const stored = parseStoredTikTokAuthorization(
+    await vault.open<unknown>(work.tokenEnvelopeCiphertext, work.tokenCiphertextReference),
+  );
+  const requiresRefresh = tikTokAuthorizationRequiresRefresh(stored.accessTokenExpiresAt);
+  const refreshed = requiresRefresh
+    ? await tikTokProvider.refreshAuthorization(stored.refreshToken)
+    : null;
+  const authorization = refreshed
+    ? {
+        accessToken: refreshed.accessToken,
+        accessTokenExpiresAt: refreshed.accessTokenExpiresAt.toISOString(),
+        refreshToken: refreshed.refreshToken,
+        refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt.toISOString(),
+        openId: refreshed.openId,
+        grantedScopes: [...refreshed.grantedScopes],
+      }
+    : stored;
+  const user = await tikTokProvider.readAuthorizedUser(authorization.accessToken);
+  if (user.openId !== authorization.openId || user.openId !== work.externalAccountId) {
+    throw new Error("authorized_channel_identity_mismatch");
+  }
+  if (!requiresRefresh && work.tokenCiphertextReference) return stored;
+  const envelope = await vault.seal(authorization);
+  try {
+    await updateChannelTokenEnvelope(db, {
+      workspaceId: work.workspaceId,
+      channelId: work.channelId,
+      executionId: work.executionId,
+      leaseGeneration: work.leaseGeneration,
+      tokenEnvelopeCiphertext: envelope.ciphertext,
+      tokenCiphertextReference: envelope.keyReference,
+      expectedTokenCiphertextReference: work.tokenCiphertextReference,
+    });
+  } catch (error) {
+    await vault.destroy(envelope.keyReference);
+    throw error;
+  }
+  return authorization;
+}
+
+async function sourceAssetSha256(body: ReadableStream<Uint8Array>): Promise<string> {
+  const hash = createHash("sha256");
+  const reader = body.getReader();
+  try {
+    for (;;) {
+      const result = await reader.read();
+      if (result.done) break;
+      hash.update(result.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return hash.digest("hex");
+}
+
+async function processClaimedTikTokPublish(
+  message: ClaimedOutboxMessage,
+): Promise<"ack" | "retry"> {
+  let work: Awaited<ReturnType<typeof readTikTokExecutionWorkItem>> | undefined;
+  let providerReferencePersisted = false;
+  let leaseLost = false;
+  const abortController = new AbortController();
+  const heartbeat = setInterval(() => {
+    void (async () => {
+      const outboxRenewed = await renewOutboxMessageClaim(db, {
+        id: message.id,
+        claimOwner: message.claimOwner,
+        claimGeneration: message.claimGeneration,
+      });
+      const channelRenewed = work
+        ? await renewYouTubeChannelOperationLease(
+            db,
+            work.workspaceId,
+            work.channelId,
+            work.executionId,
+            work.leaseGeneration,
+          )
+        : true;
+      if (!outboxRenewed || !channelRenewed) {
+        leaseLost = true;
+        abortController.abort(new Error("publish_lease_lost"));
+      }
+    })().catch(() => {
+      leaseLost = true;
+      abortController.abort(new Error("publish_lease_renewal_failed"));
+    });
+  }, 30_000);
+  try {
+    if (!tikTokProvider) throw new Error("tiktok_configuration_required");
+    work = await readTikTokExecutionWorkItem(db, message.workspaceId, message.platformExecutionId);
+    providerReferencePersisted = Boolean(work.providerId);
+    const authorization = await tikTokAuthorization(work);
+    const creator = await tikTokProvider.readCreatorInfo(authorization.accessToken);
+    const settings = work.tikTokSettings;
+    if (
+      !settings ||
+      !creator.privacyLevelOptions.includes("SELF_ONLY") ||
+      creator.creatorUsername !== settings.creatorUsername ||
+      creator.creatorNickname !== settings.creatorNickname ||
+      (creator.commentDisabled && !settings.disableComment) ||
+      (creator.duetDisabled && !settings.disableDuet) ||
+      (creator.stitchDisabled && !settings.disableStitch) ||
+      work.durationSeconds === null ||
+      work.durationSeconds > creator.maximumVideoDurationSeconds
+    ) {
+      throw new Error("creator_info_changed");
+    }
+    let publishId = work.providerId;
+    let uploadCompleted = work.state === "processing";
+    if (!publishId) {
+      const verificationAsset = await assets.open(work.objectKey);
+      if (
+        verificationAsset.contentLength !== undefined &&
+        verificationAsset.contentLength !== work.byteSize
+      ) {
+        throw new Error("source_asset_size_mismatch");
+      }
+      if ((await sourceAssetSha256(verificationAsset.body)) !== work.sha256) {
+        throw new Error("source_asset_hash_mismatch");
+      }
+      const uploadPlan = tikTokUploadPlan(work.byteSize);
+      const initialized = await tikTokProvider.initializeDirectPost({
+        accessToken: authorization.accessToken,
+        title: work.title,
+        byteSize: work.byteSize,
+        chunkSize: uploadPlan.chunkSize,
+        totalChunkCount: uploadPlan.totalChunkCount,
+        settings,
+      });
+      publishId = initialized.publishId;
+      await recordTikTokPublishInitialized(db, {
+        workspaceId: work.workspaceId,
+        executionId: work.executionId,
+        publishId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+      });
+      providerReferencePersisted = true;
+      const uploadAsset = await assets.open(work.objectKey);
+      if (uploadAsset.contentLength !== undefined && uploadAsset.contentLength !== work.byteSize) {
+        throw new Error("source_asset_size_mismatch");
+      }
+      await tikTokProvider.uploadVideo({
+        uploadUrl: initialized.uploadUrl,
+        body: uploadAsset.body,
+        byteSize: work.byteSize,
+        chunkSize: uploadPlan.chunkSize,
+        totalChunkCount: uploadPlan.totalChunkCount,
+        signal: abortController.signal,
+      });
+      await recordTikTokUploadCompleted(db, {
+        workspaceId: work.workspaceId,
+        executionId: work.executionId,
+        publishId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+      });
+      uploadCompleted = true;
+    }
+    if (!publishId) throw new Error("provider_reference_missing");
+    const status = await tikTokProvider.readPostStatus({
+      accessToken: authorization.accessToken,
+      publishId,
+      signal: abortController.signal,
+    });
+    if (
+      !uploadCompleted &&
+      (status.state === "published" || status.uploadedBytes === work.byteSize)
+    ) {
+      await recordTikTokUploadCompleted(db, {
+        workspaceId: work.workspaceId,
+        executionId: work.executionId,
+        publishId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+      });
+      uploadCompleted = true;
+    }
+    if (!uploadCompleted) {
+      throw new Error("execution_recovery_required");
+    }
+    if (status.state === "published") {
+      await recordYouTubeExecutionPublishedAndCompleteOutbox(db, {
+        workspaceId: work.workspaceId,
+        executionId: work.executionId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+        outboxMessageId: message.id,
+        claimOwner: message.claimOwner,
+        claimGeneration: message.claimGeneration,
+        platform: "tiktok",
+        ...(status.publicPostId ? { completedProviderId: status.publicPostId } : {}),
+      });
+      return "ack";
+    }
+    if (status.state === "failed") {
+      await recordYouTubeExecutionFailureAndCompleteOutbox(db, {
+        workspaceId: work.workspaceId,
+        executionId: work.executionId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+        failureCategory: status.failureCategory ?? "tiktok_publish_failed",
+        needsAttention: false,
+        requireReauthorization: false,
+        outboxMessageId: message.id,
+        claimOwner: message.claimOwner,
+        claimGeneration: message.claimGeneration,
+        platform: "tiktok",
+      });
+      return "ack";
+    }
+    if (message.attempt >= tikTokMaximumStatusPollAttempts) {
+      await recordYouTubeExecutionFailureAndCompleteOutbox(db, {
+        workspaceId: work.workspaceId,
+        executionId: work.executionId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+        failureCategory: "tiktok_processing_timeout",
+        needsAttention: true,
+        requireReauthorization: false,
+        outboxMessageId: message.id,
+        claimOwner: message.claimOwner,
+        claimGeneration: message.claimGeneration,
+        platform: "tiktok",
+      });
+      return "ack";
+    }
+    await finishOutboxMessage(db, {
+      id: message.id,
+      outcome: "retry",
+      failureCategory: "tiktok_processing",
+      retryAfterSeconds: 10,
+      claimOwner: message.claimOwner,
+      claimGeneration: message.claimGeneration,
+    });
+    return "ack";
+  } catch (error) {
+    const category = leaseLost ? "publish_lease_lost" : failureCategory(error);
+    if (leaseLost || category === "publish_fence_lost" || category === "outbox_claim_lost") {
+      safeLog("warn", "tiktok_publish_stale_worker_fenced", {
+        workspaceId: message.workspaceId,
+        executionId: message.platformExecutionId,
+        failureCategory: category,
+      });
+      return "retry";
+    }
+    const disposition = tikTokExecutionFailureDisposition(category, message.attempt);
+    const requireReauthorization = [
+      "authentication_failed",
+      "permission_denied",
+      "channel_reauthorization_required",
+      "authorized_channel_identity_mismatch",
+      "token_envelope_invalid",
+    ].includes(category);
+    safeLog(disposition.terminal ? "error" : "warn", "platform_publish_attempt_failed", {
+      platform: "tiktok",
+      workspaceId: message.workspaceId,
+      executionId: message.platformExecutionId,
+      failureCategory: category,
+      attempt: message.attempt,
+      terminal: disposition.terminal,
+    });
+    if (disposition.terminal) {
+      if (work) {
+        await recordYouTubeExecutionFailureAndCompleteOutbox(db, {
+          workspaceId: message.workspaceId,
+          executionId: message.platformExecutionId,
+          channelId: work.channelId,
+          leaseGeneration: work.leaseGeneration,
+          failureCategory: category,
+          needsAttention: disposition.needsAttention,
+          requireReauthorization,
+          outboxMessageId: message.id,
+          claimOwner: message.claimOwner,
+          claimGeneration: message.claimGeneration,
+          platform: "tiktok",
+        });
+      } else {
+        await recordClaimedYouTubeExecutionFailureAndCompleteOutbox(db, {
+          workspaceId: message.workspaceId,
+          executionId: message.platformExecutionId,
+          outboxMessageId: message.id,
+          claimOwner: message.claimOwner,
+          claimGeneration: message.claimGeneration,
+          failureCategory: category,
+          needsAttention: disposition.needsAttention,
+          platform: "tiktok",
+        });
+      }
+      return "ack";
+    }
+    if (
+      work &&
+      shouldResetYouTubeExecutionForRetry({
+        executionState: work.state,
+        providerReferencePersisted,
+      })
+    ) {
+      await resetYouTubeExecutionForRetry(db, {
+        workspaceId: message.workspaceId,
+        executionId: message.platformExecutionId,
+        channelId: work.channelId,
+        leaseGeneration: work.leaseGeneration,
+      });
+    }
+    await finishOutboxMessage(db, {
+      id: message.id,
+      outcome: "retry",
+      failureCategory: category,
+      retryAfterSeconds: 15,
+      claimOwner: message.claimOwner,
+      claimGeneration: message.claimGeneration,
+    });
+  } finally {
+    clearInterval(heartbeat);
+    if (work) {
+      await releaseYouTubeChannelOperationLease(
+        db,
+        work.workspaceId,
+        work.channelId,
+        work.executionId,
+        work.leaseGeneration,
+      ).catch(() => undefined);
+    }
+  }
+  return "ack";
+}
+
 async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ack" | "retry"> {
+  if (message.topic === "platform.tiktok.publish.v1") {
+    return processClaimedTikTokPublish(message);
+  }
   const platform =
     message.topic === "platform.facebook.publish.v1" ? ("facebook" as const) : ("youtube" as const);
   let work: Awaited<ReturnType<typeof readYouTubeExecutionWorkItem>> | undefined;
@@ -579,7 +929,8 @@ async function processChannelDisconnect(
     if (!material.tokenEnvelopeCiphertext) return false;
     let stored:
       | ReturnType<typeof parseStoredYouTubeAuthorization>
-      | ReturnType<typeof parseStoredFacebookAuthorization>;
+      | ReturnType<typeof parseStoredFacebookAuthorization>
+      | ReturnType<typeof parseStoredTikTokAuthorization>;
     try {
       const opened = await vault.open<unknown>(
         material.tokenEnvelopeCiphertext,
@@ -588,7 +939,9 @@ async function processChannelDisconnect(
       stored =
         material.platform === "facebook"
           ? parseStoredFacebookAuthorization(opened)
-          : parseStoredYouTubeAuthorization(opened);
+          : material.platform === "tiktok"
+            ? parseStoredTikTokAuthorization(opened)
+            : parseStoredYouTubeAuthorization(opened);
     } catch (error) {
       const category = failureCategory(error, "token_envelope_invalid");
       const effectiveDeadlineExceeded = await deadlineExceededNow(operation, deadlineExceeded);
@@ -605,6 +958,10 @@ async function processChannelDisconnect(
         if (!facebookProvider) throw new Error("facebook_configuration_required");
         if (!("userAccessToken" in stored)) throw new Error("token_envelope_invalid");
         await facebookProvider.revokeAuthorization(stored.userAccessToken);
+      } else if (material.platform === "tiktok") {
+        if (!tikTokProvider) throw new Error("tiktok_configuration_required");
+        if (!("accessTokenExpiresAt" in stored)) throw new Error("token_envelope_invalid");
+        await tikTokProvider.revokeAuthorization(stored.accessToken);
       } else {
         if (!("refreshToken" in stored)) throw new Error("token_envelope_invalid");
         await provider.revokeAuthorization(stored.refreshToken);
@@ -662,7 +1019,8 @@ async function processWorkspaceDeletion(
         if (!channel.tokenEnvelopeCiphertext) continue;
         let stored:
           | ReturnType<typeof parseStoredYouTubeAuthorization>
-          | ReturnType<typeof parseStoredFacebookAuthorization>;
+          | ReturnType<typeof parseStoredFacebookAuthorization>
+          | ReturnType<typeof parseStoredTikTokAuthorization>;
         try {
           const opened = await vault.open<unknown>(
             channel.tokenEnvelopeCiphertext,
@@ -671,7 +1029,9 @@ async function processWorkspaceDeletion(
           stored =
             channel.platform === "facebook"
               ? parseStoredFacebookAuthorization(opened)
-              : parseStoredYouTubeAuthorization(opened);
+              : channel.platform === "tiktok"
+                ? parseStoredTikTokAuthorization(opened)
+                : parseStoredYouTubeAuthorization(opened);
         } catch (error) {
           const category = failureCategory(error, "token_envelope_invalid");
           effectiveDeadlineExceeded = await deadlineExceededNow(
@@ -693,6 +1053,10 @@ async function processWorkspaceDeletion(
             if (!facebookProvider) throw new Error("facebook_configuration_required");
             if (!("userAccessToken" in stored)) throw new Error("token_envelope_invalid");
             await facebookProvider.revokeAuthorization(stored.userAccessToken);
+          } else if (channel.platform === "tiktok") {
+            if (!tikTokProvider) throw new Error("tiktok_configuration_required");
+            if (!("accessTokenExpiresAt" in stored)) throw new Error("token_envelope_invalid");
+            await tikTokProvider.revokeAuthorization(stored.accessToken);
           } else {
             if (!("refreshToken" in stored)) throw new Error("token_envelope_invalid");
             await provider.revokeAuthorization(stored.refreshToken);
@@ -793,50 +1157,69 @@ async function processAuthorizedDataRetention(
           material.tokenEnvelopeCiphertext,
           material.tokenCiphertextReference,
         );
-        const refreshedAuthorization =
-          material.platform === "facebook"
-            ? await (async () => {
-                if (!facebookProvider) throw new Error("facebook_configuration_required");
-                const stored = parseStoredFacebookAuthorization(opened);
-                const refreshed = await facebookProvider.refreshAuthorization(
-                  stored.userAccessToken,
-                );
-                const user = await facebookProvider.readAuthorizedUser(refreshed.userAccessToken);
-                if (user.id !== stored.metaUserId) {
-                  throw new Error("authorized_channel_identity_mismatch");
-                }
-                const pages = await facebookProvider.readManagedPages(refreshed.userAccessToken);
-                const page = pages.find((entry) => entry.id === material.externalAccountId);
-                if (!page) throw new Error("authorized_channel_identity_mismatch");
-                return {
-                  envelope: {
-                    userAccessToken: refreshed.userAccessToken,
-                    pageAccessToken: page.accessToken,
-                    expiresAt: refreshed.expiresAt.toISOString(),
-                    grantedScopes: [...refreshed.grantedScopes],
-                    metaUserId: user.id,
-                    pageId: page.id,
-                  },
-                  displayName: page.displayName,
-                };
-              })()
-            : await (async () => {
-                const stored = parseStoredYouTubeAuthorization(opened);
-                const refreshed = await provider.refreshAuthorization(stored.refreshToken);
-                const channel = await provider.readAuthorizedChannel(refreshed.accessToken);
-                if (channel.id !== material.externalAccountId) {
-                  throw new Error("authorized_channel_identity_mismatch");
-                }
-                return {
-                  envelope: {
-                    accessToken: refreshed.accessToken,
-                    refreshToken: refreshed.refreshToken ?? stored.refreshToken,
-                    expiresAt: refreshed.expiresAt.toISOString(),
-                    grantedScopes: [...refreshed.grantedScopes],
-                  },
-                  displayName: channel.displayName,
-                };
-              })();
+        const refreshedAuthorization = await (async () => {
+          if (material.platform === "facebook") {
+            if (!facebookProvider) throw new Error("facebook_configuration_required");
+            const stored = parseStoredFacebookAuthorization(opened);
+            const refreshed = await facebookProvider.refreshAuthorization(stored.userAccessToken);
+            const user = await facebookProvider.readAuthorizedUser(refreshed.userAccessToken);
+            if (user.id !== stored.metaUserId) {
+              throw new Error("authorized_channel_identity_mismatch");
+            }
+            const pages = await facebookProvider.readManagedPages(refreshed.userAccessToken);
+            const page = pages.find((entry) => entry.id === material.externalAccountId);
+            if (!page) throw new Error("authorized_channel_identity_mismatch");
+            return {
+              envelope: {
+                userAccessToken: refreshed.userAccessToken,
+                pageAccessToken: page.accessToken,
+                expiresAt: refreshed.expiresAt.toISOString(),
+                grantedScopes: [...refreshed.grantedScopes],
+                metaUserId: user.id,
+                pageId: page.id,
+              },
+              displayName: page.displayName,
+            };
+          }
+          if (material.platform === "tiktok") {
+            if (!tikTokProvider) throw new Error("tiktok_configuration_required");
+            const stored = parseStoredTikTokAuthorization(opened);
+            const refreshed = await tikTokProvider.refreshAuthorization(stored.refreshToken);
+            const user = await tikTokProvider.readAuthorizedUser(refreshed.accessToken);
+            if (
+              refreshed.openId !== material.externalAccountId ||
+              user.openId !== material.externalAccountId
+            ) {
+              throw new Error("authorized_channel_identity_mismatch");
+            }
+            return {
+              envelope: {
+                accessToken: refreshed.accessToken,
+                accessTokenExpiresAt: refreshed.accessTokenExpiresAt.toISOString(),
+                refreshToken: refreshed.refreshToken,
+                refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt.toISOString(),
+                openId: refreshed.openId,
+                grantedScopes: [...refreshed.grantedScopes],
+              },
+              displayName: user.displayName,
+            };
+          }
+          const stored = parseStoredYouTubeAuthorization(opened);
+          const refreshed = await provider.refreshAuthorization(stored.refreshToken);
+          const channel = await provider.readAuthorizedChannel(refreshed.accessToken);
+          if (channel.id !== material.externalAccountId) {
+            throw new Error("authorized_channel_identity_mismatch");
+          }
+          return {
+            envelope: {
+              accessToken: refreshed.accessToken,
+              refreshToken: refreshed.refreshToken ?? stored.refreshToken,
+              expiresAt: refreshed.expiresAt.toISOString(),
+              grantedScopes: [...refreshed.grantedScopes],
+            },
+            displayName: channel.displayName,
+          };
+        })();
         await persistSealedTokenEnvelope(vault, refreshedAuthorization.envelope, async (envelope) =>
           refreshYouTubeAuthorizedData(db, {
             workspaceId: operation.workspaceId!,

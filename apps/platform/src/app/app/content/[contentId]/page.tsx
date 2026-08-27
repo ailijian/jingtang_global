@@ -1,4 +1,9 @@
-import { getContentDetail, listFacebookChannels, listYouTubeChannels } from "@jingtang/db";
+import {
+  getContentDetail,
+  listFacebookChannels,
+  listTikTokChannels,
+  listYouTubeChannels,
+} from "@jingtang/db";
 import { hasPermission, type Locale } from "@jingtang/domain";
 import { formatDateTime, formatNumber, translate } from "@jingtang/i18n";
 import Link from "next/link";
@@ -12,7 +17,7 @@ import { getRuntime } from "../../../../server/runtime";
 
 function platformAccountLabel(
   locale: Locale,
-  platform: "youtube" | "facebook",
+  platform: "youtube" | "facebook" | "tiktok",
   accountDisplayName: string,
   accountReference: string,
 ): string {
@@ -21,14 +26,22 @@ function platformAccountLabel(
       ? locale === "zh-CN"
         ? "已断开的 Facebook Page"
         : "Disconnected Facebook Page"
-      : translate(locale, "detail.publish.channelDisconnected");
+      : platform === "tiktok"
+        ? locale === "zh-CN"
+          ? "已断开的 TikTok 账号"
+          : "Disconnected TikTok account"
+        : translate(locale, "detail.publish.channelDisconnected");
   }
   if (accountReference.startsWith("expired:")) {
     return platform === "facebook"
       ? locale === "zh-CN"
         ? "授权已过期的 Facebook Page"
         : "Facebook Page authorization expired"
-      : translate(locale, "detail.publish.channelExpired");
+      : platform === "tiktok"
+        ? locale === "zh-CN"
+          ? "授权已过期的 TikTok 账号"
+          : "TikTok authorization expired"
+        : translate(locale, "detail.publish.channelExpired");
   }
   return `${accountDisplayName} · ${accountReference}`;
 }
@@ -56,7 +69,9 @@ export default async function ContentDetailPage({
   const currentConnectedChannel = (
     await (version.platform === "facebook"
       ? listFacebookChannels(getRuntime().db, workspaceId)
-      : listYouTubeChannels(getRuntime().db, workspaceId))
+      : version.platform === "tiktok"
+        ? listTikTokChannels(getRuntime().db, workspaceId)
+        : listYouTubeChannels(getRuntime().db, workspaceId))
   ).find((channel) => channel.state === "connected" && channel.externalAccountId);
   const versionTargetsCurrentChannel =
     currentConnectedChannel?.externalAccountId === version.accountReference;
@@ -224,7 +239,11 @@ export default async function ContentDetailPage({
                         ? locale === "zh-CN"
                           ? "没有已连接的 Facebook Page"
                           : "No connected Facebook Page"
-                        : translate(locale, "detail.publish.currentChannelNone")}
+                        : version.platform === "tiktok"
+                          ? locale === "zh-CN"
+                            ? "没有已连接的 TikTok 账号"
+                            : "No connected TikTok account"
+                          : translate(locale, "detail.publish.currentChannelNone")}
                   </dd>
                 </div>
               </dl>
@@ -286,9 +305,14 @@ export default async function ContentDetailPage({
                 versionTargetsCurrentChannel &&
                 (version.platform === "youtube"
                   ? version.privacyStatus === "private"
-                  : version.privacyStatus === "public" &&
-                    content.sourceAsset.mediaType === "video/mp4" &&
-                    content.sourceAsset.byteSize <= 500 * 1024 * 1024) &&
+                  : version.platform === "facebook"
+                    ? version.privacyStatus === "public" &&
+                      content.sourceAsset.mediaType === "video/mp4" &&
+                      content.sourceAsset.byteSize <= 500 * 1024 * 1024
+                    : version.privacyStatus === "unselected" &&
+                      content.sourceAsset.mediaType === "video/mp4" &&
+                      content.sourceAsset.byteSize <= 500 * 1024 * 1024 &&
+                      Boolean(content.sourceAsset.durationSeconds)) &&
                 hasPermission(role, "content.publish")
               }
               hasExecution={content.publishing.executionCount > 0}
@@ -299,6 +323,8 @@ export default async function ContentDetailPage({
               channel={versionChannelLabel}
               madeForKids={version.madeForKids}
               platform={version.platform}
+              channelId={currentConnectedChannel?.id ?? null}
+              durationSeconds={content.sourceAsset.durationSeconds}
             />
           ) : null}
           <span className="unavailable-pill">{translate(locale, "composer.schedule")}</span>

@@ -1,6 +1,11 @@
-import { allowsFacebookReviewOAuth, allowsYouTubeTestOAuth } from "@jingtang/application";
+import {
+  allowsFacebookReviewOAuth,
+  allowsTikTokReviewOAuth,
+  allowsYouTubeTestOAuth,
+} from "@jingtang/application";
 import {
   listFacebookChannels,
+  listTikTokChannels,
   listYouTubeChannels,
   readFacebookConnectionCandidate,
 } from "@jingtang/db";
@@ -19,6 +24,7 @@ export default async function ChannelsPage({
   readonly searchParams: Promise<{
     readonly youtube?: string | readonly string[];
     readonly facebook?: string | readonly string[];
+    readonly tiktok?: string | readonly string[];
   }>;
 }) {
   const [{ locale, role, workspaceId, session }, query] = await Promise.all([
@@ -26,13 +32,15 @@ export default async function ChannelsPage({
     searchParams,
   ]);
   const runtime = getRuntime();
-  const [channels, facebookChannels, facebookCandidate] = await Promise.all([
+  const [channels, facebookChannels, tiktokChannels, facebookCandidate] = await Promise.all([
     listYouTubeChannels(runtime.db, workspaceId),
     listFacebookChannels(runtime.db, workspaceId),
+    listTikTokChannels(runtime.db, workspaceId),
     readFacebookConnectionCandidate(runtime.db, workspaceId, session.user.id),
   ]);
   const result = typeof query.youtube === "string" ? query.youtube : undefined;
   const facebookResult = typeof query.facebook === "string" ? query.facebook : undefined;
+  const tiktokResult = typeof query.tiktok === "string" ? query.tiktok : undefined;
   const connected = channels.find((channel) => channel.state === "connected");
   const reauthorization = channels.find((channel) => channel.state === "reauthorization_required");
   const disconnecting = channels.find((channel) => channel.state === "disconnecting");
@@ -60,6 +68,18 @@ export default async function ChannelsPage({
     hasPermission(role, "channel.connect") &&
     runtime.config.FACEBOOK_OAUTH_ENABLED &&
     allowsFacebookReviewOAuth(runtime.config.APP_ENV);
+  const tiktokConnected = tiktokChannels.find((channel) => channel.state === "connected");
+  const tiktokReauthorization = tiktokChannels.find(
+    (channel) => channel.state === "reauthorization_required",
+  );
+  const tiktokDisconnecting = tiktokChannels.find((channel) => channel.state === "disconnecting");
+  const tiktokDisconnected = tiktokChannels.find((channel) => channel.state === "disconnected");
+  const tiktokDisconnectCompleted = tiktokResult === "disconnecting" && Boolean(tiktokDisconnected);
+  const tiktokActive = tiktokConnected ?? tiktokDisconnecting ?? tiktokReauthorization;
+  const canConnectTikTok =
+    hasPermission(role, "channel.connect") &&
+    runtime.config.TIKTOK_OAUTH_ENABLED &&
+    allowsTikTokReviewOAuth(runtime.config.APP_ENV);
   const legalLocale = locale === "zh-CN" ? "zh-cn" : "en";
   const connectionForm = (
     <>
@@ -181,6 +201,76 @@ export default async function ChannelsPage({
       </ChannelConnectionForm>
     </>
   );
+  const tiktokConnectionForm = (
+    <>
+      <p>
+        {locale === "zh-CN"
+          ? "TikTok Login Kit 仅请求 user.info.basic 与 video.publish。R4 仅连接私密账号并手动 SELF_ONLY 发布。"
+          : "TikTok Login Kit requests user.info.basic and video.publish only. R4 connects a private account and publishes manually as SELF_ONLY."}
+      </p>
+      <ul className="channel-scope-list">
+        <li>
+          user.info.basic —{" "}
+          {locale === "zh-CN" ? "显示已连接身份" : "display the connected identity"}
+        </li>
+        <li>
+          video.publish —{" "}
+          {locale === "zh-CN"
+            ? "发布明确确认的私密视频"
+            : "publish explicitly confirmed private videos"}
+        </li>
+      </ul>
+      <ChannelConnectionForm
+        action="/api/v1/channels/tiktok/oauth"
+        canConnect={canConnectTikTok}
+        buttonLabel={
+          tiktokReauthorization
+            ? locale === "zh-CN"
+              ? "重新连接 TikTok"
+              : "Reconnect TikTok"
+            : locale === "zh-CN"
+              ? "连接 TikTok"
+              : "Connect TikTok"
+        }
+        pendingLabel={locale === "zh-CN" ? "正在打开 TikTok…" : "Opening TikTok…"}
+        unavailableMessage={
+          canConnectTikTok
+            ? undefined
+            : hasPermission(role, "channel.connect")
+              ? locale === "zh-CN"
+                ? "TikTok R4 连接尚未在当前环境启用。"
+                : "TikTok R4 connection is not enabled in this environment."
+              : translate(locale, "permission.denied")
+        }
+      >
+        <label>
+          <input name="consent" type="checkbox" value="accepted" required />
+          <span>
+            {locale === "zh-CN"
+              ? "我理解以上用途，并同意当前服务条款、隐私政策与 TikTok 条款。"
+              : "I understand this purpose and agree to the current Terms, Privacy Policy, and TikTok Terms."}
+          </span>
+        </label>
+        <p>
+          <a href={`https://jingtangai.com/${legalLocale}/terms/`} target="_blank" rel="noreferrer">
+            {translate(locale, "consent.terms")}
+          </a>
+          {" · "}
+          <a
+            href={`https://jingtangai.com/${legalLocale}/privacy/`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {translate(locale, "consent.privacy")}
+          </a>
+          {" · "}
+          <a href="https://www.tiktok.com/legal/terms-of-service" target="_blank" rel="noreferrer">
+            TikTok Terms
+          </a>
+        </p>
+      </ChannelConnectionForm>
+    </>
+  );
   return (
     <>
       <StatusAutoRefresh
@@ -188,7 +278,10 @@ export default async function ChannelsPage({
           (result === "disconnecting" && Boolean(disconnecting) && !disconnectFailed) ||
           (facebookResult === "disconnecting" &&
             Boolean(facebookDisconnecting) &&
-            !facebookDisconnectCompleted)
+            !facebookDisconnectCompleted) ||
+          (tiktokResult === "disconnecting" &&
+            Boolean(tiktokDisconnecting) &&
+            !tiktokDisconnectCompleted)
         }
       />
       <header className="page-heading">
@@ -281,6 +374,100 @@ export default async function ChannelsPage({
             </>
           ) : (
             connectionForm
+          )}
+        </section>
+        <section className="channel-card" aria-labelledby="tiktok-channel-title">
+          <div className="channel-card__heading">
+            <div>
+              <p className="detail-kicker">TIKTOK · PRIVATE DIRECT POST PILOT</p>
+              <h2 id="tiktok-channel-title">TikTok</h2>
+            </div>
+            <span
+              className={`channel-status channel-status--${tiktokConnected ? "connected" : "pending"}`}
+            >
+              {tiktokConnected
+                ? translate(locale, "channel.status.connected")
+                : tiktokDisconnecting
+                  ? translate(locale, "channel.status.disconnecting")
+                  : tiktokReauthorization
+                    ? translate(locale, "channel.status.reauthorization")
+                    : locale === "zh-CN"
+                      ? "未连接"
+                      : "Not connected"}
+            </span>
+          </div>
+          {tiktokResult === "connected" ? (
+            <p className="channel-notice channel-notice--success">
+              {locale === "zh-CN"
+                ? "TikTok 私密账号已连接；发布仍需审批与 SELF_ONLY 单独确认。"
+                : "The private TikTok account is connected; publishing still requires approval and a separate SELF_ONLY confirmation."}
+            </p>
+          ) : null}
+          {tiktokResult === "failed" || tiktokResult === "disconnect_failed" ? (
+            <p className="channel-notice channel-notice--error">
+              {locale === "zh-CN"
+                ? "TikTok 操作未能安全完成，请重试。"
+                : "The TikTok operation could not be completed safely. Try again."}
+            </p>
+          ) : null}
+          {tiktokResult === "denied" ? (
+            <p className="channel-notice">
+              {locale === "zh-CN" ? "TikTok 授权已取消。" : "TikTok authorization was cancelled."}
+            </p>
+          ) : null}
+          {tiktokResult === "disconnected" || tiktokDisconnectCompleted ? (
+            <p className="channel-notice channel-notice--success">
+              {locale === "zh-CN"
+                ? "TikTok 授权已撤销并清理。"
+                : "TikTok authorization was revoked and cleaned up."}
+            </p>
+          ) : null}
+          {tiktokActive ? (
+            <div className="channel-identity">
+              <strong>{tiktokActive.displayName ?? "TikTok"}</strong>
+              {tiktokActive.externalAccountId ? (
+                <span>{tiktokActive.externalAccountId}</span>
+              ) : null}
+              <p>
+                {locale === "zh-CN"
+                  ? "当前只允许 FILE_UPLOAD、手动 SELF_ONLY，互动默认关闭。"
+                  : "This pilot permits FILE_UPLOAD and manual SELF_ONLY only, with interactions off by default."}
+              </p>
+              {(tiktokConnected || tiktokDisconnecting) && canDisconnect ? (
+                <DestructiveActionDialog
+                  action="/api/v1/channels/tiktok/disconnect"
+                  triggerLabel={locale === "zh-CN" ? "断开 TikTok" : "Disconnect TikTok"}
+                  title={
+                    locale === "zh-CN"
+                      ? "断开这个 TikTok 账号？"
+                      : "Disconnect this TikTok account?"
+                  }
+                  description={
+                    locale === "zh-CN"
+                      ? "将阻止新发布、撤销授权并删除保存的 token。"
+                      : "This blocks new publishes, revokes authorization, and deletes stored tokens."
+                  }
+                  consequences={[
+                    locale === "zh-CN"
+                      ? "新的 TikTok API 操作立即停止。"
+                      : "New TikTok API operations stop immediately.",
+                    locale === "zh-CN"
+                      ? "保存的 OAuth token 会被删除。"
+                      : "Stored OAuth tokens are deleted.",
+                    locale === "zh-CN"
+                      ? "TikTok 已持有的视频不会被删除。"
+                      : "Videos already held by TikTok are not deleted.",
+                  ]}
+                  submitLabel={locale === "zh-CN" ? "确认断开" : "Disconnect TikTok"}
+                  pendingLabel={translate(locale, "channel.disconnect.pending")}
+                  cancelLabel={translate(locale, "action.cancel")}
+                  hiddenFields={{ channel_id: tiktokActive.id, confirmation: "disconnect" }}
+                />
+              ) : null}
+              {tiktokReauthorization ? tiktokConnectionForm : null}
+            </div>
+          ) : (
+            tiktokConnectionForm
           )}
         </section>
         <section className="channel-card" aria-labelledby="facebook-channel-title">

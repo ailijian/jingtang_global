@@ -24,6 +24,7 @@
     "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
     "media_type": { "type": "string", "minLength": 1, "maxLength": 160 },
     "byte_size": { "type": "integer", "minimum": 1 },
+    "duration_seconds": { "type": ["integer", "null"], "minimum": 1 },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "status": { "type": "string", "enum": ["pending_upload", "complete", "failed"] },
     "ownership_confirmed": { "type": "boolean", "const": true },

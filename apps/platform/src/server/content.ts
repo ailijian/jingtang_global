@@ -2,12 +2,12 @@ import { z } from "zod";
 
 export const platformVersionInput = z
   .object({
-    platform: z.enum(["youtube", "facebook"]),
+    platform: z.enum(["youtube", "facebook", "tiktok"]),
     accountReference: z.string().trim().min(1).max(255),
     accountDisplayName: z.string().trim().min(1).max(255),
-    title: z.string().trim().min(1).max(100),
+    title: z.string().trim().min(1).max(2200),
     description: z.string().max(5000),
-    privacyStatus: z.enum(["private", "unlisted", "public"]),
+    privacyStatus: z.enum(["unselected", "private", "unlisted", "public"]),
     madeForKids: z.boolean(),
   })
   .superRefine((value, context) => {
@@ -23,6 +23,27 @@ export const platformVersionInput = z
         code: "custom",
         path: ["madeForKids"],
         message: "YouTube audience settings do not apply to Facebook",
+      });
+    }
+    if (value.platform === "tiktok" && value.privacyStatus !== "unselected") {
+      context.addIssue({
+        code: "custom",
+        path: ["privacyStatus"],
+        message: "TikTok privacy must be chosen manually from fresh Creator Info at publish time",
+      });
+    }
+    if (value.platform === "tiktok" && value.madeForKids) {
+      context.addIssue({
+        code: "custom",
+        path: ["madeForKids"],
+        message: "YouTube audience settings do not apply to TikTok",
+      });
+    }
+    if (value.platform !== "tiktok" && value.title.length > 100) {
+      context.addIssue({
+        code: "custom",
+        path: ["title"],
+        message: "YouTube and Facebook titles are limited to 100 characters",
       });
     }
   });

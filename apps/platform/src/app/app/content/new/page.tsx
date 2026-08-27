@@ -1,5 +1,5 @@
 import { hasPermission } from "@jingtang/domain";
-import { listFacebookChannels, listYouTubeChannels } from "@jingtang/db";
+import { listFacebookChannels, listTikTokChannels, listYouTubeChannels } from "@jingtang/db";
 import { translate } from "@jingtang/i18n";
 import { redirect } from "next/navigation";
 
@@ -13,6 +13,7 @@ export default async function NewContentPage() {
   const allChannels = await Promise.all([
     listYouTubeChannels(getRuntime().db, workspaceId),
     listFacebookChannels(getRuntime().db, workspaceId),
+    listTikTokChannels(getRuntime().db, workspaceId),
   ]);
   const channels = allChannels
     .flat()

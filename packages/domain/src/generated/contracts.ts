@@ -52,7 +52,8 @@ export interface ConsentRecord {
     | "registration_checkbox"
     | "reconsent_gate"
     | "youtube_connection_checkbox"
-    | "facebook_connection_checkbox";
+    | "facebook_connection_checkbox"
+    | "tiktok_connection_checkbox";
   accepted_at: string;
 }
 
@@ -108,6 +109,7 @@ export interface SourceAsset {
   filename: string;
   media_type: string;
   byte_size: number;
+  duration_seconds?: number | null;
   sha256: string;
   status: "pending_upload" | "complete" | "failed";
   ownership_confirmed: true;
@@ -134,12 +136,12 @@ export type PlatformVersion = {
   platform_version_id: string;
   workspace_id: string;
   revision_id: string;
-  platform: "youtube" | "facebook";
+  platform: "youtube" | "facebook" | "tiktok";
   account_reference: string;
   account_display_name: string;
   title: string;
   description: string;
-  privacy_status: "private" | "unlisted" | "public";
+  privacy_status: "private" | "unlisted" | "public" | "unselected";
   made_for_kids: boolean;
   validation_status: "valid" | "invalid";
   created_at: string;
@@ -199,7 +201,7 @@ export interface PlatformExecution {
   workspace_id: string;
   publishing_intent_id: string;
   platform_version_id: string;
-  platform: "youtube" | "facebook";
+  platform: "youtube" | "facebook" | "tiktok";
   account_reference: string;
   operation: "publish";
   attempt: number;

@@ -37,17 +37,21 @@ const assetStatusToDomain: Readonly<Record<DbSourceAssetStatus, SourceAssetStatu
 const platformToDb: Readonly<Record<Platform, DbPlatform>> = {
   youtube: DbPlatform.YOUTUBE,
   facebook: DbPlatform.FACEBOOK,
+  tiktok: DbPlatform.TIKTOK,
 };
 const platformToDomain: Readonly<Record<DbPlatform, Platform>> = {
   YOUTUBE: "youtube",
   FACEBOOK: "facebook",
+  TIKTOK: "tiktok",
 };
 const privacyToDb: Readonly<Record<PrivacyStatus, DbPrivacyStatus>> = {
+  unselected: DbPrivacyStatus.UNSELECTED,
   private: DbPrivacyStatus.PRIVATE,
   unlisted: DbPrivacyStatus.UNLISTED,
   public: DbPrivacyStatus.PUBLIC,
 };
 const privacyToDomain: Readonly<Record<DbPrivacyStatus, PrivacyStatus>> = {
+  UNSELECTED: "unselected",
   PRIVATE: "private",
   UNLISTED: "unlisted",
   PUBLIC: "public",
@@ -74,6 +78,7 @@ export interface SourceAssetView {
   readonly filename: string;
   readonly mediaType: string;
   readonly byteSize: number;
+  readonly durationSeconds: number | null;
   readonly sha256: string;
   readonly status: SourceAssetStatus;
   readonly ownershipConfirmed: boolean;
@@ -139,6 +144,7 @@ function sourceAssetView(entry: {
   originalFilename: string;
   mediaType: string;
   byteSize: bigint;
+  durationSeconds: number | null;
   sha256: string;
   status: DbSourceAssetStatus;
   ownershipConfirmed: boolean;
@@ -153,6 +159,7 @@ function sourceAssetView(entry: {
     filename: entry.originalFilename,
     mediaType: entry.mediaType,
     byteSize: Number(entry.byteSize),
+    durationSeconds: entry.durationSeconds,
     sha256: entry.sha256,
     status: assetStatusToDomain[entry.status],
     ownershipConfirmed: entry.ownershipConfirmed,
@@ -171,6 +178,7 @@ export async function createPendingSourceAsset(
     readonly filename: string;
     readonly mediaType: string;
     readonly byteSize: number;
+    readonly durationSeconds?: number;
     readonly sha256: string;
     readonly ownershipConfirmed: true;
     readonly uploadedByUserId: string;
@@ -185,6 +193,7 @@ export async function createPendingSourceAsset(
         originalFilename: input.filename,
         mediaType: input.mediaType,
         byteSize: BigInt(input.byteSize),
+        durationSeconds: input.durationSeconds ?? null,
         sha256: input.sha256,
         ownershipConfirmed: input.ownershipConfirmed,
         uploadedByUserId: input.uploadedByUserId,

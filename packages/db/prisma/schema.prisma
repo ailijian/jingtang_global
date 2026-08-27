@@ -72,11 +72,13 @@ enum SourceAssetStatus {
 enum Platform {
   YOUTUBE  @map("youtube")
   FACEBOOK @map("facebook")
+  TIKTOK   @map("tiktok")
 
   @@map("platform")
 }
 
 enum PrivacyStatus {
+  UNSELECTED @map("unselected")
   PRIVATE  @map("private")
   UNLISTED @map("unlisted")
   PUBLIC   @map("public")
@@ -393,6 +395,7 @@ model SourceAsset {
   originalFilename   String            @map("original_filename") @db.VarChar(255)
   mediaType          String            @map("media_type") @db.VarChar(160)
   byteSize           BigInt            @map("byte_size")
+  durationSeconds    Int?              @map("duration_seconds")
   sha256             String            @db.Char(64)
   status             SourceAssetStatus @default(PENDING_UPLOAD)
   ownershipConfirmed Boolean           @map("ownership_confirmed")
@@ -459,7 +462,7 @@ model PlatformVersion {
   platform           Platform
   accountReference   String              @map("account_reference") @db.VarChar(255)
   accountDisplayName String              @map("account_display_name") @db.VarChar(255)
-  title              String              @db.VarChar(100)
+  title              String              @db.VarChar(2200)
   description        String              @db.VarChar(5000)
   privacyStatus      PrivacyStatus       @map("privacy_status")
   madeForKids        Boolean             @map("made_for_kids")

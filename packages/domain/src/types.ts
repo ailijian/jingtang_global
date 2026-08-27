@@ -53,6 +53,7 @@ export const auditActions = [
   "content.rejected",
   "publishing.confirmed",
   "platform.publish_started",
+  "platform.publish_initialized",
   "platform.uploaded",
   "platform.published",
   "platform.publish_failed",
@@ -75,10 +76,10 @@ export type ContentStatus = (typeof contentStatuses)[number];
 export const sourceAssetStatuses = ["pending_upload", "complete", "failed"] as const;
 export type SourceAssetStatus = (typeof sourceAssetStatuses)[number];
 
-export const platforms = ["youtube", "facebook"] as const;
+export const platforms = ["youtube", "facebook", "tiktok"] as const;
 export type Platform = (typeof platforms)[number];
 
-export const privacyStatuses = ["private", "unlisted", "public"] as const;
+export const privacyStatuses = ["unselected", "private", "unlisted", "public"] as const;
 export type PrivacyStatus = (typeof privacyStatuses)[number];
 
 export const approvalResults = ["approved", "rejected"] as const;

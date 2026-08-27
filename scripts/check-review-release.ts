@@ -89,6 +89,10 @@ for (const marker of [
   "FACEBOOK_GRAPH_API_VERSION: v26.0",
   "FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret",
   "FACEBOOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/facebook-state-secret",
+  'TIKTOK_OAUTH_ENABLED: "true"',
+  "TIKTOK_CLIENT_KEY: ${REVIEW_TIKTOK_CLIENT_KEY:?required}",
+  "TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret",
+  "TIKTOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/tiktok-state-secret",
   "/srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro",
   "DATABASE_URL_FILE:",
   "profiles: [tools]",
@@ -245,6 +249,7 @@ const internalSecrets = read("infra/tencent/review/generate-internal-secrets.sh"
 for (const marker of [
   "oauth-token-encryption-key",
   "facebook-state-secret",
+  "tiktok-state-secret",
   "openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n'",
 ]) {
   requireText(internalSecrets, marker, "review internal-secret generator");

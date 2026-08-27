@@ -19,6 +19,8 @@ export function PublishActions({
   channel,
   madeForKids,
   platform,
+  channelId,
+  durationSeconds,
 }: {
   readonly locale: Locale;
   readonly contentId: string;
@@ -31,12 +33,31 @@ export function PublishActions({
   readonly description: string;
   readonly channel: string;
   readonly madeForKids: boolean;
-  readonly platform: "youtube" | "facebook";
+  readonly platform: "youtube" | "facebook" | "tiktok";
+  readonly channelId: string | null;
+  readonly durationSeconds: number | null;
 }) {
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const router = useRouter();
   const idempotencyKey = useRef<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [musicConfirmed, setMusicConfirmed] = useState(false);
+  const [creatorInfoConfirmed, setCreatorInfoConfirmed] = useState(false);
+  const [tikTokPrivacy, setTikTokPrivacy] = useState<"" | "SELF_ONLY">("");
+  const [allowComments, setAllowComments] = useState(false);
+  const [allowDuet, setAllowDuet] = useState(false);
+  const [allowStitch, setAllowStitch] = useState(false);
+  const [brandOrganic, setBrandOrganic] = useState(false);
+  const [isAigc, setIsAigc] = useState(false);
+  const [creatorInfo, setCreatorInfo] = useState<{
+    readonly creator_username: string;
+    readonly creator_nickname: string;
+    readonly privacy_level_options: readonly string[];
+    readonly comment_disabled: boolean;
+    readonly duet_disabled: boolean;
+    readonly stitch_disabled: boolean;
+    readonly max_video_post_duration_sec: number;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<"queued" | "failed" | null>(null);
 
@@ -46,8 +67,32 @@ export function PublishActions({
     return () => window.clearInterval(timer);
   }, [hasExecution, message, polling, router]);
 
+  useEffect(() => {
+    if (platform !== "tiktok" || !channelId || hasExecution) return;
+    const controller = new AbortController();
+    void fetch(`/api/v1/channels/tiktok/creator-info?channel_id=${encodeURIComponent(channelId)}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("creator_info_failed");
+        setCreatorInfo((await response.json()) as NonNullable<typeof creatorInfo>);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setMessage("failed");
+      });
+    return () => controller.abort();
+  }, [channelId, hasExecution, platform]);
+
   async function publish() {
-    if (!confirmed || busy || hasExecution) return;
+    if (
+      !confirmed ||
+      busy ||
+      hasExecution ||
+      (platform === "tiktok" &&
+        (!creatorInfo || tikTokPrivacy !== "SELF_ONLY" || !musicConfirmed || !creatorInfoConfirmed))
+    ) {
+      return;
+    }
     setBusy(true);
     setMessage(null);
     idempotencyKey.current ??= crypto.randomUUID();
@@ -59,6 +104,22 @@ export function PublishActions({
           revisionId,
           idempotencyKey: idempotencyKey.current,
           confirmed: true,
+          ...(platform === "tiktok" && channelId
+            ? {
+                tiktok: {
+                  channelId,
+                  privacyLevel: tikTokPrivacy,
+                  disableComment: !allowComments,
+                  disableDuet: !allowDuet,
+                  disableStitch: !allowStitch,
+                  brandContentToggle: false,
+                  brandOrganicToggle: brandOrganic,
+                  isAigc,
+                  musicUsageConfirmed: true,
+                  creatorInfoConfirmed: true,
+                },
+              }
+            : {}),
         }),
       });
       if (!response.ok) {
@@ -97,9 +158,13 @@ export function PublishActions({
           <dt>
             {platform === "youtube"
               ? t("composer.youtubeTitle")
-              : locale === "zh-CN"
+              : platform === "facebook" && locale === "zh-CN"
                 ? "Facebook 视频标题"
-                : "Facebook video title"}
+                : platform === "facebook"
+                  ? "Facebook video title"
+                  : locale === "zh-CN"
+                    ? "TikTok 标题/说明"
+                    : "TikTok title/caption"}
           </dt>
           <dd>{title}</dd>
         </div>
@@ -116,7 +181,11 @@ export function PublishActions({
         <div>
           <dt>{t("composer.privacy")}</dt>
           <dd>
-            {t(platform === "youtube" ? "composer.privacy.private" : "composer.privacy.public")}
+            {platform === "youtube"
+              ? t("composer.privacy.private")
+              : platform === "facebook"
+                ? t("composer.privacy.public")
+                : tikTokPrivacy || (locale === "zh-CN" ? "未选择" : "Not selected")}
           </dd>
         </div>
         {platform === "youtube" ? (
@@ -130,6 +199,130 @@ export function PublishActions({
           <dd>{t("detail.publish.mode.now")}</dd>
         </div>
       </dl>
+      {platform === "tiktok" && !hasExecution ? (
+        <div className="publish-confirmation-options">
+          {creatorInfo ? (
+            <StatusMessage tone="info">
+              {locale === "zh-CN"
+                ? `最新 Creator Info：${creatorInfo.creator_nickname}（@${creatorInfo.creator_username}）；视频上限 ${creatorInfo.max_video_post_duration_sec} 秒，当前素材 ${durationSeconds ?? "?"} 秒。`
+                : `Fresh Creator Info: ${creatorInfo.creator_nickname} (@${creatorInfo.creator_username}); maximum ${creatorInfo.max_video_post_duration_sec}s, current asset ${durationSeconds ?? "?"}s.`}
+            </StatusMessage>
+          ) : (
+            <StatusMessage tone="info">
+              {locale === "zh-CN"
+                ? "正在读取最新 TikTok Creator Info…"
+                : "Loading fresh TikTok Creator Info…"}
+            </StatusMessage>
+          )}
+          <p>
+            {locale === "zh-CN"
+              ? "互动默认关闭；只有 TikTok 当前允许时才可手动开启。"
+              : "Interactions are off by default and can be enabled only when TikTok currently permits them."}
+          </p>
+          <label>
+            <span>
+              {locale === "zh-CN"
+                ? "隐私设置（必须手动选择）"
+                : "Privacy (manual selection required)"}
+            </span>
+            <select
+              value={tikTokPrivacy}
+              disabled={!creatorInfo}
+              onChange={(event) =>
+                setTikTokPrivacy(event.target.value === "SELF_ONLY" ? "SELF_ONLY" : "")
+              }
+            >
+              <option value="">{locale === "zh-CN" ? "请选择" : "Select privacy"}</option>
+              {creatorInfo?.privacy_level_options.includes("SELF_ONLY") ? (
+                <option value="SELF_ONLY">SELF_ONLY</option>
+              ) : null}
+            </select>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={allowComments}
+              disabled={!creatorInfo || creatorInfo.comment_disabled}
+              onChange={(event) => setAllowComments(event.target.checked)}
+            />
+            <span>{locale === "zh-CN" ? "允许评论" : "Allow comments"}</span>
+          </label>
+          <label className="ownership-row">
+            <input type="checkbox" checked={false} disabled readOnly />
+            <span>
+              {locale === "zh-CN"
+                ? "付费品牌内容（SELF_ONLY 私密发布不可用）"
+                : "Paid branded content (unavailable for SELF_ONLY private publishing)"}
+            </span>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={allowDuet}
+              disabled={!creatorInfo || creatorInfo.duet_disabled}
+              onChange={(event) => setAllowDuet(event.target.checked)}
+            />
+            <span>{locale === "zh-CN" ? "允许合拍" : "Allow Duet"}</span>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={allowStitch}
+              disabled={!creatorInfo || creatorInfo.stitch_disabled}
+              onChange={(event) => setAllowStitch(event.target.checked)}
+            />
+            <span>{locale === "zh-CN" ? "允许 Stitch" : "Allow Stitch"}</span>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={brandOrganic}
+              onChange={(event) => setBrandOrganic(event.target.checked)}
+            />
+            <span>
+              {locale === "zh-CN"
+                ? "此内容推广我自己的品牌/业务（非付费品牌内容）"
+                : "This content promotes my own brand/business (not paid branded content)"}
+            </span>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={isAigc}
+              onChange={(event) => setIsAigc(event.target.checked)}
+            />
+            <span>
+              {locale === "zh-CN"
+                ? "此视频包含 AI 生成内容"
+                : "This video contains AI-generated content"}
+            </span>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={musicConfirmed}
+              onChange={(event) => setMusicConfirmed(event.target.checked)}
+            />
+            <span>
+              {locale === "zh-CN"
+                ? "我确认遵守 TikTok 音乐使用条款。"
+                : "I confirm compliance with TikTok's music usage terms."}
+            </span>
+          </label>
+          <label className="ownership-row">
+            <input
+              type="checkbox"
+              checked={creatorInfoConfirmed}
+              onChange={(event) => setCreatorInfoConfirmed(event.target.checked)}
+            />
+            <span>
+              {locale === "zh-CN"
+                ? "我已核对以上 Creator Info、披露与 SELF_ONLY 设置。"
+                : "I reviewed the Creator Info, disclosures, and SELF_ONLY setting above."}
+            </span>
+          </label>
+        </div>
+      ) : null}
       {!hasExecution ? (
         <>
           <label className="ownership-row">
@@ -142,12 +335,28 @@ export function PublishActions({
             <span>
               {platform === "youtube"
                 ? t("detail.publish.confirmation")
-                : locale === "zh-CN"
+                : platform === "facebook" && locale === "zh-CN"
                   ? "我确认将此准确 MP4、标题和描述立即发布为所选公司 Facebook Page 的原生视频帖子。"
-                  : "I confirm this exact MP4, title, and description for immediate publication as a native video post on the selected company Facebook Page."}
+                  : platform === "facebook"
+                    ? "I confirm this exact MP4, title, and description for immediate publication as a native video post on the selected company Facebook Page."
+                    : locale === "zh-CN"
+                      ? "我确认将此准确 MP4 与标题通过 FILE_UPLOAD 立即发布到所选 TikTok 私密账号，隐私为 SELF_ONLY。"
+                      : "I confirm this exact MP4 and title for immediate FILE_UPLOAD to the selected private TikTok account as SELF_ONLY."}
             </span>
           </label>
-          <Button disabled={!canPublish || !confirmed || busy} onClick={() => void publish()}>
+          <Button
+            disabled={
+              !canPublish ||
+              !confirmed ||
+              busy ||
+              (platform === "tiktok" &&
+                (!creatorInfo ||
+                  tikTokPrivacy !== "SELF_ONLY" ||
+                  !musicConfirmed ||
+                  !creatorInfoConfirmed))
+            }
+            onClick={() => void publish()}
+          >
             {busy
               ? platform === "facebook"
                 ? t("detail.publish.facebook.working")

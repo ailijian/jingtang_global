@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertFacebookOAuthFlowBinding,
+  assertTikTokOAuthFlowBinding,
   assertYouTubeOAuthFlowBinding,
   createOAuthPkce,
   facebookOAuthStateDigest,
   FacebookOAuthFlowStateCodec,
+  TikTokOAuthFlowStateCodec,
   YouTubeOAuthFlowStateCodec,
 } from "./oauth-flow-state.js";
 
@@ -125,6 +127,35 @@ describe("Facebook OAuth flow state", () => {
     expect(() => assertFacebookOAuthFlowBinding(facebookContext, current)).not.toThrow();
     expect(() =>
       assertFacebookOAuthFlowBinding(facebookContext, { ...current, workspaceId: "other" }),
+    ).toThrow();
+  });
+});
+
+describe("TikTok OAuth flow state", () => {
+  const tikTokContext = {
+    state: "tiktok-state",
+    sessionId: "session-id",
+    userId: "user-id",
+    workspaceId: "workspace-id",
+    channelId: "channel-id",
+    consentRecordId: "consent-record-id",
+    locale: "en" as const,
+    expiresAt: Date.now() + 600_000,
+  };
+
+  it("round-trips opaque state and rejects a changed active Workspace", () => {
+    const codec = new TikTokOAuthFlowStateCodec(secret);
+    const sealed = codec.seal(tikTokContext);
+    expect(sealed).not.toContain("workspace-id");
+    expect(codec.open(sealed, "tiktok-state")).toEqual(tikTokContext);
+    expect(() => codec.open(sealed, "wrong-state")).toThrow();
+    expect(() =>
+      assertTikTokOAuthFlowBinding(tikTokContext, {
+        sessionId: "session-id",
+        userId: "user-id",
+        workspaceId: "other-workspace",
+        locale: "en",
+      }),
     ).toThrow();
   });
 });

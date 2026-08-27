@@ -119,6 +119,10 @@ const schema = z
       .string()
       .regex(/^v\d+\.\d+$/u)
       .default("v26.0"),
+    TIKTOK_OAUTH_ENABLED: booleanString,
+    TIKTOK_CLIENT_KEY: optionalSecret,
+    TIKTOK_CLIENT_SECRET: optionalSecret,
+    TIKTOK_OAUTH_STATE_SECRET: optionalStateSecret,
     YOUTUBE_TEST_FAULT: z
       .enum(["none", "timeout", "quota", "oauth_expired", "processing_failed", "ambiguous_upload"])
       .default("none"),
@@ -238,6 +242,24 @@ const schema = z
           code: "custom",
           path: ["FACEBOOK_OAUTH_STATE_SECRET"],
           message: "Required for the Facebook OAuth web flow",
+        });
+      }
+    }
+    if (value.TIKTOK_OAUTH_ENABLED) {
+      for (const key of ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET"] as const) {
+        if (!value[key]) {
+          context.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Required when TikTok OAuth is enabled",
+          });
+        }
+      }
+      if (value.RUNTIME_SECRET_BUNDLE_ROLE === "platform" && !value.TIKTOK_OAUTH_STATE_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["TIKTOK_OAUTH_STATE_SECRET"],
+          message: "Required for the TikTok Login Kit web flow",
         });
       }
     }
@@ -448,6 +470,8 @@ const schema = z
           message: "Required by the platform when YouTube OAuth is enabled",
         });
       }
+    }
+    if (value.YOUTUBE_OAUTH_ENABLED || value.FACEBOOK_OAUTH_ENABLED || value.TIKTOK_OAUTH_ENABLED) {
       if (value.OAUTH_TOKEN_VAULT_PROVIDER === "local" && !value.OAUTH_TOKEN_ENCRYPTION_KEY) {
         context.addIssue({
           code: "custom",
@@ -474,7 +498,7 @@ const schema = z
           message:
             value.APP_ENV === "review"
               ? "The temporary review environment requires the local envelope token vault"
-              : "Staging and production YouTube OAuth require the Tencent KMS token vault",
+              : "Staging and production OAuth require the Tencent KMS token vault",
         });
       }
       if (value.OAUTH_TOKEN_VAULT_PROVIDER === "tencent_kms") {
@@ -510,13 +534,17 @@ const schema = z
         value.SESSION_COOKIE_SECRET,
         value.YOUTUBE_OAUTH_CLIENT_SECRET,
         value.YOUTUBE_OAUTH_STATE_SECRET,
+        value.FACEBOOK_APP_SECRET,
+        value.FACEBOOK_OAUTH_STATE_SECRET,
+        value.TIKTOK_CLIENT_SECRET,
+        value.TIKTOK_OAUTH_STATE_SECRET,
         value.OAUTH_TOKEN_ENCRYPTION_KEY,
       ].filter((entry): entry is string => Boolean(entry));
       if (new Set(secretValues).size !== secretValues.length) {
         context.addIssue({
           code: "custom",
-          path: ["YOUTUBE_OAUTH_STATE_SECRET"],
-          message: "Session, OAuth client, state, and token-encryption secrets must be distinct",
+          path: ["OAUTH_TOKEN_ENCRYPTION_KEY"],
+          message: "Session, provider, state, and token-encryption secrets must be distinct",
         });
       }
     }
@@ -557,5 +585,9 @@ export function allowsYouTubeTestOAuth(environment: AppConfig["APP_ENV"]): boole
 }
 
 export function allowsFacebookReviewOAuth(environment: AppConfig["APP_ENV"]): boolean {
+  return environment === "local" || environment === "test" || environment === "review";
+}
+
+export function allowsTikTokReviewOAuth(environment: AppConfig["APP_ENV"]): boolean {
   return environment === "local" || environment === "test" || environment === "review";
 }

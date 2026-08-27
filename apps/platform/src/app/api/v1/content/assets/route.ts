@@ -20,6 +20,12 @@ const schema = z.object({
   filename: z.string().trim().min(1).max(255),
   mediaType: z.string().trim().min(1).max(160),
   byteSize: z.number().int().positive(),
+  durationSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(60 * 60)
+    .optional(),
   sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   sha256Base64: z.string().regex(/^[A-Za-z0-9+/]{43}=$/u),
   ownershipConfirmed: z.literal(true),
@@ -68,6 +74,7 @@ export async function POST(request: NextRequest) {
       filename: input.filename,
       mediaType: input.mediaType,
       byteSize: input.byteSize,
+      ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
       sha256: input.sha256,
       ownershipConfirmed: true,
       uploadedByUserId: session.user.id,

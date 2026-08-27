@@ -5,6 +5,7 @@ import {
   type FacebookOAuthProvider,
   type IdentityProvider,
   type TokenEnvelopeVault,
+  type TikTokOAuthProvider,
   type YouTubeOAuthProvider,
 } from "@jingtang/application";
 import { createDatabaseClient, type PrismaClient } from "@jingtang/db";
@@ -17,6 +18,7 @@ import {
   MetaFacebookOAuthProvider,
   MockIdentityProvider,
   S3AssetStorage,
+  TikTokDirectPostProvider,
 } from "@jingtang/integrations";
 
 interface Runtime {
@@ -26,6 +28,7 @@ interface Runtime {
   readonly assets: AssetStorage;
   readonly youtubeOAuth?: YouTubeOAuthProvider;
   readonly facebookOAuth?: FacebookOAuthProvider;
+  readonly tiktokOAuth?: TikTokOAuthProvider;
   readonly tokenVault?: TokenEnvelopeVault;
 }
 
@@ -51,8 +54,14 @@ export function getRuntime(): Runtime {
         graphApiVersion: config.FACEBOOK_GRAPH_API_VERSION,
       })
     : undefined;
+  const tiktokOAuth = config.TIKTOK_OAUTH_ENABLED
+    ? new TikTokDirectPostProvider({
+        clientKey: config.TIKTOK_CLIENT_KEY ?? "",
+        clientSecret: config.TIKTOK_CLIENT_SECRET ?? "",
+      })
+    : undefined;
   const tokenVault =
-    config.YOUTUBE_OAUTH_ENABLED || config.FACEBOOK_OAUTH_ENABLED
+    config.YOUTUBE_OAUTH_ENABLED || config.FACEBOOK_OAUTH_ENABLED || config.TIKTOK_OAUTH_ENABLED
       ? createTokenEnvelopeVault(config)
       : undefined;
   const runtime: Runtime = {
@@ -105,6 +114,7 @@ export function getRuntime(): Runtime {
     }),
     ...(youtubeOAuth ? { youtubeOAuth } : {}),
     ...(facebookOAuth ? { facebookOAuth } : {}),
+    ...(tiktokOAuth ? { tiktokOAuth } : {}),
     ...(tokenVault ? { tokenVault } : {}),
   };
   globalThis.__jingtangRuntime = runtime;

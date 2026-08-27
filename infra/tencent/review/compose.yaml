@@ -55,6 +55,8 @@ x-common-environment: &common-environment
   FACEBOOK_APP_ID: ${REVIEW_FACEBOOK_APP_ID:?required}
   FACEBOOK_LOGIN_CONFIGURATION_ID: ${REVIEW_FACEBOOK_LOGIN_CONFIGURATION_ID:?required}
   FACEBOOK_GRAPH_API_VERSION: v26.0
+  TIKTOK_OAUTH_ENABLED: "true"
+  TIKTOK_CLIENT_KEY: ${REVIEW_TIKTOK_CLIENT_KEY:?required}
   OAUTH_TOKEN_VAULT_PROVIDER: local
   LOCAL_TOKEN_KEY_STORE_PATH: /var/lib/jingtang/oauth-envelope-keys.json
   TENCENT_CREDENTIAL_PROVIDER: static
@@ -121,6 +123,10 @@ services:
       FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret
       FACEBOOK_OAUTH_STATE_SECRET: ""
       FACEBOOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/facebook-state-secret
+      TIKTOK_CLIENT_SECRET: ""
+      TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret
+      TIKTOK_OAUTH_STATE_SECRET: ""
+      TIKTOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/tiktok-state-secret
       PORT: "3100"
     volumes:
       - /srv/jingtang/review/state:/var/lib/jingtang
@@ -133,6 +139,8 @@ services:
       - /srv/jingtang/review/secrets/youtube-state-secret:/run/jingtang-secrets/youtube-state-secret:ro
       - /srv/jingtang/review/secrets/facebook-app-secret:/run/jingtang-secrets/facebook-app-secret:ro
       - /srv/jingtang/review/secrets/facebook-state-secret:/run/jingtang-secrets/facebook-state-secret:ro
+      - /srv/jingtang/review/secrets/tiktok-client-secret:/run/jingtang-secrets/tiktok-client-secret:ro
+      - /srv/jingtang/review/secrets/tiktok-state-secret:/run/jingtang-secrets/tiktok-state-secret:ro
     mem_limit: 768m
     cpus: 0.60
     healthcheck:
@@ -177,6 +185,8 @@ services:
       YOUTUBE_OAUTH_CLIENT_SECRET_FILE: /run/jingtang-secrets/youtube-client-secret
       FACEBOOK_APP_SECRET: ""
       FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret
+      TIKTOK_CLIENT_SECRET: ""
+      TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret
     volumes:
       - /srv/jingtang/review/state:/var/lib/jingtang
       - /srv/jingtang/review/secrets/database-worker-url:/run/jingtang-secrets/database-worker-url:ro
@@ -186,6 +196,7 @@ services:
       - /srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro
       - /srv/jingtang/review/secrets/youtube-client-secret:/run/jingtang-secrets/youtube-client-secret:ro
       - /srv/jingtang/review/secrets/facebook-app-secret:/run/jingtang-secrets/facebook-app-secret:ro
+      - /srv/jingtang/review/secrets/tiktok-client-secret:/run/jingtang-secrets/tiktok-client-secret:ro
     mem_limit: 768m
     cpus: 0.75
 

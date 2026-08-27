@@ -15,7 +15,7 @@ for required_absent in \
   postgres-admin-password postgres-app-password postgres-worker-password \
   database-admin-url database-app-url database-worker-url \
   platform-session-cookie worker-config-secret youtube-state-secret \
-  facebook-state-secret \
+  facebook-state-secret tiktok-state-secret \
   oauth-token-encryption-key backup-encryption-key reviewer-password; do
   if [[ -e "$secret_root/$required_absent" ]]; then
     echo "Refusing to replace existing secret: $required_absent" >&2
@@ -45,6 +45,7 @@ install_value "$service_uid" platform-session-cookie "$(openssl rand -base64 48 
 install_value "$service_uid" worker-config-secret "$(openssl rand -base64 48 | tr -d '\n')"
 install_value "$service_uid" youtube-state-secret "$(openssl rand -base64 48 | tr -d '\n')"
 install_value "$service_uid" facebook-state-secret "$(openssl rand -base64 48 | tr -d '\n')"
+install_value "$service_uid" tiktok-state-secret "$(openssl rand -base64 48 | tr -d '\n')"
 install_value "$service_uid" oauth-token-encryption-key "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 install_value "$service_uid" backup-encryption-key "$(openssl rand -base64 32 | tr -d '\n')"
 install_value "$service_uid" reviewer-password "$(openssl rand -base64 24 | tr -d '\n')"

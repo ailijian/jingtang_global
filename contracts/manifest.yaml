@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 5
+revision: 6
 status: approved
 effective_date: "2026-08-20"
 owner: JINGTANG Contract Owner
 governance: contracts/README.md
-revision_note: R3 adopts v2 Platform Version, Publishing Intent, and Platform Execution contracts for Facebook Page video publishing while retaining v1 as immutable history
+revision_note: R4 adopts TikTok-aware consent v3, Platform Version v3, Publishing Intent v3, and Platform Execution v3 while retaining prior major versions as immutable history
 
 formats:
   schema: json_schema_2020_12
@@ -27,7 +27,7 @@ catalog:
     status: implemented
   - id: consent
     owner_stage: D2
-    canonical_path: contracts/schemas/consent/v2/consent.schema.json
+    canonical_path: contracts/schemas/consent/v3/consent.schema.json
     status: implemented
   - id: channel
     owner_stage: D2
@@ -55,7 +55,7 @@ catalog:
     status: implemented
   - id: platform_version
     owner_stage: D4
-    canonical_path: contracts/schemas/content/v2/platform-version.schema.json
+    canonical_path: contracts/schemas/content/v3/platform-version.schema.json
     status: implemented
   - id: approval
     owner_stage: D4
@@ -63,11 +63,11 @@ catalog:
     status: implemented
   - id: publishing_intent
     owner_stage: D4
-    canonical_path: contracts/schemas/publishing/v2/publishing-intent.schema.json
+    canonical_path: contracts/schemas/publishing/v3/publishing-intent.schema.json
     status: implemented
   - id: platform_execution
     owner_stage: D4
-    canonical_path: contracts/schemas/publishing/v2/platform-execution.schema.json
+    canonical_path: contracts/schemas/publishing/v3/platform-execution.schema.json
     status: implemented
 
 compatibility:

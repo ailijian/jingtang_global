@@ -85,7 +85,7 @@ async function lockChannelConnectionInvariant(
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${workspaceId}:${platform}:connection`}, 0))`;
 }
 
-async function enqueueFacebookCandidateKeyRetirement(
+async function enqueueTokenKeyRetirementCandidate(
   transaction: Transaction,
   input: {
     readonly workspaceId: string;
@@ -172,7 +172,10 @@ export async function recordConsent(
     readonly dataPurposeVersion: string;
     readonly displayedLocale: Locale;
     readonly acceptanceMethod?:
-      "registration_checkbox" | "youtube_connection_checkbox" | "facebook_connection_checkbox";
+      | "registration_checkbox"
+      | "youtube_connection_checkbox"
+      | "facebook_connection_checkbox"
+      | "tiktok_connection_checkbox";
   },
 ): Promise<{ readonly id: string }> {
   return client.consentRecord.create({
@@ -221,6 +224,7 @@ const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> =
 
 export const YOUTUBE_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 export const FACEBOOK_OAUTH_FLOW_TTL_MS = 10 * 60_000;
+export const TIKTOK_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 
 function channelView(channel: {
   readonly id: string;
@@ -237,7 +241,11 @@ function channelView(channel: {
   readonly disconnectedAt: Date | null;
   readonly revokeFailureCategory: string | null;
 }): ChannelView {
-  if (channel.platform !== "youtube" && channel.platform !== "facebook") {
+  if (
+    channel.platform !== "youtube" &&
+    channel.platform !== "facebook" &&
+    channel.platform !== "tiktok"
+  ) {
     throw new Error("unsupported_channel_platform");
   }
   return {
@@ -283,6 +291,91 @@ export async function listFacebookChannels(
   workspaceId: string,
 ): Promise<readonly ChannelView[]> {
   return listPlatformChannels(client, workspaceId, "facebook");
+}
+
+export async function listTikTokChannels(
+  client: PrismaClient,
+  workspaceId: string,
+): Promise<readonly ChannelView[]> {
+  return listPlatformChannels(client, workspaceId, "tiktok");
+}
+
+export async function readConnectedChannelAuthorization(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly platform: Platform;
+  },
+): Promise<{
+  readonly externalAccountId: string;
+  readonly displayName: string;
+  readonly tokenEnvelopeCiphertext: string;
+  readonly tokenCiphertextReference: string | null;
+}> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const channel = await transaction.channel.findFirst({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: input.platform,
+        state: ChannelState.CONNECTED,
+      },
+    });
+    if (!channel?.externalAccountId || !channel.displayName || !channel.tokenEnvelopeCiphertext) {
+      throw new Error("channel_reauthorization_required");
+    }
+    return {
+      externalAccountId: channel.externalAccountId,
+      displayName: channel.displayName,
+      tokenEnvelopeCiphertext: channel.tokenEnvelopeCiphertext,
+      tokenCiphertextReference: channel.tokenCiphertextReference,
+    };
+  });
+}
+
+export async function refreshConnectedChannelTokenEnvelope(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly channelId: string;
+    readonly platform: Platform;
+    readonly externalAccountId: string;
+    readonly grantedScopes: readonly string[];
+    readonly tokenEnvelopeCiphertext: string;
+    readonly tokenCiphertextReference: string;
+    readonly expectedTokenCiphertextReference: string | null;
+  },
+): Promise<{ readonly retiredKeyReference: string | null }> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.channelId}, 6))`;
+    const updated = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: input.platform,
+        state: ChannelState.CONNECTED,
+        externalAccountId: input.externalAccountId,
+        tokenCiphertextReference: input.expectedTokenCiphertextReference,
+        operationLeaseId: null,
+      },
+      data: {
+        grantedScopes: [...input.grantedScopes],
+        tokenEnvelopeCiphertext: input.tokenEnvelopeCiphertext,
+        tokenCiphertextReference: input.tokenCiphertextReference,
+        refreshedAt: new Date(),
+      },
+    });
+    if (updated.count !== 1) throw new Error("channel_authorization_refresh_superseded");
+    if (input.expectedTokenCiphertextReference) {
+      await enqueueTokenKeyRetirementCandidate(transaction, {
+        workspaceId: input.workspaceId,
+        channelId: input.channelId,
+        keyReference: input.expectedTokenCiphertextReference,
+      });
+    }
+    return { retiredKeyReference: input.expectedTokenCiphertextReference };
+  });
 }
 
 async function beginPlatformConnection(
@@ -380,6 +473,13 @@ export async function beginFacebookConnection(
   return beginPlatformConnection(client, { ...input, platform: "facebook" });
 }
 
+export async function beginTikTokConnection(
+  client: PrismaClient,
+  input: Parameters<typeof beginYouTubeConnection>[1] & { readonly oauthStateDigest: string },
+): Promise<{ readonly id: string }> {
+  return beginPlatformConnection(client, { ...input, platform: "tiktok" });
+}
+
 export async function claimFacebookOAuthCallback(
   client: PrismaClient,
   input: {
@@ -395,6 +495,26 @@ export async function claimFacebookOAuthCallback(
         id: input.channelId,
         workspaceId: input.workspaceId,
         platform: "facebook",
+        state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
+        oauthStateDigest: input.oauthStateDigest,
+      },
+      data: { oauthStateDigest: null },
+    });
+    return claimed.count === 1;
+  });
+}
+
+export async function claimTikTokOAuthCallback(
+  client: PrismaClient,
+  input: Parameters<typeof claimFacebookOAuthCallback>[1],
+): Promise<boolean> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const claimed = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: "tiktok",
         state: ChannelState.CONNECTING,
         consentRecordId: input.consentRecordId,
         oauthStateDigest: input.oauthStateDigest,
@@ -483,6 +603,13 @@ export async function completeYouTubeConnection(
   await completePlatformConnection(client, { ...input, platform: "youtube" });
 }
 
+export async function completeTikTokConnection(
+  client: PrismaClient,
+  input: Parameters<typeof completeYouTubeConnection>[1],
+): Promise<void> {
+  await completePlatformConnection(client, { ...input, platform: "tiktok" });
+}
+
 async function denyPlatformConnection(
   client: PrismaClient,
   input: {
@@ -541,6 +668,13 @@ export async function denyFacebookConnection(
   input: Parameters<typeof denyYouTubeConnection>[1],
 ): Promise<void> {
   await denyPlatformConnection(client, { ...input, platform: "facebook" });
+}
+
+export async function denyTikTokConnection(
+  client: PrismaClient,
+  input: Parameters<typeof denyYouTubeConnection>[1],
+): Promise<void> {
+  await denyPlatformConnection(client, { ...input, platform: "tiktok" });
 }
 
 export async function createFacebookConnectionCandidate(
@@ -606,7 +740,7 @@ export async function createFacebookConnectionCandidate(
       previous?.tokenCiphertextReference &&
       previous.tokenCiphertextReference !== input.tokenCiphertextReference
     ) {
-      await enqueueFacebookCandidateKeyRetirement(transaction, {
+      await enqueueTokenKeyRetirementCandidate(transaction, {
         workspaceId: input.workspaceId,
         channelId: input.channelId,
         keyReference: previous.tokenCiphertextReference,
@@ -751,7 +885,7 @@ export async function completeFacebookConnection(
       },
     });
     if (updated.count !== 1) throw new Error("channel_not_found");
-    await enqueueFacebookCandidateKeyRetirement(transaction, {
+    await enqueueTokenKeyRetirementCandidate(transaction, {
       workspaceId: input.workspaceId,
       channelId: input.channelId,
       keyReference: candidate.tokenCiphertextReference,

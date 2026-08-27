@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface VersionInput {
-  readonly platform: "youtube" | "facebook";
+  readonly platform: "youtube" | "facebook" | "tiktok";
   readonly accountReference: string;
   readonly accountDisplayName: string;
   readonly title: string;
@@ -189,14 +189,18 @@ export function ContentActions({
                 <span>
                   {draftVersion.platform === "youtube"
                     ? t("composer.youtubeTitle")
-                    : locale === "zh-CN"
+                    : draftVersion.platform === "facebook" && locale === "zh-CN"
                       ? "Facebook 视频标题"
-                      : "Facebook video title"}
+                      : draftVersion.platform === "facebook"
+                        ? "Facebook video title"
+                        : locale === "zh-CN"
+                          ? "TikTok 标题/说明"
+                          : "TikTok title/caption"}
                 </span>
                 <input
                   name="editPlatformTitle"
                   value={draftVersion.title}
-                  maxLength={100}
+                  maxLength={draftVersion.platform === "tiktok" ? 2200 : 100}
                   onChange={(event) =>
                     setDraftVersion((current) => ({ ...current, title: event.target.value }))
                   }
@@ -252,9 +256,13 @@ export function ContentActions({
                 </div>
               ) : (
                 <p>
-                  {locale === "zh-CN"
-                    ? "此修订将作为原生视频帖子发布到所选 Facebook Page。"
-                    : "This revision will publish as a native video post on the selected Facebook Page."}
+                  {draftVersion.platform === "facebook"
+                    ? locale === "zh-CN"
+                      ? "此修订将作为原生视频帖子发布到所选 Facebook Page。"
+                      : "This revision will publish as a native video post on the selected Facebook Page."
+                    : locale === "zh-CN"
+                      ? "TikTok 隐私不在修订阶段预设；最终发布时重新读取 Creator Info 并手动确认 SELF_ONLY。"
+                      : "TikTok privacy is not preselected in the revision; final publish reloads Creator Info and requires manual SELF_ONLY confirmation."}
                 </p>
               )}
               <Button
