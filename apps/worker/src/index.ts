@@ -80,6 +80,7 @@ import {
   MetaFacebookOAuthProvider,
   TikTokDirectPostProvider,
   metaFacebookFailureDiagnostics,
+  tikTokFailureDiagnostics,
   loadRuntimeSecretBundle,
   loadRuntimeSecretFiles,
   MockIdentityProvider,
@@ -528,6 +529,7 @@ async function processClaimedTikTokPublish(
       "authorized_channel_identity_mismatch",
       "token_envelope_invalid",
     ].includes(category);
+    const diagnostics = tikTokFailureDiagnostics(error);
     safeLog(disposition.terminal ? "error" : "warn", "platform_publish_attempt_failed", {
       platform: "tiktok",
       workspaceId: message.workspaceId,
@@ -535,6 +537,13 @@ async function processClaimedTikTokPublish(
       failureCategory: category,
       attempt: message.attempt,
       terminal: disposition.terminal,
+      ...(diagnostics
+        ? {
+            providerOperation: diagnostics.operation,
+            providerHttpStatus: diagnostics.httpStatus,
+            providerErrorCode: diagnostics.providerCode,
+          }
+        : {}),
     });
     if (disposition.terminal) {
       if (work) {

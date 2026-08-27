@@ -11,11 +11,57 @@ const requestTimeoutMs = 30_000;
 const uploadTimeoutMs = 15 * 60_000;
 const maximumJsonResponseBytes = 1024 * 1024;
 
+type TikTokOperation =
+  | "authorization_exchange"
+  | "authorization_refresh"
+  | "authorization_revocation"
+  | "authorized_user"
+  | "creator_info"
+  | "direct_post_init"
+  | "video_upload"
+  | "publish_status";
+
+export interface TikTokFailureDiagnostics {
+  readonly operation: TikTokOperation;
+  readonly httpStatus: number;
+  readonly providerCode: string | null;
+}
+
+class TikTokRequestError extends ApplicationError {
+  public constructor(
+    code: ApplicationError["code"],
+    message: string,
+    status: number,
+    public readonly diagnostics: TikTokFailureDiagnostics,
+  ) {
+    super(code, message, status);
+  }
+}
+
+export function tikTokFailureDiagnostics(error: unknown): TikTokFailureDiagnostics | null {
+  return error instanceof TikTokRequestError ? error.diagnostics : null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function readJson(response: Response): Promise<unknown> {
+function requestError(
+  code: ApplicationError["code"],
+  message: string,
+  status: number,
+  operation: TikTokOperation,
+  httpStatus: number,
+  providerCode: string | null,
+): TikTokRequestError {
+  return new TikTokRequestError(code, message, status, {
+    operation,
+    httpStatus,
+    providerCode,
+  });
+}
+
+async function readJson(response: Response, operation: TikTokOperation): Promise<unknown> {
   try {
     const text = await response.text();
     if (new TextEncoder().encode(text).byteLength > maximumJsonResponseBytes) {
@@ -23,24 +69,47 @@ async function readJson(response: Response): Promise<unknown> {
     }
     return JSON.parse(text) as unknown;
   } catch {
-    throw new ApplicationError("service_unavailable", "TikTok returned an invalid response", 503);
+    throw requestError(
+      "service_unavailable",
+      "TikTok returned an invalid response",
+      503,
+      operation,
+      response.status,
+      "invalid_response",
+    );
   }
 }
 
-function tikTokError(response: Response, body: unknown, fallback: string): ApplicationError {
+function tikTokError(
+  response: Response,
+  body: unknown,
+  fallback: string,
+  operation: TikTokOperation,
+): ApplicationError {
   const error = isRecord(body) && isRecord(body.error) ? body.error : undefined;
-  const code = typeof error?.code === "string" ? error.code : "";
+  const code = typeof error?.code === "string" ? error.code : null;
+  const diagnostic = (applicationCode: ApplicationError["code"], status: number) =>
+    requestError(applicationCode, fallback, status, operation, response.status, code);
   if (response.status === 401 || code === "access_token_invalid") {
-    return new ApplicationError("authentication_failed", fallback, 401);
+    return diagnostic("authentication_failed", 401);
   }
   if (response.status === 403 || code === "scope_not_authorized") {
-    return new ApplicationError("permission_denied", fallback, 403);
+    return diagnostic("permission_denied", 403);
   }
   if (response.status === 429 || code === "rate_limit_exceeded") {
-    return new ApplicationError("rate_limited", "TikTok request quota was exceeded", 429);
+    return requestError(
+      "rate_limited",
+      "TikTok request quota was exceeded",
+      429,
+      operation,
+      response.status,
+      code,
+    );
   }
-  if (response.status === 400) return new ApplicationError("invalid_input", fallback, 400);
-  return new ApplicationError("service_unavailable", fallback, 503);
+  if (response.status === 400 || code === "invalid_param") {
+    return diagnostic("invalid_input", 400);
+  }
+  return diagnostic("service_unavailable", 503);
 }
 
 function apiSucceeded(response: Response, body: unknown): boolean {
@@ -143,9 +212,13 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
     } catch {
       throw new ApplicationError("service_unavailable", "TikTok authorization is unavailable", 503);
     }
-    const body = await readJson(response);
+    const operation =
+      parameters.get("grant_type") === "refresh_token"
+        ? "authorization_refresh"
+        : "authorization_exchange";
+    const body = await readJson(response, operation);
     if (!response.ok || !isRecord(body)) {
-      throw tikTokError(response, body, "TikTok authorization could not be completed");
+      throw tikTokError(response, body, "TikTok authorization could not be completed", operation);
     }
     const scope = typeof body.scope === "string" ? body.scope.split(",").filter(Boolean) : [];
     if (
@@ -210,8 +283,16 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       }),
       signal: AbortSignal.timeout(requestTimeoutMs),
     });
-    if (!response.ok)
-      throw new ApplicationError("service_unavailable", "TikTok revoke failed", 503);
+    if (!response.ok) {
+      throw requestError(
+        "service_unavailable",
+        "TikTok revoke failed",
+        503,
+        "authorization_revocation",
+        response.status,
+        null,
+      );
+    }
   }
 
   public async readAuthorizedUser(accessToken: string): Promise<TikTokUserIdentity> {
@@ -221,16 +302,23 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       headers: bearer(accessToken),
       signal: AbortSignal.timeout(requestTimeoutMs),
     });
-    const body = await readJson(response);
+    const body = await readJson(response, "authorized_user");
     if (!apiSucceeded(response, body)) {
-      throw tikTokError(response, body, "TikTok identity could not be read");
+      throw tikTokError(response, body, "TikTok identity could not be read", "authorized_user");
     }
     const user =
       isRecord(body) && isRecord(body.data) && isRecord(body.data.user)
         ? body.data.user
         : undefined;
     if (!user || typeof user.open_id !== "string" || typeof user.display_name !== "string") {
-      throw new ApplicationError("service_unavailable", "TikTok omitted the authorized user", 503);
+      throw requestError(
+        "service_unavailable",
+        "TikTok omitted the authorized user",
+        503,
+        "authorized_user",
+        response.status,
+        "authorized_user_missing",
+      );
     }
     return {
       openId: user.open_id,
@@ -250,9 +338,14 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
         signal: AbortSignal.timeout(requestTimeoutMs),
       },
     );
-    const body = await readJson(response);
+    const body = await readJson(response, "creator_info");
     if (!apiSucceeded(response, body)) {
-      throw tikTokError(response, body, "TikTok creator settings could not be read");
+      throw tikTokError(
+        response,
+        body,
+        "TikTok creator settings could not be read",
+        "creator_info",
+      );
     }
     const data = isRecord(body) && isRecord(body.data) ? body.data : undefined;
     if (
@@ -266,7 +359,14 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       typeof data.stitch_disabled !== "boolean" ||
       typeof data.max_video_post_duration_sec !== "number"
     ) {
-      throw new ApplicationError("service_unavailable", "TikTok omitted creator settings", 503);
+      throw requestError(
+        "service_unavailable",
+        "TikTok omitted creator settings",
+        503,
+        "creator_info",
+        response.status,
+        "creator_info_missing",
+      );
     }
     return {
       creatorUsername: data.creator_username,
@@ -311,23 +411,38 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       }),
       signal: AbortSignal.timeout(requestTimeoutMs),
     });
-    const body = await readJson(response);
+    const body = await readJson(response, "direct_post_init");
     if (!apiSucceeded(response, body)) {
-      throw tikTokError(response, body, "TikTok Direct Post could not be initialized");
+      throw tikTokError(
+        response,
+        body,
+        "TikTok Direct Post could not be initialized",
+        "direct_post_init",
+      );
     }
     const data = isRecord(body) && isRecord(body.data) ? body.data : undefined;
     if (!data || typeof data.publish_id !== "string" || typeof data.upload_url !== "string") {
-      throw new ApplicationError("service_unavailable", "TikTok omitted upload data", 503);
+      throw requestError(
+        "service_unavailable",
+        "TikTok omitted upload data",
+        503,
+        "direct_post_init",
+        response.status,
+        "upload_data_missing",
+      );
     }
     const uploadUrl = new URL(data.upload_url);
     if (
       uploadUrl.protocol !== "https:" ||
       !["open-upload.tiktokapis.com", "upload.us.tiktokapis.com"].includes(uploadUrl.hostname)
     ) {
-      throw new ApplicationError(
+      throw requestError(
         "service_unavailable",
         "TikTok returned an invalid upload host",
         503,
+        "direct_post_init",
+        response.status,
+        "upload_host_rejected",
       );
     }
     return { publishId: data.publish_id, uploadUrl: uploadUrl.toString() };
@@ -361,11 +476,25 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
             : AbortSignal.timeout(uploadTimeoutMs),
         });
       } catch {
-        throw new ApplicationError("conflict", "TikTok upload result is ambiguous", 409);
+        throw requestError(
+          "conflict",
+          "TikTok upload result is ambiguous",
+          409,
+          "video_upload",
+          0,
+          "network_ambiguous",
+        );
       }
       const isFinal = end + 1 === input.byteSize;
       if ((isFinal && response.status !== 201) || (!isFinal && response.status !== 206)) {
-        throw new ApplicationError("service_unavailable", "TikTok rejected the video upload", 503);
+        throw requestError(
+          "service_unavailable",
+          "TikTok rejected the video upload",
+          503,
+          "video_upload",
+          response.status,
+          "upload_rejected",
+        );
       }
       offset = end + 1;
     }
@@ -388,13 +517,25 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
           : AbortSignal.timeout(requestTimeoutMs),
       },
     );
-    const body = await readJson(response);
+    const body = await readJson(response, "publish_status");
     if (!apiSucceeded(response, body)) {
-      throw tikTokError(response, body, "TikTok publish status could not be read");
+      throw tikTokError(
+        response,
+        body,
+        "TikTok publish status could not be read",
+        "publish_status",
+      );
     }
     const data = isRecord(body) && isRecord(body.data) ? body.data : undefined;
     if (!data || typeof data.status !== "string") {
-      throw new ApplicationError("service_unavailable", "TikTok omitted publish status", 503);
+      throw requestError(
+        "service_unavailable",
+        "TikTok omitted publish status",
+        503,
+        "publish_status",
+        response.status,
+        "publish_status_missing",
+      );
     }
     if (data.status === "PUBLISH_COMPLETE") {
       const ids = Array.isArray(data.publicaly_available_post_id)

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { tikTokOAuthScopes } from "@jingtang/application";
 
-import { TikTokDirectPostProvider } from "./tiktok-direct-post.js";
+import { TikTokDirectPostProvider, tikTokFailureDiagnostics } from "./tiktok-direct-post.js";
 
 function provider(fetchImplementation: typeof fetch = vi.fn<typeof fetch>()) {
   return new TikTokDirectPostProvider({
@@ -167,16 +167,83 @@ describe("TikTok Login Kit and Direct Post provider", () => {
         error: { code: "ok" },
       }),
     );
-    await expect(
-      provider(invalidHostFetch).initializeDirectPost({
+    let invalidHostError: unknown;
+    try {
+      await provider(invalidHostFetch).initializeDirectPost({
         accessToken: "access-token",
         title: "Private test",
         byteSize: 3,
         chunkSize: 3,
         totalChunkCount: 1,
         settings,
+      });
+    } catch (error) {
+      invalidHostError = error;
+    }
+    expect(invalidHostError).toMatchObject({ code: "service_unavailable" });
+    expect(tikTokFailureDiagnostics(invalidHostError)).toEqual({
+      operation: "direct_post_init",
+      httpStatus: 200,
+      providerCode: "upload_host_rejected",
+    });
+  });
+
+  it("classifies Direct Post provider failures with safe diagnostics", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        data: {},
+        error: {
+          code: "unaudited_client_can_only_post_to_private_accounts",
+          message: "must not be logged",
+          log_id: "must-not-be-logged",
+        },
       }),
-    ).rejects.toMatchObject({ code: "service_unavailable" });
+    );
+    let caught: unknown;
+    try {
+      await provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+        settings,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({ code: "service_unavailable" });
+    expect(tikTokFailureDiagnostics(caught)).toEqual({
+      operation: "direct_post_init",
+      httpStatus: 200,
+      providerCode: "unaudited_client_can_only_post_to_private_accounts",
+    });
+    expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("message");
+    expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("logId");
+  });
+
+  it("diagnoses successful Direct Post responses that omit upload data", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ data: {}, error: { code: "ok" } }));
+    let caught: unknown;
+    try {
+      await provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+        settings,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(tikTokFailureDiagnostics(caught)).toEqual({
+      operation: "direct_post_init",
+      httpStatus: 200,
+      providerCode: "upload_data_missing",
+    });
   });
 
   it("merges trailing bytes into the final sequential chunk", async () => {
