@@ -286,6 +286,7 @@ for (const marker of [
   'await access("/app/apps/platform/scripts/start.mjs")',
   'await access("/app/packages/db/node_modules/prisma/build/index.js")',
   'await import("@jingtang/application")',
+  "node /app/packages/db/node_modules/prisma/build/index.js validate",
   'docker save --output "$output_dir/jingtang-review-images.tar"',
 ]) {
   requireText(packageRelease, marker, "review package runtime-identity smoke");

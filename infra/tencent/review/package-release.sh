@@ -65,6 +65,9 @@ docker run --rm --network none --user 65532:65532 --workdir /app/apps/worker \
     requireFromPlatform.resolve("next/dist/bin/next");
     await import("@jingtang/application");
   '
+docker run --rm --network none --user 65532:65532 --workdir /app/packages/db \
+  --env DATABASE_URL=postgresql://invalid:invalid@127.0.0.1:1/invalid \
+  "$migration_image" node /app/packages/db/node_modules/prisma/build/index.js validate
 docker save --output "$output_dir/jingtang-review-images.tar" \
   "$runtime_image" "$migration_image"
 
