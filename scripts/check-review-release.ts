@@ -295,6 +295,7 @@ for (const marker of [
   "--no-whole-file",
   '--rsync-path="sudo rsync"',
   'ssh "${ssh_options[@]}" "$ssh_target"',
+  'sudo cat "$review_root/current-release" | tr -d',
   'bootstrap_images=("jingtang-review:$current_release")',
   'bootstrap_images+=("jingtang-review-migration:$current_release")',
   'docker save --output "$cache.bootstrap"',

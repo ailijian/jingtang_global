@@ -58,7 +58,7 @@ readonly cache="$cache_dir/$archive_name"
 readonly incoming="$cache.incoming-$release_id"
 
 sudo install -d -m 0700 "$review_root/releases" "$cache_dir"
-if [[ -d "$release_dir" ]] \
+if sudo test -d "$release_dir" \
   && sudo find "$release_dir" -maxdepth 1 -type d -name 'rollback-*' -print -quit | grep -q .; then
   echo "Refusing to replace a Review release that already contains rollback evidence." >&2
   exit 4
@@ -66,7 +66,7 @@ fi
 sudo install -d -m 0700 "$release_dir"
 
 if ! sudo test -f "$cache" && sudo test -f "$review_root/current-release"; then
-  current_release="$(sudo tr -d '\r\n' "$review_root/current-release")"
+  current_release="$(sudo cat "$review_root/current-release" | tr -d '\r\n')"
   if [[ "$current_release" =~ ^[0-9a-f]{40}$ ]] \
     && sudo docker image inspect "jingtang-review:$current_release" >/dev/null 2>&1; then
     bootstrap_images=("jingtang-review:$current_release")
