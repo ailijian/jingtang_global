@@ -68,10 +68,12 @@ sudo install -d -m 0700 "$release_dir"
 if ! sudo test -f "$cache" && sudo test -f "$review_root/current-release"; then
   current_release="$(sudo tr -d '\r\n' "$review_root/current-release")"
   if [[ "$current_release" =~ ^[0-9a-f]{40}$ ]] \
-    && sudo docker image inspect "jingtang-review:$current_release" \
-      "jingtang-review-migration:$current_release" >/dev/null 2>&1; then
-    sudo docker save --output "$cache.bootstrap" \
-      "jingtang-review:$current_release" "jingtang-review-migration:$current_release"
+    && sudo docker image inspect "jingtang-review:$current_release" >/dev/null 2>&1; then
+    bootstrap_images=("jingtang-review:$current_release")
+    if sudo docker image inspect "jingtang-review-migration:$current_release" >/dev/null 2>&1; then
+      bootstrap_images+=("jingtang-review-migration:$current_release")
+    fi
+    sudo docker save --output "$cache.bootstrap" "${bootstrap_images[@]}"
     sudo chmod 0600 "$cache.bootstrap"
     sudo mv "$cache.bootstrap" "$cache"
     echo "Bootstrapped Review transfer cache from deployed release $current_release"

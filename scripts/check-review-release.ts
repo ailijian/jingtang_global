@@ -288,6 +288,8 @@ const transferRelease = read("infra/tencent/review/transfer-release.sh");
 for (const marker of [
   "--no-whole-file",
   '--rsync-path="sudo rsync"',
+  'bootstrap_images=("jingtang-review:$current_release")',
+  'bootstrap_images+=("jingtang-review-migration:$current_release")',
   'docker save --output "$cache.bootstrap"',
   'ln "$cache" "$release_dir/$archive_name"',
   "sha256sum --check --status SHA256SUMS",
