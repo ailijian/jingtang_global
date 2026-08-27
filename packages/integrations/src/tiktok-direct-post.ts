@@ -125,6 +125,18 @@ function bearer(accessToken: string): HeadersInit {
   };
 }
 
+function isTikTokUploadUrl(uploadUrl: URL): boolean {
+  const hostname = uploadUrl.hostname.toLowerCase().replace(/\.$/u, "");
+  return (
+    uploadUrl.protocol === "https:" &&
+    uploadUrl.username === "" &&
+    uploadUrl.password === "" &&
+    uploadUrl.port === "" &&
+    hostname.endsWith(".tiktokapis.com") &&
+    (uploadUrl.pathname.startsWith("/video/") || uploadUrl.pathname.startsWith("/upload/"))
+  );
+}
+
 async function* streamChunks(
   body: ReadableStream<Uint8Array>,
   targetSize: number,
@@ -432,10 +444,7 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       );
     }
     const uploadUrl = new URL(data.upload_url);
-    if (
-      uploadUrl.protocol !== "https:" ||
-      !["open-upload.tiktokapis.com", "upload.us.tiktokapis.com"].includes(uploadUrl.hostname)
-    ) {
+    if (!isTikTokUploadUrl(uploadUrl)) {
       throw requestError(
         "service_unavailable",
         "TikTok returned an invalid upload host",
