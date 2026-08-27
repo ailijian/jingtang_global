@@ -592,8 +592,11 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       throw new ApplicationError("service_unavailable", "Meta omitted the upload session", 503);
     }
 
-    const uploadSessionId = uploadSessionHandle.slice("upload:".length);
-    const uploadUrl = this.#graphUrl(`upload:${encodeURIComponent(uploadSessionId)}`);
+    // Meta session handles can include a signed query string (for example,
+    // `upload:<session>?sig=<signature>`). Preserve that delimiter so the
+    // signature is sent as a query parameter instead of URL-encoding it into
+    // the Graph path.
+    const uploadUrl = this.#graphUrl(uploadSessionHandle);
     const digest = createHash("sha256");
     let streamedBytes = 0;
     const verifiedBody = input.body.pipeThrough(
@@ -613,7 +616,7 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
           authorization: `OAuth ${input.userAccessToken}`,
           file_offset: "0",
           "content-length": String(input.byteSize),
-          "content-type": "application/octet-stream",
+          "content-type": input.mediaType,
         },
         body: verifiedBody,
         duplex: "half",

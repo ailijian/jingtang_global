@@ -231,7 +231,7 @@ describe("Meta Facebook provider", () => {
   it("streams one resumable MP4 upload and publishes its handle to the exact Page", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(Response.json({ id: "upload:upload-session" }))
+      .mockResolvedValueOnce(Response.json({ id: "upload:upload-session?sig=session-signature" }))
       .mockImplementationOnce(async (_url, init) => {
         expect(new Uint8Array(await new Response(init?.body as BodyInit).arrayBuffer())).toEqual(
           new Uint8Array([1, 2, 3]),
@@ -266,9 +266,13 @@ describe("Meta Facebook provider", () => {
     const [sessionUrl] = fetchImplementation.mock.calls[0] ?? [];
     expect((sessionUrl as URL).href).toContain("graph.facebook.com/v26.0/meta-app-id/uploads");
     const [uploadUrl, uploadInit] = fetchImplementation.mock.calls[1] ?? [];
-    expect((uploadUrl as URL).href).toBe("https://graph.facebook.com/v26.0/upload:upload-session");
+    expect((uploadUrl as URL).origin + (uploadUrl as URL).pathname).toBe(
+      "https://graph.facebook.com/v26.0/upload:upload-session",
+    );
+    expect((uploadUrl as URL).searchParams.get("sig")).toBe("session-signature");
     expect(uploadInit?.body).toBeInstanceOf(ReadableStream);
     expect(new Headers(uploadInit?.headers).get("authorization")).toBe("OAuth user-token");
+    expect(new Headers(uploadInit?.headers).get("content-type")).toBe("video/mp4");
     const [publishUrl, publishInit] = fetchImplementation.mock.calls[2] ?? [];
     expect((publishUrl as URL).origin).toBe("https://graph-video.facebook.com");
     expect((publishUrl as URL).pathname).toBe("/v26.0/company-page/videos");
