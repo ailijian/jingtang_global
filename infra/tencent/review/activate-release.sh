@@ -109,9 +109,12 @@ prune_superseded_review_artifacts() {
     [[ "$candidate_id" =~ ^[0-9a-f]{40}$ ]] || continue
     [[ "$candidate_id" != "$release_id" ]] || continue
     [[ -z "$previous_release_id" || "$candidate_id" != "$previous_release_id" ]] || continue
-    [[ -f "$candidate/RELEASE" ]] || continue
-    marker="$(tr -d '\r\n' < "$candidate/RELEASE")"
-    [[ "$marker" == "$candidate_id" ]] || continue
+    if [[ -f "$candidate/RELEASE" ]]; then
+      marker="$(tr -d '\r\n' < "$candidate/RELEASE")"
+      [[ "$marker" == "$candidate_id" ]] || continue
+    elif find "$candidate" -maxdepth 1 -type d -name 'rollback-*' -print -quit | grep -q .; then
+      continue
+    fi
     if rm -rf -- "$candidate"; then
       echo "Pruned superseded review release $candidate_id"
     else

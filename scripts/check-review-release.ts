@@ -307,6 +307,7 @@ for (const marker of [
 for (const marker of [
   "prune_superseded_review_artifacts",
   '[[ "$marker" == "$candidate_id" ]]',
+  "-name 'rollback-*'",
   'docker image rm "$repository:$tag"',
 ]) {
   requireText(activation, marker, "review release retention");
