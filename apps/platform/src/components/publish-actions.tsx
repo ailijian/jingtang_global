@@ -368,12 +368,16 @@ export function PublishActions({
                 ? t("detail.publish.retryWorking")
                 : platform === "facebook"
                   ? t("detail.publish.facebook.working")
-                  : t("detail.publish.working")
+                  : platform === "tiktok"
+                    ? t("detail.publish.tiktok.working")
+                    : t("detail.publish.working")
               : canRetry
                 ? t("detail.publish.retryAction")
                 : platform === "facebook"
                   ? t("detail.publish.facebook.action")
-                  : t("detail.publish.action")}
+                  : platform === "tiktok"
+                    ? t("detail.publish.tiktok.action")
+                    : t("detail.publish.action")}
           </Button>
         </>
       ) : null}
@@ -382,12 +386,24 @@ export function PublishActions({
       ) : null}
       {message === "queued" && !publishBlocked ? (
         <StatusMessage tone="success">
-          {t(platform === "facebook" ? "detail.publish.facebook.queued" : "detail.publish.queued")}
+          {t(
+            platform === "facebook"
+              ? "detail.publish.facebook.queued"
+              : platform === "tiktok"
+                ? "detail.publish.tiktok.queued"
+                : "detail.publish.queued",
+          )}
         </StatusMessage>
       ) : null}
       {message === "failed" ? (
         <StatusMessage tone="danger">
-          {t(platform === "facebook" ? "detail.publish.facebook.failed" : "detail.publish.failed")}
+          {t(
+            platform === "facebook"
+              ? "detail.publish.facebook.failed"
+              : platform === "tiktok"
+                ? "detail.publish.tiktok.failed"
+                : "detail.publish.failed",
+          )}
         </StatusMessage>
       ) : null}
     </div>

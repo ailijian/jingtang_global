@@ -170,7 +170,11 @@ export function ContentActions({
             </Button>
           ) : (
             <p>
-              {t("detail.publish.connectBeforeRevision")}{" "}
+              {t(
+                version.platform === "tiktok"
+                  ? "detail.publish.tiktok.connectBeforeRevision"
+                  : "detail.publish.connectBeforeRevision",
+              )}{" "}
               <Link href="/app/channels">{t("detail.publish.reviewChannel")}</Link>
             </p>
           )}

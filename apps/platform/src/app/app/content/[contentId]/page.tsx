@@ -91,15 +91,25 @@ export default async function ContentDetailPage({
           needs_attention: "detail.execution.needsAttention",
           cancelled: "detail.execution.cancelled",
         } as const)
-      : ({
-          not_started: "detail.execution.notStarted",
-          publishing: "detail.execution.publishing",
-          processing: "detail.execution.processing",
-          published: "detail.execution.published",
-          failed: "detail.execution.failed",
-          needs_attention: "detail.execution.needsAttention",
-          cancelled: "detail.execution.cancelled",
-        } as const);
+      : version.platform === "tiktok"
+        ? ({
+            not_started: "detail.execution.notStarted",
+            publishing: "detail.execution.tiktok.publishing",
+            processing: "detail.execution.tiktok.processing",
+            published: "detail.execution.tiktok.published",
+            failed: "detail.execution.tiktok.failed",
+            needs_attention: "detail.execution.needsAttention",
+            cancelled: "detail.execution.cancelled",
+          } as const)
+        : ({
+            not_started: "detail.execution.notStarted",
+            publishing: "detail.execution.publishing",
+            processing: "detail.execution.processing",
+            published: "detail.execution.published",
+            failed: "detail.execution.failed",
+            needs_attention: "detail.execution.needsAttention",
+            cancelled: "detail.execution.cancelled",
+          } as const);
   return (
     <>
       <header className="page-heading detail-heading">
@@ -260,7 +270,9 @@ export default async function ContentDetailPage({
                     locale,
                     version.platform === "facebook"
                       ? "detail.publish.facebook.openVideo"
-                      : "detail.publish.openVideo",
+                      : version.platform === "tiktok"
+                        ? "detail.publish.tiktok.openVideo"
+                        : "detail.publish.openVideo",
                   )}
                 </a>
               ) : execution.state === "published" && historicalChannelIdentityCleared ? (
@@ -269,7 +281,9 @@ export default async function ContentDetailPage({
                     ? locale === "zh-CN"
                       ? "Facebook 授权数据已删除，因此不再保存外部帖子链接。"
                       : "The external post link is no longer stored after Facebook Authorized Data deletion."
-                    : translate(locale, "detail.publish.providerLinkCleared")}
+                    : version.platform === "tiktok"
+                      ? translate(locale, "detail.publish.tiktok.providerLinkCleared")
+                      : translate(locale, "detail.publish.providerLinkCleared")}
                 </small>
               ) : null}
               {execution.state === "needs_attention" ? (

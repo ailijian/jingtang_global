@@ -296,6 +296,17 @@ export const en = {
   "detail.publish.facebook.failed":
     "The Page publish could not be queued. No duplicate publish was created; it is safe to retry.",
   "detail.publish.facebook.openVideo": "Open Facebook Page video",
+  "detail.publish.tiktok.action": "Confirm SELF_ONLY publish",
+  "detail.publish.tiktok.working": "Queueing private TikTok publish…",
+  "detail.publish.tiktok.queued":
+    "The private TikTok publish is queued. Status will update automatically.",
+  "detail.publish.tiktok.failed":
+    "The TikTok publish could not be queued. No duplicate publish was created; it is safe to retry.",
+  "detail.publish.tiktok.openVideo": "Open private TikTok video",
+  "detail.publish.tiktok.providerLinkCleared":
+    "The TikTok link was removed under the revocation and data-cleanup policy.",
+  "detail.publish.tiktok.connectBeforeRevision":
+    "Connect a TikTok account before creating a publishable revision.",
   "detail.publish.queued": "The upload was queued. Status will update automatically.",
   "detail.publish.failed":
     "The upload could not be queued. No duplicate upload was created; retry safely.",
@@ -318,6 +329,10 @@ export const en = {
   "detail.execution.facebook.processing": "Facebook is processing the video",
   "detail.execution.facebook.published": "Published publicly",
   "detail.execution.facebook.failed": "Facebook publish failed",
+  "detail.execution.tiktok.publishing": "Uploading to TikTok",
+  "detail.execution.tiktok.processing": "TikTok is processing the video",
+  "detail.execution.tiktok.published": "Published privately on TikTok",
+  "detail.execution.tiktok.failed": "TikTok publish failed",
   "detail.execution.needsAttention": "Needs attention",
   "detail.execution.cancelled": "Cancelled",
   "detail.edit": "Edit as new draft revision",
