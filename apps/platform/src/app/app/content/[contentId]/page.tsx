@@ -64,15 +64,26 @@ export default async function ContentDetailPage({
   const activeExecution = content.publishing.executions.some((entry) =>
     ["not_started", "publishing", "processing"].includes(entry.state),
   );
-  const executionLabel = {
-    not_started: "detail.execution.notStarted",
-    publishing: "detail.execution.publishing",
-    processing: "detail.execution.processing",
-    published: "detail.execution.published",
-    failed: "detail.execution.failed",
-    needs_attention: "detail.execution.needsAttention",
-    cancelled: "detail.execution.cancelled",
-  } as const;
+  const executionLabel =
+    version.platform === "facebook"
+      ? ({
+          not_started: "detail.execution.notStarted",
+          publishing: "detail.execution.facebook.publishing",
+          processing: "detail.execution.facebook.processing",
+          published: "detail.execution.facebook.published",
+          failed: "detail.execution.facebook.failed",
+          needs_attention: "detail.execution.needsAttention",
+          cancelled: "detail.execution.cancelled",
+        } as const)
+      : ({
+          not_started: "detail.execution.notStarted",
+          publishing: "detail.execution.publishing",
+          processing: "detail.execution.processing",
+          published: "detail.execution.published",
+          failed: "detail.execution.failed",
+          needs_attention: "detail.execution.needsAttention",
+          cancelled: "detail.execution.cancelled",
+        } as const);
   return (
     <>
       <header className="page-heading detail-heading">
@@ -225,7 +236,12 @@ export default async function ContentDetailPage({
               <strong>{translate(locale, executionLabel[execution.state])}</strong>
               {execution.providerUrl ? (
                 <a href={execution.providerUrl} target="_blank" rel="noreferrer">
-                  {translate(locale, "detail.publish.openVideo")}
+                  {translate(
+                    locale,
+                    version.platform === "facebook"
+                      ? "detail.publish.facebook.openVideo"
+                      : "detail.publish.openVideo",
+                  )}
                 </a>
               ) : execution.state === "published" && historicalChannelIdentityCleared ? (
                 <small>

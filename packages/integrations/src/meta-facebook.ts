@@ -97,6 +97,13 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
     return new URL(`${this.#version}/${path.replace(/^\//u, "")}`, "https://graph.facebook.com/");
   }
 
+  #graphVideoUrl(path: string): URL {
+    return new URL(
+      `${this.#version}/${path.replace(/^\//u, "")}`,
+      "https://graph-video.facebook.com/",
+    );
+  }
+
   async #request(
     input: string | URL | Request,
     init: RequestInit,
@@ -457,15 +464,17 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
     );
     const createdBody = await readJson(created);
     if (!created.ok) throw graphError(created, "Meta upload session could not be created");
-    const uploadSessionId = isRecord(createdBody) ? createdBody.id : undefined;
-    if (typeof uploadSessionId !== "string") {
+    const uploadSessionHandle = isRecord(createdBody) ? createdBody.id : undefined;
+    if (
+      typeof uploadSessionHandle !== "string" ||
+      !uploadSessionHandle.startsWith("upload:") ||
+      uploadSessionHandle.length === "upload:".length
+    ) {
       throw new ApplicationError("service_unavailable", "Meta omitted the upload session", 503);
     }
 
-    const uploadUrl = new URL(
-      `/upload:${encodeURIComponent(uploadSessionId)}`,
-      "https://rupload.facebook.com/",
-    );
+    const uploadSessionId = uploadSessionHandle.slice("upload:".length);
+    const uploadUrl = this.#graphUrl(`upload:${encodeURIComponent(uploadSessionId)}`);
     const digest = createHash("sha256");
     let streamedBytes = 0;
     const verifiedBody = input.body.pipeThrough(
@@ -511,7 +520,7 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       );
     }
 
-    const publishUrl = this.#graphUrl(`${input.pageId}/videos`);
+    const publishUrl = this.#graphVideoUrl(`${input.pageId}/videos`);
     const form = new FormData();
     form.set("access_token", input.pageAccessToken);
     form.set("fbuploader_video_file_chunk", handle);

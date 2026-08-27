@@ -5,12 +5,10 @@ set -euo pipefail
 readonly review_root=/srv/jingtang/review
 readonly site_root=/srv/jingtang/public-site
 readonly release_id="${1:-}"
-readonly app_sha256="${2:-}"
-readonly migration_sha256="${3:-}"
-readonly change_reference="${4:-}"
+readonly images_sha256="${2:-}"
+readonly change_reference="${3:-}"
 readonly release_dir="$review_root/releases/$release_id"
-readonly app_archive="$release_dir/jingtang-review.tar.gz"
-readonly migration_archive="$release_dir/jingtang-review-migration.tar.gz"
+readonly images_archive="$release_dir/jingtang-review-images.tar"
 readonly candidate_compose="$release_dir/compose.yaml"
 readonly candidate_site_compose="$release_dir/public-site-compose.yaml"
 readonly candidate_caddyfile="$release_dir/public-site-Caddyfile"
@@ -23,8 +21,7 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   exit 2
 fi
 if [[ ! "$release_id" =~ ^[0-9a-f]{40}$ ]] \
-  || [[ ! "$app_sha256" =~ ^[0-9a-f]{64}$ ]] \
-  || [[ ! "$migration_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+  || [[ ! "$images_sha256" =~ ^[0-9a-f]{64}$ ]]; then
   echo "Release id and archive checksums are invalid." >&2
   exit 2
 fi
@@ -32,14 +29,10 @@ if [[ ! "$change_reference" =~ ^[A-Za-z0-9._:/-]{3,128}$ ]]; then
   echo "A safe review change reference is required." >&2
   exit 2
 fi
-for archive_check in \
-  "$app_sha256  $app_archive" \
-  "$migration_sha256  $migration_archive"; do
-  echo "$archive_check" | sha256sum --check --status || {
-    echo "A review image archive is missing or failed checksum validation." >&2
-    exit 3
-  }
-done
+echo "$images_sha256  $images_archive" | sha256sum --check --status || {
+  echo "The review image archive is missing or failed checksum validation." >&2
+  exit 3
+}
 for candidate in \
   "$candidate_compose" "$candidate_site_compose" "$candidate_caddyfile" "$candidate_init"; do
   [[ -f "$candidate" ]] || {
@@ -62,8 +55,7 @@ if grep -Eq '(SECRET|PASSWORD|DATABASE_URL)=' "$review_root/runtime.env"; then
   exit 5
 fi
 
-docker load --input "$app_archive" >/dev/null
-docker load --input "$migration_archive" >/dev/null
+docker load --input "$images_archive" >/dev/null
 readonly image="jingtang-review:$release_id"
 readonly migration_image="jingtang-review-migration:$release_id"
 for candidate_image in "$image" "$migration_image"; do
@@ -101,6 +93,49 @@ previous_review_running=false
 if [[ "$(docker inspect --format '{{.State.Running}}' jingtang-review-platform-1 2>/dev/null || true)" == true ]]; then
   previous_review_running=true
 fi
+
+previous_release_id=""
+if [[ -f "$review_root/current-release" ]]; then
+  previous_release_id="$(tr -d '\r\n' < "$review_root/current-release")"
+  [[ "$previous_release_id" =~ ^[0-9a-f]{40}$ ]] || previous_release_id=""
+fi
+
+prune_superseded_review_artifacts() {
+  local candidate candidate_id marker repository tag
+  shopt -s nullglob
+  for candidate in "$review_root/releases"/*; do
+    [[ -d "$candidate" ]] || continue
+    candidate_id="$(basename "$candidate")"
+    [[ "$candidate_id" =~ ^[0-9a-f]{40}$ ]] || continue
+    [[ "$candidate_id" != "$release_id" ]] || continue
+    [[ -z "$previous_release_id" || "$candidate_id" != "$previous_release_id" ]] || continue
+    [[ -f "$candidate/RELEASE" ]] || continue
+    marker="$(tr -d '\r\n' < "$candidate/RELEASE")"
+    [[ "$marker" == "$candidate_id" ]] || continue
+    if rm -rf -- "$candidate"; then
+      echo "Pruned superseded review release $candidate_id"
+    else
+      echo "Warning: superseded review release could not be pruned: $candidate_id" >&2
+    fi
+  done
+
+  for repository in jingtang-review jingtang-review-migration; do
+    while IFS= read -r tag; do
+      [[ "$tag" =~ ^[0-9a-f]{40}$ ]] || continue
+      [[ "$tag" != "$release_id" ]] || continue
+      [[ -z "$previous_release_id" || "$tag" != "$previous_release_id" ]] || continue
+      docker image rm "$repository:$tag" >/dev/null 2>&1 \
+        && echo "Pruned superseded review image $repository:$tag" \
+        || echo "Warning: review image remains in use and was retained: $repository:$tag" >&2
+    done < <(docker image ls "$repository" --format '{{.Tag}}')
+  done
+
+  if [[ -d "$review_root/transfer-cache" ]]; then
+    find "$review_root/transfer-cache" -maxdepth 1 -type f \
+      -name 'jingtang-review-images.tar.incoming-*' -mtime +1 -delete \
+      || echo "Warning: stale Review transfer cache files could not be pruned." >&2
+  fi
+}
 
 install -d -m 0700 "$rollback_dir" "$review_root/init"
 # Older Review preparation created this bind-mount source as a directory when
@@ -208,6 +243,7 @@ for _ in {1..30}; do
     mv "$review_root/current-release.next" "$review_root/current-release"
     printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$release_id" "$change_reference" >> "$review_root/change-record.log"
     trap - ERR
+    prune_superseded_review_artifacts
     compose_live ps
     site_live ps
     exit 0

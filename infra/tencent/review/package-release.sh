@@ -60,12 +60,13 @@ docker run --rm --network none --user 65532:65532 --workdir /app/apps/worker \
     import { access } from "node:fs/promises";
     import { createRequire } from "node:module";
     await access("/app/apps/platform/scripts/start.mjs");
+    await access("/app/packages/db/node_modules/prisma/build/index.js");
     const requireFromPlatform = createRequire("file:///app/apps/platform/scripts/start.mjs");
     requireFromPlatform.resolve("next/dist/bin/next");
     await import("@jingtang/application");
   '
-docker save "$runtime_image" | gzip -9 > "$output_dir/jingtang-review.tar.gz"
-docker save "$migration_image" | gzip -9 > "$output_dir/jingtang-review-migration.tar.gz"
+docker save --output "$output_dir/jingtang-review-images.tar" \
+  "$runtime_image" "$migration_image"
 
 install -m 0644 infra/tencent/review/compose.yaml "$output_dir/compose.yaml"
 install -m 0755 infra/tencent/review/init/001-create-roles.sh \
@@ -75,7 +76,7 @@ install -m 0644 infra/tencent/public-site/Caddyfile "$output_dir/public-site-Cad
 for script in \
   activate-release.sh backup-review.sh check-capacity.sh generate-internal-secrets.sh \
   install-external-secret.sh install-maintenance-timers.sh prepare-host.sh \
-  restore-review-drill.sh; do
+  restore-review-drill.sh transfer-release.sh; do
   install -m 0755 "infra/tencent/review/$script" "$output_dir/$script"
 done
 install -m 0644 infra/tencent/review/systemd/*.service infra/tencent/review/systemd/*.timer \
@@ -84,7 +85,7 @@ install -m 0600 infra/tencent/review/runtime.env.example "$output_dir/runtime.en
 
 (
   cd "$output_dir"
-  sha256sum jingtang-review.tar.gz jingtang-review-migration.tar.gz > SHA256SUMS
+  sha256sum jingtang-review-images.tar > SHA256SUMS
 )
 printf '%s\n' "$release_id" > "$output_dir/RELEASE"
 prune_stale_release_packages

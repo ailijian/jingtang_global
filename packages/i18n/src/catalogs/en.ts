@@ -288,6 +288,13 @@ export const en = {
   "detail.publish.mode.now": "Publish Now",
   "detail.publish.action": "Confirm private upload",
   "detail.publish.working": "Queueing securely…",
+  "detail.publish.facebook.action": "Confirm public publish",
+  "detail.publish.facebook.working": "Queueing public Page publish…",
+  "detail.publish.facebook.queued":
+    "The public Page publish is queued. Status will update automatically.",
+  "detail.publish.facebook.failed":
+    "The Page publish could not be queued. No duplicate publish was created; it is safe to retry.",
+  "detail.publish.facebook.openVideo": "Open Facebook Page video",
   "detail.publish.queued": "The upload was queued. Status will update automatically.",
   "detail.publish.failed":
     "The upload could not be queued. No duplicate upload was created; retry safely.",
@@ -302,6 +309,10 @@ export const en = {
   "detail.execution.processing": "YouTube processing",
   "detail.execution.published": "Published privately",
   "detail.execution.failed": "Upload failed",
+  "detail.execution.facebook.publishing": "Publishing to Facebook",
+  "detail.execution.facebook.processing": "Facebook is processing the video",
+  "detail.execution.facebook.published": "Published publicly",
+  "detail.execution.facebook.failed": "Facebook publish failed",
   "detail.execution.needsAttention": "Needs attention",
   "detail.execution.cancelled": "Cancelled",
   "detail.edit": "Edit as new draft revision",

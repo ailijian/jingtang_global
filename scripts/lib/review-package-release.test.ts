@@ -49,7 +49,13 @@ if [ "$1" = "build" ] && [ "\${FAKE_FAIL_MIGRATION:-}" = "1" ]; then
   case " $* " in *" --target migration "*) exit 7 ;; esac
 fi
 if [ "$1" = "save" ]; then
-  printf 'fake-image'
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = "--output" ]; then
+      printf 'fake-images' > "$2"
+      exit 0
+    fi
+    shift
+  done
   exit 0
 fi
 if [ "$1" = "image" ] && [ "$2" = "rm" ]; then
@@ -104,6 +110,7 @@ describe("Review release package cleanup", () => {
 
     expect(run.result.status, run.result.stderr).toBe(0);
     expect(existsSync(join(output, releaseId, "SHA256SUMS"))).toBe(true);
+    expect(existsSync(join(output, releaseId, "jingtang-review-images.tar"))).toBe(true);
     expect(existsSync(join(output, staleId))).toBe(false);
     expect(existsSync(join(output, "unmanaged-directory"))).toBe(true);
     expect(readFileSync(run.commands.dockerLog, "utf8")).toContain(

@@ -144,9 +144,15 @@ requireText(
 const dockerfile = read("Dockerfile");
 requireText(dockerfile, `${pinnedNode} AS build`, "Dockerfile");
 requireText(dockerfile, `${pinnedNode} AS runtime`, "Dockerfile");
-requireText(dockerfile, "FROM build AS migration", "Dockerfile");
 requireText(dockerfile, "FROM build AS production-pruned", "Dockerfile");
-requireText(dockerfile, "RUN chmod -R a+rX /app", "Dockerfile");
+requireText(dockerfile, "FROM runtime AS migration", "Dockerfile");
+requireText(
+  dockerfile,
+  "COPY --from=production-pruned --chown=node:node /app/node_modules /app/node_modules",
+  "Dockerfile production dependency layer",
+);
+requireText(dockerfile, "RUN chmod -R a+rX /app/node_modules", "Dockerfile");
+requireText(dockerfile, "RUN chmod -R a+rX /app/apps /app/packages", "Dockerfile");
 
 const platformPackage = JSON.parse(read("apps/platform/package.json")) as {
   dependencies?: Record<string, string>;
@@ -246,6 +252,7 @@ for (const script of [
   "infra/tencent/review/restore-review-drill.sh",
   "infra/tencent/review/check-capacity.sh",
   "infra/tencent/review/activate-release.sh",
+  "infra/tencent/review/transfer-release.sh",
 ]) {
   if ((statSync(resolve(root, script)).mode & 0o111) === 0) {
     throw new Error(`${script} must be executable`);
@@ -271,9 +278,28 @@ const packageRelease = read("infra/tencent/review/package-release.sh");
 for (const marker of [
   "--user 65532:65532",
   'await access("/app/apps/platform/scripts/start.mjs")',
+  'await access("/app/packages/db/node_modules/prisma/build/index.js")',
   'await import("@jingtang/application")',
+  'docker save --output "$output_dir/jingtang-review-images.tar"',
 ]) {
   requireText(packageRelease, marker, "review package runtime-identity smoke");
+}
+const transferRelease = read("infra/tencent/review/transfer-release.sh");
+for (const marker of [
+  "--no-whole-file",
+  '--rsync-path="sudo rsync"',
+  'docker save --output "$cache.bootstrap"',
+  'ln "$cache" "$release_dir/$archive_name"',
+  "sha256sum --check --status SHA256SUMS",
+]) {
+  requireText(transferRelease, marker, "incremental review release transfer");
+}
+for (const marker of [
+  "prune_superseded_review_artifacts",
+  '[[ "$marker" == "$candidate_id" ]]',
+  'docker image rm "$repository:$tag"',
+]) {
+  requireText(activation, marker, "review release retention");
 }
 for (const unit of [
   "infra/tencent/review/systemd/jingtang-review-backup.service",

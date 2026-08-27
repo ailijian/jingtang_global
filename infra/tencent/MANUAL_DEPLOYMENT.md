@@ -269,7 +269,7 @@ ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
    sudo docker inspect --format '{{.State.Status}}' jingtang-public-site"
 ```
 
-### 4.6 打包并传输当前 SaaS
+### 4.6 打包并增量传输当前 SaaS
 
 在 `amd64` 构建工作站执行：
 
@@ -284,29 +284,20 @@ test "$(tr -d '\r\n' < RELEASE)" = "$JT_RELEASE_SHA"
 
 在 ARM 工作站上，`DOCKER_DEFAULT_PLATFORM` 只能在 Docker 已配置可用的 `linux/amd64` 构建/运行支持时使用；否则改用 `amd64` 构建机，不要把 ARM 镜像传给 `x86_64` 服务器。
 
-传输整个不可变发布目录：
+使用增量传输脚本。发布包只生成一个未压缩 Docker archive，使 runtime 与
+migration 镜像的共享层只保存一次；远端以当前 archive 为 rsync 基线，只传输
+变更块和必要的发布文件。缓存尚不存在时，脚本会从服务器当前已加载的两个镜像
+自动生成基线，不需要重新上传旧依赖：
 
 ```bash
-ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
-  "sudo install -d -m 0700 '/srv/jingtang/review/releases/$JT_RELEASE_SHA' && \
-   sudo chown \$(id -u):\$(id -g) '/srv/jingtang/review/releases/$JT_RELEASE_SHA'"
-
-rsync --archive --checksum --delete \
-  -e "ssh -o IdentitiesOnly=yes -i $JT_SSH_IDENTITY" \
-  "$JT_REPO/.local/review-release/$JT_RELEASE_SHA/" \
-  "$JT_SSH_TARGET:/srv/jingtang/review/releases/$JT_RELEASE_SHA/"
-
-ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
-  "cd '/srv/jingtang/review/releases/$JT_RELEASE_SHA' && sha256sum --check SHA256SUMS"
+cd "$JT_REPO"
+JT_SSH_TARGET="$JT_SSH_TARGET" \
+JT_SSH_IDENTITY="$JT_SSH_IDENTITY" \
+  bash infra/tencent/review/transfer-release.sh "$JT_SSH_TARGET" "$JT_RELEASE_SHA"
 ```
 
-如果发布身份不是 root，传输完成后将该发布目录重新收紧为 root 管理：
-
-```bash
-ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
-  "sudo chown -R root:root '/srv/jingtang/review/releases/$JT_RELEASE_SHA' && \
-   sudo chmod 0700 '/srv/jingtang/review/releases/$JT_RELEASE_SHA'"
-```
+脚本会显示 rsync 的 `Total transferred file size` 与 `Total bytes sent`。后者才是
+本次实际网络上传量。传输完成后，远端 cache 和不可变发布目录均恢复为 root 管理。
 
 ### 4.7 配置非敏感运行参数和密钥
 
@@ -363,14 +354,12 @@ ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
 
 ### 4.8 激活 SaaS、创建首个账号并安装自动任务
 
-从发布包读取两个镜像校验和：
+从发布包读取合并镜像校验和：
 
 ```bash
 cd "$JT_REPO/.local/review-release/$JT_RELEASE_SHA"
-export JT_APP_SHA256="$(awk '$2 == "jingtang-review.tar.gz" {print $1}' SHA256SUMS)"
-export JT_MIGRATION_SHA256="$(awk '$2 == "jingtang-review-migration.tar.gz" {print $1}' SHA256SUMS)"
-test "${#JT_APP_SHA256}" -eq 64
-test "${#JT_MIGRATION_SHA256}" -eq 64
+export JT_IMAGES_SHA256="$(awk '$2 == "jingtang-review-images.tar" {print $1}' SHA256SUMS)"
+test "${#JT_IMAGES_SHA256}" -eq 64
 ```
 
 执行不可变激活：
@@ -378,10 +367,10 @@ test "${#JT_MIGRATION_SHA256}" -eq 64
 ```bash
 ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
   "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/activate-release.sh' \
-    '$JT_RELEASE_SHA' '$JT_APP_SHA256' '$JT_MIGRATION_SHA256' '$JT_CHANGE_REF'"
+    '$JT_RELEASE_SHA' '$JT_IMAGES_SHA256' '$JT_CHANGE_REF'"
 ```
 
-激活会校验发布包、镜像 revision label、Compose、Caddy、`runtime.env` 和 live 配置，前向迁移数据库，启动 PostgreSQL、platform 和 worker，重建共享 Caddy，然后检查容器健康、官网 HTTPS 及 SaaS `noindex`。失败时会恢复进入激活前的官网/Review 配置；数据库迁移不会向后回滚。
+激活会校验发布包、镜像 revision label、Compose、Caddy、`runtime.env` 和 live 配置，前向迁移数据库，启动 PostgreSQL、platform 和 worker，重建共享 Caddy，然后检查容器健康、官网 HTTPS 及 SaaS `noindex`。失败时会恢复进入激活前的官网/Review 配置；数据库迁移不会向后回滚。健康检查通过后，脚本只保留当前版本与上一可回滚版本，并按经过验证的完整 Git SHA 自动删除更早的 Review 发布目录及镜像标签；共享镜像层仍由 Docker 保留，不会清理数据库卷、state、secrets 或用户对象。
 
 新空环境创建首个预授权账号：
 
@@ -581,7 +570,7 @@ ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" jingtang-production '
 '
 ```
 
-禁止执行无目标的 `docker system prune -a` 或递归删除整个 `/srv/jingtang`、release、数据库、state、secret 目录。只可在确认不是 `current-release`、不是官网 `current`、不再承担回退、备份/恢复已验证且有批准记录后，按**准确 SHA** 清理对应旧发布包和镜像。
+禁止执行无目标的 `docker system prune -a` 或递归删除整个 `/srv/jingtang`、release、数据库、state、secret 目录。Review 成功激活会自动保留当前与上一版本，并按**准确 SHA**清理更早的受管发布包和镜像；手工清理只用于异常残留，仍须先确认目标不是 `current-release`、不是上一回滚版本、不是官网 `current`。
 
 ### 5.4 自动备份和恢复演练
 

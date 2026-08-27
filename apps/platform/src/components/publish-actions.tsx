@@ -41,10 +41,10 @@ export function PublishActions({
   const [message, setMessage] = useState<"queued" | "failed" | null>(null);
 
   useEffect(() => {
-    if (!polling) return;
+    if (!polling && (message !== "queued" || hasExecution)) return;
     const timer = window.setInterval(() => router.refresh(), 3_000);
     return () => window.clearInterval(timer);
-  }, [polling, router]);
+  }, [hasExecution, message, polling, router]);
 
   async function publish() {
     if (!confirmed || busy || hasExecution) return;
@@ -148,7 +148,13 @@ export function PublishActions({
             </span>
           </label>
           <Button disabled={!canPublish || !confirmed || busy} onClick={() => void publish()}>
-            {busy ? t("detail.publish.working") : t("detail.publish.action")}
+            {busy
+              ? platform === "facebook"
+                ? t("detail.publish.facebook.working")
+                : t("detail.publish.working")
+              : platform === "facebook"
+                ? t("detail.publish.facebook.action")
+                : t("detail.publish.action")}
           </Button>
         </>
       ) : null}
@@ -156,10 +162,14 @@ export function PublishActions({
         <StatusMessage tone="danger">{t("detail.publish.notAllowed")}</StatusMessage>
       ) : null}
       {message === "queued" && !hasExecution ? (
-        <StatusMessage tone="success">{t("detail.publish.queued")}</StatusMessage>
+        <StatusMessage tone="success">
+          {t(platform === "facebook" ? "detail.publish.facebook.queued" : "detail.publish.queued")}
+        </StatusMessage>
       ) : null}
       {message === "failed" ? (
-        <StatusMessage tone="danger">{t("detail.publish.failed")}</StatusMessage>
+        <StatusMessage tone="danger">
+          {t(platform === "facebook" ? "detail.publish.facebook.failed" : "detail.publish.failed")}
+        </StatusMessage>
       ) : null}
     </div>
   );
