@@ -132,8 +132,7 @@ function isTikTokUploadUrl(uploadUrl: URL): boolean {
     uploadUrl.username === "" &&
     uploadUrl.password === "" &&
     uploadUrl.port === "" &&
-    hostname.endsWith(".tiktokapis.com") &&
-    (uploadUrl.pathname.startsWith("/video/") || uploadUrl.pathname.startsWith("/upload/"))
+    (hostname === "tiktokapis.com" || hostname.endsWith(".tiktokapis.com"))
   );
 }
 

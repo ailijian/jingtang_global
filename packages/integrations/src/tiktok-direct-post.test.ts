@@ -210,6 +210,28 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
   });
 
+  it("accepts provider-controlled TikTok upload paths as opaque", async () => {
+    const uploadUrl =
+      "https://open-upload-region.tiktokapis.com/direct-post-transfer?upload_id=opaque";
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json({
+        data: { publish_id: "publish-id", upload_url: uploadUrl },
+        error: { code: "ok" },
+      }),
+    );
+
+    await expect(
+      provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+        settings,
+      }),
+    ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
+  });
+
   it("classifies Direct Post provider failures with safe diagnostics", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
       Response.json({
