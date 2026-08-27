@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { facebookOAuthScopes } from "@jingtang/application";
 
-import { MetaFacebookOAuthProvider } from "./meta-facebook.js";
+import { MetaFacebookOAuthProvider, metaFacebookFailureDiagnostics } from "./meta-facebook.js";
 
 const appSecret = "company-meta-app-secret";
 
@@ -278,6 +278,55 @@ describe("Meta Facebook provider", () => {
     expect(form.get("fbuploader_video_file_chunk")).toBe("uploaded-file-handle");
     expect(form.get("title")).toBe("Approved title");
   });
+
+  it.each([
+    { graphCode: 190, expectedCode: "authentication_failed" },
+    { graphCode: 10, expectedCode: "permission_denied" },
+    { graphCode: 100, expectedCode: "invalid_input" },
+  ])(
+    "classifies Meta HTTP 400 code $graphCode and preserves safe operation diagnostics",
+    async ({ graphCode, expectedCode }) => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+        Response.json(
+          {
+            error: {
+              message: "must not be exposed",
+              code: graphCode,
+              error_subcode: 1234,
+              is_transient: false,
+            },
+          },
+          { status: 400 },
+        ),
+      );
+      let caught: unknown;
+      try {
+        await provider(fetchImplementation).uploadPageVideo({
+          userAccessToken: "user-token",
+          pageAccessToken: "page-token",
+          pageId: "company-page",
+          title: "Approved title",
+          description: "",
+          mediaType: "video/mp4",
+          byteSize: 1,
+          sha256: createHash("sha256")
+            .update(new Uint8Array([1]))
+            .digest("hex"),
+          body: new ReadableStream<Uint8Array>(),
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toMatchObject({ code: expectedCode });
+      expect(metaFacebookFailureDiagnostics(caught)).toEqual({
+        operation: "upload_session_create",
+        httpStatus: 400,
+        graphCode,
+        graphSubcode: 1234,
+        transient: false,
+      });
+    },
+  );
 
   it("does not retry-classify an ambiguous upload or publish completion as safe", async () => {
     const uploadFetch = vi

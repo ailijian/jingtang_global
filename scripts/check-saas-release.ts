@@ -17,8 +17,23 @@ function requireText(contents: string, fragment: string, owner: string): void {
 const dockerfile = read("Dockerfile");
 const pinnedBuildNode =
   "node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03";
-requireText(dockerfile, `${pinnedBuildNode} AS build`, "Dockerfile");
-requireText(dockerfile, `${pinnedBuildNode} AS runtime`, "Dockerfile");
+requireText(dockerfile, `${pinnedBuildNode} AS dependencies`, "Dockerfile");
+requireText(dockerfile, `${pinnedBuildNode} AS runtime-base`, "Dockerfile");
+for (const stage of [
+  "FROM dependencies AS packages-build",
+  "FROM packages-build AS platform-build",
+  "FROM packages-build AS dispatcher-build",
+  "FROM packages-build AS worker-build",
+  "FROM dependencies AS production-dependencies",
+  "FROM packages-build AS package-code",
+  "FROM platform-build AS platform-code",
+  "FROM dispatcher-build AS dispatcher-code",
+  "FROM worker-build AS worker-code",
+  "FROM runtime-base AS runtime",
+  "FROM runtime-base AS migration",
+] as const) {
+  requireText(dockerfile, stage, "Dockerfile");
+}
 requireText(dockerfile, "org.opencontainers.image.revision=$VCS_REF", "Dockerfile");
 requireText(dockerfile, "USER node", "Dockerfile");
 requireText(

@@ -71,6 +71,7 @@ import {
   DeterministicYouTubeTestAdapter,
   GoogleYouTubeOAuthProvider,
   MetaFacebookOAuthProvider,
+  metaFacebookFailureDiagnostics,
   loadRuntimeSecretBundle,
   loadRuntimeSecretFiles,
   MockIdentityProvider,
@@ -415,6 +416,8 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
       "authorized_channel_identity_mismatch",
       "token_envelope_invalid",
     ].includes(category);
+    const facebookDiagnostics =
+      platform === "facebook" ? metaFacebookFailureDiagnostics(error) : null;
     safeLog(disposition.terminal ? "error" : "warn", "platform_publish_attempt_failed", {
       platform,
       workspaceId: message.workspaceId,
@@ -422,6 +425,15 @@ async function processClaimedPublish(message: ClaimedOutboxMessage): Promise<"ac
       failureCategory: category,
       attempt: message.attempt,
       terminal: disposition.terminal,
+      ...(facebookDiagnostics
+        ? {
+            providerOperation: facebookDiagnostics.operation,
+            providerHttpStatus: facebookDiagnostics.httpStatus,
+            providerErrorCode: facebookDiagnostics.graphCode,
+            providerErrorSubcode: facebookDiagnostics.graphSubcode,
+            providerErrorTransient: facebookDiagnostics.transient,
+          }
+        : {}),
     });
     if (disposition.terminal) {
       if (work) {

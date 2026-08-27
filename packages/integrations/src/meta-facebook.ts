@@ -56,14 +56,83 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function graphError(response: Response, message: string): ApplicationError {
-  if (response.status === 400 || response.status === 401) {
-    return new ApplicationError("authentication_failed", message, 401);
+type MetaFacebookOperation =
+  | "authorization_exchange"
+  | "authorization_refresh"
+  | "authorization_scopes"
+  | "authorized_user"
+  | "managed_pages"
+  | "page_authorization_targets"
+  | "page_authorization"
+  | "authorization_revocation"
+  | "upload_session_create"
+  | "upload_binary"
+  | "page_video_publish"
+  | "page_video_status";
+
+export interface MetaFacebookFailureDiagnostics {
+  readonly operation: MetaFacebookOperation;
+  readonly httpStatus: number;
+  readonly graphCode: number | null;
+  readonly graphSubcode: number | null;
+  readonly transient: boolean | null;
+}
+
+class MetaFacebookRequestError extends ApplicationError {
+  public constructor(
+    code: ApplicationError["code"],
+    message: string,
+    status: number,
+    public readonly diagnostics: MetaFacebookFailureDiagnostics,
+  ) {
+    super(code, message, status);
   }
-  if (response.status === 403) return new ApplicationError("permission_denied", message, 403);
-  if (response.status === 429)
-    return new ApplicationError("rate_limited", "Meta request quota was exceeded", 429);
-  return new ApplicationError("service_unavailable", message, 503);
+}
+
+export function metaFacebookFailureDiagnostics(
+  error: unknown,
+): MetaFacebookFailureDiagnostics | null {
+  return error instanceof MetaFacebookRequestError ? error.diagnostics : null;
+}
+
+function graphError(
+  response: Response,
+  body: unknown,
+  message: string,
+  operation: MetaFacebookOperation,
+): ApplicationError {
+  const graph = isRecord(body) && isRecord(body.error) ? body.error : undefined;
+  const graphCode = typeof graph?.code === "number" ? graph.code : null;
+  const graphSubcode = typeof graph?.error_subcode === "number" ? graph.error_subcode : null;
+  const transient = typeof graph?.is_transient === "boolean" ? graph.is_transient : null;
+  const diagnostics = {
+    operation,
+    httpStatus: response.status,
+    graphCode,
+    graphSubcode,
+    transient,
+  } satisfies MetaFacebookFailureDiagnostics;
+  if (response.status === 401 || graphCode === 102 || graphCode === 190) {
+    return new MetaFacebookRequestError("authentication_failed", message, 401, diagnostics);
+  }
+  if ([10, 200, 294, 299].includes(graphCode ?? -1) || response.status === 403) {
+    return new MetaFacebookRequestError("permission_denied", message, 403, diagnostics);
+  }
+  if ([4, 17, 32, 613].includes(graphCode ?? -1) || response.status === 429) {
+    return new MetaFacebookRequestError(
+      "rate_limited",
+      "Meta request quota was exceeded",
+      429,
+      diagnostics,
+    );
+  }
+  if (transient === true || response.status >= 500) {
+    return new MetaFacebookRequestError("service_unavailable", message, 503, diagnostics);
+  }
+  if (response.status === 400) {
+    return new MetaFacebookRequestError("invalid_input", message, 400, diagnostics);
+  }
+  return new MetaFacebookRequestError("service_unavailable", message, 503, diagnostics);
 }
 
 function combineSignal(signal: AbortSignal | undefined, timeout: number): AbortSignal {
@@ -140,7 +209,14 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Meta authorization is unavailable",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "Facebook authorization could not be completed");
+    if (!response.ok) {
+      throw graphError(
+        response,
+        body,
+        "Facebook authorization could not be completed",
+        "authorization_refresh",
+      );
+    }
     const token = isRecord(body) ? body.access_token : undefined;
     const expiresIn = isRecord(body) ? body.expires_in : undefined;
     if (
@@ -179,7 +255,14 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Facebook permissions could not be verified",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "Facebook permissions could not be verified");
+    if (!response.ok) {
+      throw graphError(
+        response,
+        body,
+        "Facebook permissions could not be verified",
+        "authorization_scopes",
+      );
+    }
     if (!isRecord(body) || !Array.isArray(body.data)) {
       throw new ApplicationError("service_unavailable", "Meta omitted permission data", 503);
     }
@@ -207,7 +290,14 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Meta authorization is unavailable",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "Facebook authorization could not be completed");
+    if (!response.ok) {
+      throw graphError(
+        response,
+        body,
+        "Facebook authorization could not be completed",
+        "authorization_exchange",
+      );
+    }
     const shortToken = isRecord(body) ? body.access_token : undefined;
     if (typeof shortToken !== "string") {
       throw new ApplicationError("service_unavailable", "Meta omitted the access token", 503);
@@ -238,7 +328,14 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "The authorized Facebook user could not be read",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "The authorized Facebook user could not be read");
+    if (!response.ok) {
+      throw graphError(
+        response,
+        body,
+        "The authorized Facebook user could not be read",
+        "authorized_user",
+      );
+    }
     if (!isRecord(body) || typeof body.id !== "string" || typeof body.name !== "string") {
       throw new ApplicationError("service_unavailable", "Meta omitted the authorized user", 503);
     }
@@ -260,7 +357,9 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Facebook Pages could not be read",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "Facebook Pages could not be read");
+    if (!response.ok) {
+      throw graphError(response, body, "Facebook Pages could not be read", "managed_pages");
+    }
     if (!isRecord(body) || !Array.isArray(body.data)) {
       throw new ApplicationError("service_unavailable", "Meta omitted Page data", 503);
     }
@@ -321,7 +420,12 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
     );
     const body = await readJson(response);
     if (!response.ok) {
-      throw graphError(response, "Facebook Page authorization targets could not be verified");
+      throw graphError(
+        response,
+        body,
+        "Facebook Page authorization targets could not be verified",
+        "page_authorization_targets",
+      );
     }
     const data = isRecord(body) && isRecord(body.data) ? body.data : undefined;
     if (
@@ -408,7 +512,9 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Facebook Page could not be read",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "Facebook Page could not be read");
+    if (!response.ok) {
+      throw graphError(response, body, "Facebook Page could not be read", "page_authorization");
+    }
     if (
       !isRecord(body) ||
       body.id !== pageId ||
@@ -434,7 +540,13 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Facebook authorization could not be revoked",
     );
     if (!response.ok && response.status !== 400 && response.status !== 401) {
-      throw graphError(response, "Facebook authorization could not be revoked");
+      const body = await readJson(response);
+      throw graphError(
+        response,
+        body,
+        "Facebook authorization could not be revoked",
+        "authorization_revocation",
+      );
     }
   }
 
@@ -463,7 +575,14 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Meta upload session could not be created",
     );
     const createdBody = await readJson(created);
-    if (!created.ok) throw graphError(created, "Meta upload session could not be created");
+    if (!created.ok) {
+      throw graphError(
+        created,
+        createdBody,
+        "Meta upload session could not be created",
+        "upload_session_create",
+      );
+    }
     const uploadSessionHandle = isRecord(createdBody) ? createdBody.id : undefined;
     if (
       typeof uploadSessionHandle !== "string" ||
@@ -507,7 +626,7 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
     if (!upload.ok) {
       if (upload.status >= 500)
         throw new ApplicationError("conflict", "Meta upload completion is unknown", 409);
-      throw graphError(upload, "Meta rejected the video upload");
+      throw graphError(upload, uploadBody, "Meta rejected the video upload", "upload_binary");
     }
     if (streamedBytes !== input.byteSize) throw new Error("source_asset_size_mismatch");
     if (digest.digest("hex") !== input.sha256) throw new Error("source_asset_hash_mismatch");
@@ -541,7 +660,12 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       if (published.status >= 500) {
         throw new ApplicationError("conflict", "Facebook Page publish completion is unknown", 409);
       }
-      throw graphError(published, "Facebook Page rejected the video publish");
+      throw graphError(
+        published,
+        publishedBody,
+        "Facebook Page rejected the video publish",
+        "page_video_publish",
+      );
     }
     const videoId = isRecord(publishedBody) ? publishedBody.id : undefined;
     if (typeof videoId !== "string") {
@@ -572,7 +696,14 @@ export class MetaFacebookOAuthProvider implements FacebookOAuthProvider {
       "Facebook Page video status could not be read",
     );
     const body = await readJson(response);
-    if (!response.ok) throw graphError(response, "Facebook Page video status could not be read");
+    if (!response.ok) {
+      throw graphError(
+        response,
+        body,
+        "Facebook Page video status could not be read",
+        "page_video_status",
+      );
+    }
     const status = isRecord(body) && isRecord(body.status) ? body.status.video_status : undefined;
     if (status === "ready" || status === "published") return { state: "published" };
     if (status === "error")

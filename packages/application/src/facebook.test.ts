@@ -14,6 +14,13 @@ describe("facebook publishing failure policy", () => {
     });
   });
 
+  it("does not retry a provider-declared invalid publish request", () => {
+    expect(facebookExecutionFailureDisposition("invalid_input", 0)).toEqual({
+      needsAttention: false,
+      terminal: true,
+    });
+  });
+
   it("reuses a safely unexpired long-lived user token", () => {
     const now = Date.parse("2026-08-27T05:30:00.000Z");
 
