@@ -472,6 +472,7 @@ export async function getContentDetail(
         failureCategory: true,
         providerId: true,
         providerUrl: true,
+        outboxMessage: { select: { state: true } },
         updatedAt: true,
       },
       orderBy: { updatedAt: "desc" },
@@ -537,7 +538,12 @@ export async function getContentDetail(
       publishing: {
         intentCount,
         executionCount: executions.length,
-        executions: executions.map(platformExecutionView),
+        executions: executions.map((execution) =>
+          platformExecutionView({
+            ...execution,
+            outboxState: execution.outboxMessage?.state ?? null,
+          }),
+        ),
       },
       activity: activity.map((event) => ({
         id: event.id,

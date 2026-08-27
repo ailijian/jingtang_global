@@ -268,6 +268,10 @@ export const zhCN: Record<keyof typeof en, string> = {
   "detail.publish.facebook.openVideo": "打开 Facebook Page 视频",
   "detail.publish.queued": "上传已排队，状态将自动更新。",
   "detail.publish.failed": "上传未能排队；没有产生重复上传，可安全重试。",
+  "detail.publish.retryAvailable":
+    "上次尝试已在创建外部帖子前终止。请重新核对当前渠道和发布设置，确认后可安全重试。",
+  "detail.publish.retryAction": "重新确认并重试",
+  "detail.publish.retryWorking": "正在安全重试排队…",
   "detail.publish.notAllowed": "当前角色或版本状态不允许发布。",
   "detail.publish.openVideo": "打开私密 YouTube 视频",
   "detail.publish.reviewChannel": "检查渠道连接",

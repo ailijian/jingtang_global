@@ -12,6 +12,7 @@ export function PublishActions({
   revisionId,
   canPublish,
   hasExecution,
+  canRetry,
   polling,
   sourceFilename,
   title,
@@ -27,6 +28,7 @@ export function PublishActions({
   readonly revisionId: string;
   readonly canPublish: boolean;
   readonly hasExecution: boolean;
+  readonly canRetry: boolean;
   readonly polling: boolean;
   readonly sourceFilename: string;
   readonly title: string;
@@ -60,6 +62,7 @@ export function PublishActions({
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<"queued" | "failed" | null>(null);
+  const publishBlocked = hasExecution && !canRetry;
 
   useEffect(() => {
     if (!polling && (message !== "queued" || hasExecution)) return;
@@ -68,7 +71,7 @@ export function PublishActions({
   }, [hasExecution, message, polling, router]);
 
   useEffect(() => {
-    if (platform !== "tiktok" || !channelId || hasExecution) return;
+    if (platform !== "tiktok" || !channelId || publishBlocked) return;
     const controller = new AbortController();
     void fetch(`/api/v1/channels/tiktok/creator-info?channel_id=${encodeURIComponent(channelId)}`, {
       signal: controller.signal,
@@ -81,13 +84,13 @@ export function PublishActions({
         if (!controller.signal.aborted) setMessage("failed");
       });
     return () => controller.abort();
-  }, [channelId, hasExecution, platform]);
+  }, [channelId, platform, publishBlocked]);
 
   async function publish() {
     if (
       !confirmed ||
       busy ||
-      hasExecution ||
+      publishBlocked ||
       (platform === "tiktok" &&
         (!creatorInfo || tikTokPrivacy !== "SELF_ONLY" || !musicConfirmed || !creatorInfoConfirmed))
     ) {
@@ -199,7 +202,10 @@ export function PublishActions({
           <dd>{t("detail.publish.mode.now")}</dd>
         </div>
       </dl>
-      {platform === "tiktok" && !hasExecution ? (
+      {canRetry ? (
+        <StatusMessage tone="info">{t("detail.publish.retryAvailable")}</StatusMessage>
+      ) : null}
+      {platform === "tiktok" && !publishBlocked ? (
         <div className="publish-confirmation-options">
           {creatorInfo ? (
             <StatusMessage tone="info">
@@ -323,7 +329,7 @@ export function PublishActions({
           </label>
         </div>
       ) : null}
-      {!hasExecution ? (
+      {!publishBlocked ? (
         <>
           <label className="ownership-row">
             <input
@@ -358,19 +364,23 @@ export function PublishActions({
             onClick={() => void publish()}
           >
             {busy
-              ? platform === "facebook"
-                ? t("detail.publish.facebook.working")
-                : t("detail.publish.working")
-              : platform === "facebook"
-                ? t("detail.publish.facebook.action")
-                : t("detail.publish.action")}
+              ? canRetry
+                ? t("detail.publish.retryWorking")
+                : platform === "facebook"
+                  ? t("detail.publish.facebook.working")
+                  : t("detail.publish.working")
+              : canRetry
+                ? t("detail.publish.retryAction")
+                : platform === "facebook"
+                  ? t("detail.publish.facebook.action")
+                  : t("detail.publish.action")}
           </Button>
         </>
       ) : null}
-      {!canPublish && !hasExecution ? (
+      {!canPublish && !publishBlocked ? (
         <StatusMessage tone="danger">{t("detail.publish.notAllowed")}</StatusMessage>
       ) : null}
-      {message === "queued" && !hasExecution ? (
+      {message === "queued" && !publishBlocked ? (
         <StatusMessage tone="success">
           {t(platform === "facebook" ? "detail.publish.facebook.queued" : "detail.publish.queued")}
         </StatusMessage>

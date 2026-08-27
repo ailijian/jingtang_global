@@ -4,6 +4,7 @@ import {
   ApprovalResult,
   ChannelState,
   ContentStatus,
+  OutboxState,
   Platform,
   PlatformExecutionState,
   PrivacyStatus,
@@ -34,6 +35,7 @@ export interface PlatformExecutionView {
   readonly failureCategory: string | null;
   readonly providerId: string | null;
   readonly providerUrl: string | null;
+  readonly retryable: boolean;
   readonly updatedAt: Date;
 }
 
@@ -55,6 +57,7 @@ export function platformExecutionView(entry: {
   readonly failureCategory: string | null;
   readonly providerId: string | null;
   readonly providerUrl: string | null;
+  readonly outboxState: OutboxState | null;
   readonly updatedAt: Date;
 }): PlatformExecutionView {
   return {
@@ -63,8 +66,23 @@ export function platformExecutionView(entry: {
     failureCategory: entry.failureCategory,
     providerId: entry.providerId,
     providerUrl: entry.providerUrl,
+    retryable: platformExecutionRetryable(entry),
     updatedAt: entry.updatedAt,
   };
+}
+
+export function platformExecutionRetryable(entry: {
+  readonly state: PlatformExecutionState;
+  readonly providerId: string | null;
+  readonly providerUrl: string | null;
+  readonly outboxState: OutboxState | null;
+}): boolean {
+  return (
+    entry.state === PlatformExecutionState.FAILED &&
+    entry.providerId === null &&
+    entry.providerUrl === null &&
+    entry.outboxState === OutboxState.DEAD
+  );
 }
 
 function payloadHash(value: Prisma.InputJsonValue): string {
@@ -126,13 +144,34 @@ export async function confirmContentPublishing(
         contentId: input.contentId,
         revisionId: input.revisionId,
       },
-      include: { executions: { select: { id: true }, take: 1 } },
-      orderBy: { confirmedAt: "desc" },
+      include: {
+        executions: {
+          select: {
+            id: true,
+            state: true,
+            providerId: true,
+            providerUrl: true,
+            outboxMessage: { select: { state: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: [{ confirmedAt: "desc" }, { createdAt: "desc" }],
     });
+    let retryOfExecutionId: string | null = null;
     if (alreadyConfirmed) {
       const execution = alreadyConfirmed.executions[0];
       if (!execution) throw new Error("platform_execution_not_found");
-      return { intentId: alreadyConfirmed.id, executionId: execution.id };
+      if (
+        !platformExecutionRetryable({
+          ...execution,
+          outboxState: execution.outboxMessage?.state ?? null,
+        })
+      ) {
+        return { intentId: alreadyConfirmed.id, executionId: execution.id };
+      }
+      retryOfExecutionId = execution.id;
     }
 
     const content = await transaction.content.findUnique({
@@ -293,7 +332,11 @@ export async function confirmContentPublishing(
       targetId: intent.id,
       result: "success",
       correlationId: input.correlationId,
-      metadata: { platform, execution_id: execution.id },
+      metadata: {
+        platform,
+        execution_id: execution.id,
+        ...(retryOfExecutionId ? { retry_of_execution_id: retryOfExecutionId } : {}),
+      },
     });
     return { intentId: intent.id, executionId: execution.id };
   });

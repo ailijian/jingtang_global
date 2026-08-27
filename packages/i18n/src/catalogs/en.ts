@@ -299,6 +299,10 @@ export const en = {
   "detail.publish.queued": "The upload was queued. Status will update automatically.",
   "detail.publish.failed":
     "The upload could not be queued. No duplicate upload was created; retry safely.",
+  "detail.publish.retryAvailable":
+    "The previous attempt ended before any external post was created. Review the current channel and publishing settings, then reconfirm to retry safely.",
+  "detail.publish.retryAction": "Reconfirm and retry",
+  "detail.publish.retryWorking": "Queueing a safe retry…",
   "detail.publish.notAllowed": "Your role or the current revision does not allow publishing.",
   "detail.publish.openVideo": "Open private YouTube video",
   "detail.publish.reviewChannel": "Review channel connection",
