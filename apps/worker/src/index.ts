@@ -542,6 +542,7 @@ async function processClaimedTikTokPublish(
             providerOperation: diagnostics.operation,
             providerHttpStatus: diagnostics.httpStatus,
             providerErrorCode: diagnostics.providerCode,
+            ...(diagnostics.providerHost ? { providerHost: diagnostics.providerHost } : {}),
           }
         : {}),
     });

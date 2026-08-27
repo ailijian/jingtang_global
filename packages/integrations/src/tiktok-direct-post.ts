@@ -25,6 +25,7 @@ export interface TikTokFailureDiagnostics {
   readonly operation: TikTokOperation;
   readonly httpStatus: number;
   readonly providerCode: string | null;
+  readonly providerHost?: string;
 }
 
 class TikTokRequestError extends ApplicationError {
@@ -53,11 +54,13 @@ function requestError(
   operation: TikTokOperation,
   httpStatus: number,
   providerCode: string | null,
+  providerHost?: string,
 ): TikTokRequestError {
   return new TikTokRequestError(code, message, status, {
     operation,
     httpStatus,
     providerCode,
+    ...(providerHost ? { providerHost } : {}),
   });
 }
 
@@ -451,6 +454,7 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
         "direct_post_init",
         response.status,
         "upload_host_rejected",
+        uploadUrl.hostname.toLowerCase().replace(/\.$/u, ""),
       );
     }
     return { publishId: data.publish_id, uploadUrl: uploadUrl.toString() };

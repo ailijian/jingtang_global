@@ -185,6 +185,7 @@ describe("TikTok Login Kit and Direct Post provider", () => {
       operation: "direct_post_init",
       httpStatus: 200,
       providerCode: "upload_host_rejected",
+      providerHost: "example.com",
     });
   });
 
