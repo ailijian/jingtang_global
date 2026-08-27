@@ -236,14 +236,20 @@ for _ in {1..30}; do
           --dump-header - --output /dev/null --max-time 15 \
           https://review.jingtangai.com/api/v1/health || true)"
         if grep -Eiq '^x-robots-tag:.*noindex' <<<"$review_headers"; then
-          smoke_ready=true
-          break
+          sleep 6
+          review_post_status="$(curl --noproxy '*' --silent --show-error \
+            --output /dev/null --write-out '%{http_code}' --max-time 15 \
+            --request POST https://review.jingtangai.com/api/v1/health || true)"
+          if [[ "$review_post_status" == 405 ]]; then
+            smoke_ready=true
+            break
+          fi
         fi
       fi
       sleep 5
     done
     if [[ "$smoke_ready" != true ]]; then
-      echo "Public website or review HTTPS/noindex smoke did not pass." >&2
+      echo "Public website or review HTTPS/noindex/POST smoke did not pass." >&2
       false
     fi
     printf '%s\n' "$release_id" > "$review_root/current-release.next"

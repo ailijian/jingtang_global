@@ -127,6 +127,7 @@ const caddy = read("infra/tencent/public-site/Caddyfile");
 for (const marker of [
   "review.jingtangai.com",
   "reverse_proxy review-platform:3100",
+  "keepalive off",
   "header_up X-Forwarded-For {remote_host}",
   "header_up X-Real-IP {remote_host}",
   'X-Robots-Tag "noindex, nofollow, noarchive"',
@@ -272,6 +273,8 @@ for (const marker of [
   "compose_live up -d postgres platform worker",
   "https://jingtangai.com/",
   "https://review.jingtangai.com/api/v1/health",
+  "--request POST",
+  '[[ "$review_post_status" == 405 ]]',
 ]) {
   requireText(activation, marker, "review activation");
 }
