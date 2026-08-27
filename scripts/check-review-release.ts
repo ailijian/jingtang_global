@@ -136,13 +136,14 @@ for (const marker of [
   "header_up X-Real-IP {remote_host}",
   'X-Robots-Tag "noindex, nofollow, noarchive"',
   "log_skip @sensitive_callback",
+  "/api/v1/channels/tiktok/oauth/callback",
   "https://*.cos.ap-seoul.myqcloud.com",
 ]) {
   requireText(caddy, marker, "public-site Caddyfile");
 }
 requireText(
   caddy,
-  "connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com https://www.facebook.com;",
+  "connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com https://www.facebook.com https://www.tiktok.com;",
   "Review Content-Security-Policy",
 );
 
