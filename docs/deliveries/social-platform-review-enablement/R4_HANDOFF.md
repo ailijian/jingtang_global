@@ -1,27 +1,28 @@
-# R4 TikTok Acceptance Remediation Handoff
+# R4 TikTok Acceptance Review Handoff
 
 > Transient execution handoff for continuing this Delivery in a new Codex window. This file is not product, architecture, integration-status, or approval authority. Resolve any conflict in favor of [`BASELINE.md`](BASELINE.md), [`PLAN.md`](PLAN.md), `config/integrations.yaml`, current code/contracts, and the repository Knowledge Map.
 
 ## Resume Point
 
 - Date: 2026-08-28 (Asia/Shanghai).
-- Local branch: `main` at `54df1e60aa65ba35fbabbdc13537300d5b064bd7` (`fix(review): close TikTok disconnect lifecycle`) plus uncommitted Acceptance remediation.
-- Review deployment: `current-release` remains `54df1e60aa65ba35fbabbdc13537300d5b064bd7`; the remediation in this working tree has not been deployed.
-- Git synchronization: local `main` remains ahead of `origin/main`; neither the existing R4 commits nor this remediation have been pushed.
-- Current Delivery state: the private Direct Post and final disconnected/cleaned state were observed, but the 2026-08-28 Acceptance Review returned `FAIL`. The local remediation passed canonical self-verification; R4 Code Review, deployment, complete Human E2E evidence, Acceptance Review and Stage Acceptance are pending.
+- Local branch: `codex/r4-acceptance-prep`; the substantive final candidate is `e2c015b82b25eb788a3fca209badc0f89a3f9753` (`fix(ci): keep migration image non-root`). Draft PR #1 exists only to run protected CI and must not be merged without fresh authority.
+- Review deployment: `current-release` remains `9fc8e2522322227c3ad57f009f719ddda8445851`, which contains the disconnect polling/classification repair. Platform/PostgreSQL are healthy, Worker is running, all three have zero restarts, HTTPS health is `ready` with `noindex`, and both maintenance timers are active and enabled.
+- Public website deployment: the immutable `e2c015b82b25eb788a3fca209badc0f89a3f9753` release is live. Protected CI run `33154279952` and deployment workflow run `33154699475` passed; independent smoke passed all 19 HTTPS routes and the bilingual legal pages expose version `2026-08-28`.
+- Git synchronization: the authorized temporary branch was pushed to run protected CI. Local/remote `main`, checkpoint, merge and repository synchronization remain untouched and unauthorized.
+- Current Delivery state: the first 2026-08-28 Acceptance Review returned `FAIL`, but every blocking prerequisite is now remediated. Final Code Review, Self Verification, protected CI, legal/policy deployment and complete Human E2E evidence pass. Acceptance Review has not been rerun; stop and wait for the Human Owner's explicit instruction before invoking it. Stage Acceptance remains pending after that review.
 
 ## Frozen Authority Boundary
 
-Authorized in the current R4 scope:
+Completed under the current R4 scope and explicit deployment authorization:
 
 - Review-only Web Login Kit and Content Posting API Direct Post Video.
 - Automatic `user.info.basic` and exactly `video.publish`.
 - `FILE_UPLOAD` only; one controlled private account; manual `SELF_ONLY` only.
-- Repair the recorded Acceptance Review findings locally, run final self-verification, and prepare the resulting state for the required Code Review and re-review.
+- Repair the recorded Acceptance Review findings, run final self-verification and Code Review, push the temporary branch for protected CI, and deploy the new legal/privacy version to the public website.
 
 Not authorized without a fresh Human Owner instruction:
 
-- `git push`, repository synchronization, checkpoint, merge, or release promotion.
+- Additional `git push`, repository synchronization, checkpoint, merge, or release promotion.
 - TikTok Production configuration, external audit/App Review submission, or public `Available` status.
 - A second TikTok post, a public post, `PULL_FROM_URL`, `video.upload`, additional Scope/Product, or a new target account.
 - Facebook/TikTok reviewer material submission. Those external applications remain in the separately gated R5 unified submission stage.
@@ -47,31 +48,29 @@ The Production draft was intentionally not submitted. Do not complete or submit 
 - OAuth connect, state binding, token refresh/revocation, Creator Info, manual Privacy, disclosures/consents, immutable confirmation, FILE_UPLOAD streaming, publish initialization/status recovery, disconnect/delete, audit, contracts, bilingual UI and Review runtime wiring are implemented.
 - Successful private publish content: `7f888d73-37e2-4417-aa52-414abefc8831` on `https://review.jingtangai.com`.
 - The successful execution is shown as privately published. For an unaudited `SELF_ONLY` TikTok post, absence of a public external post URL is allowed; JINGTANG must not fabricate one.
-- Deployed commit `54df1e6` fixed the TikTok lifecycle database policy, audit platform value, generic reauthorization cleanup, main-card progress/failure state and bounded status refresh.
+- Deployed commits through `9fc8e25` fixed the TikTok lifecycle database policy, audit platform value, generic reauthorization cleanup, main-card progress/failure state, successful intermediate outcome classification and bounded automatic status refresh.
 - Full pre-deploy verification passed on `ac2a5f6`: formatting, lint, typecheck, production builds, Terraform/release checks, 185 unit tests, contracts/i18n, migrations and all database integration suites, eight platform E2E, seven site E2E, operations/backup-restore/security checks and Secret scan.
 - Incremental deployment reused dependency layers: an approximately 401 MB release archive required approximately 127 MB transfer. Activation automatically pruned superseded releases/images and retained the current plus one rollback release.
 - Review health and `noindex`/`robots.txt` checks passed; backup and capacity timers are enabled and active.
 - One moderate production dependency advisory remains below the repository's blocking `high` audit threshold.
-- The 2026-08-28 Acceptance Review found four blocking categories: user-facing `R4`/`Pilot` language; missing TikTok Architecture/Security/Data/legal/versioned-consent authority; no attributable Code Review for the final state; and live lifecycle evidence that included one protected administrator retry wake.
-- Current local remediation removes the internal product wording, adds a release regression, records the durable TikTok App exception, adds TikTok processor/data-flow/retention/deletion authority, updates bilingual Privacy/Terms/Data Deletion copy, and advances the runtime policy/consent version to `2026-08-28`.
-- The final local remediation passed `pnpm verify` on 2026-08-28: formatting, lint, typecheck, builds, Terraform/release checks, 185 unit tests, contracts, 629-key bilingual catalog parity, site checks, all migrations and integration suites, platform/site E2E, operations/backup-restore controls and Secret scan passed. One moderate production dependency advisory remains below the blocking `high` threshold.
+- The 2026-08-28 Acceptance Review found four blocking categories: user-facing `R4`/`Pilot` language; missing TikTok Architecture/Security/Data/legal/versioned-consent authority; no attributable Code Review for the final state; and live lifecycle evidence that included one protected administrator retry wake. That review result remains historical and has not been overwritten.
+- The deployed remediation removes internal product wording, adds the release regression, records the durable TikTok App exception, adds TikTok processor/data-flow/retention/deletion authority, updates bilingual Privacy/Terms/Data Deletion copy, advances policy/consent to `2026-08-28`, and fixes the disconnect UI's terminal-state polling.
+- Final candidate `e2c015b` passed `pnpm verify` on 2026-08-28: formatting, lint, typecheck, builds, Terraform/release checks, 203 unit tests, contracts, 629-key bilingual catalog parity, site checks, all 29 migrations and database integration suites, eight platform E2E, seven site E2E, operations/backup-restore controls and Secret scan. One moderate production dependency advisory remains below the blocking `high` threshold. The full R4 Code Review found no open P1/P2 finding, and protected CI passed the same commit.
+- AC-10 no-intervention evidence is complete. Operation `0fbac636-898a-4cd9-8bf2-7faf26793549` entered a scheduled retry and was automatically claimed for attempt 2 at its due time; it completed at `2026-08-28 07:27:45.868 UTC` with all three disconnect steps complete. The TikTok Channel is disconnected and every identity/scope/consent/authorization/token field is absent. No database wake, reconnect or second publish was used.
 
 ## Remaining Work, in Order
 
 1. Read `AGENTS.md`, `docs/README.md`, the approved `BASELINE.md`, current `PLAN.md`, this handoff, and the current authorities before acting. Preserve unrelated working-tree changes.
-2. Run the PLAN-required final Code Review on the full R4 change boundary, including `54df1e6` and this remediation. Fix any blocking finding and reverify.
-3. Deployment of the legal/versioned-consent and product-copy remediation requires separate Human Owner authorization. Until deployed, `config/public-site.yaml` truthfully records the new legal policy rollout as pending.
-4. AC-10 still needs independently observed no-manual-database lifecycle evidence. Reconnecting TikTok is not currently authorized; another private publish is neither required nor authorized. Obtain explicit authority before any provider reconnection or other external action.
-5. After all prerequisite Gates and applicable deployed evidence are complete, rerun R4 Acceptance Review against AC-08, AC-10 and AC-12. Keep TikTok `coming_soon`, every public capability `not_available`, and `production_available: false`.
-6. Stop after reporting the re-review result. Stage Acceptance, checkpoint, push/synchronization, R5 materials, Production Developer Portal configuration, external App Review and public availability remain separately gated.
+2. Only after an explicit Human Owner instruction, invoke `acceptance-review` and rerun R4 Acceptance Review against the complete current state, especially AC-08, AC-10 and AC-12. Keep TikTok `coming_soon`, every public capability `not_available`, and `production_available: false`.
+3. Stop after reporting the re-review result. Stage Acceptance, checkpoint, further push/synchronization, merge, R5 materials, Production Developer Portal configuration, external App Review and public availability remain separately gated.
 
 ## Useful Read-Only Checks
 
 ```bash
 git status --short
-git log -1 --oneline --decorate
+git log -3 --oneline --decorate
 git rev-list --count origin/main..HEAD
-ssh jingtang-production "sudo cat /srv/jingtang/review/current-release; docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'"
+ssh jingtang-production "sudo cat /srv/jingtang/review/current-release; readlink /srv/jingtang/public-site/current; sudo docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'"
 curl -fsS -D - https://review.jingtangai.com/api/v1/health -o /dev/null
 ```
 
@@ -80,5 +79,5 @@ Use repository/operator procedures for any further deployment. Never print runti
 ## Suggested First Prompt in the New Window
 
 ```text
-Continue the R4 TikTok Acceptance remediation from docs/deliveries/social-platform-review-enablement/R4_HANDOFF.md. Read AGENTS.md, docs/README.md, the approved BASELINE.md, current PLAN.md, Architecture, Security/Data, public-site config and config/integrations.yaml first. Preserve the current working tree. Do not commit, deploy, reconnect TikTok, publish another video, push, checkpoint, submit TikTok review, configure Production or enable public availability without explicit authority. Start by confirming the remediation diff and verification status, then complete the required Code Review and prepare the re-review evidence.
+Use $acceptance-review to rerun R4 Acceptance Review from docs/deliveries/social-platform-review-enablement/R4_HANDOFF.md. Read AGENTS.md, docs/README.md, the approved BASELINE.md, current PLAN.md, Architecture, Security/Data, public-site config and config/integrations.yaml first. Preserve the current working tree. Do not commit, deploy, reconnect TikTok, publish another video, push, merge, checkpoint, submit TikTok review, configure Production or enable public availability without explicit authority. Evaluate the remediated and deployed state against the complete R4 acceptance criteria, especially AC-08, AC-10 and AC-12, then stop after reporting the Gate result.
 ```

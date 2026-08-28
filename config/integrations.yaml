@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 23
+revision: 24
 status: approved
 effective_date: "2026-08-28"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-27"
-revision_note: The R3 Facebook controlled-access technical slice is complete and accepted while its external submission work remains deferred to R5. The R4 TikTok controlled Review slice has a deployed implementation, one completed private Direct Post and completed local authorization/key cleanup, but the 2026-08-28 Acceptance Review found formal-presentation, architecture, Security/Data, legal/versioned-consent, final Code Review and independently observed no-intervention lifecycle-evidence gaps. The local remediation passed canonical self-verification; final Code Review, authorized deployment, complete Human E2E evidence and re-review remain pending. TikTok remains publicly Coming Soon and production_available false; another connection or publish, external audit/App Review, public availability, checkpoint and repository synchronization are separately gated.
+revision_note: The R3 Facebook controlled-access technical slice is complete and accepted while its external submission work remains deferred to R5. The R4 TikTok controlled Review implementation is deployed, one private Direct Post completed without duplication, and an independently observed retry completed provider revocation, local authorized-data deletion and token/key retirement automatically without a database intervention. The final R4 Code Review and protected CI passed, and the bilingual 2026-08-28 Privacy, Terms and Data Deletion version is deployed and production-smoke verified. R4 Acceptance Review and explicit Stage Acceptance remain pending. TikTok remains publicly Coming Soon and production_available false; another connection or publish, external audit/App Review, public availability, checkpoint and repository synchronization are separately gated.
 
 authority:
   owns:
