@@ -9,6 +9,7 @@ import {
 
 const requestTimeoutMs = 30_000;
 const uploadTimeoutMs = 15 * 60_000;
+const maximumUploadAttemptsPerChunk = 3;
 const maximumJsonResponseBytes = 1024 * 1024;
 
 type TikTokOperation =
@@ -96,7 +97,7 @@ function tikTokError(
   if (response.status === 401 || code === "access_token_invalid") {
     return diagnostic("authentication_failed", 401);
   }
-  if (response.status === 403 || code === "scope_not_authorized") {
+  if (code === "scope_not_authorized") {
     return diagnostic("permission_denied", 403);
   }
   if (response.status === 429 || code === "rate_limit_exceeded") {
@@ -109,10 +110,40 @@ function tikTokError(
       code,
     );
   }
-  if (response.status === 400 || code === "invalid_param") {
+  if (
+    response.status === 400 ||
+    code === "invalid_param" ||
+    code?.startsWith("spam_risk_") ||
+    [
+      "privacy_level_option_mismatch",
+      "reached_active_user_cap",
+      "unaudited_client_can_only_post_to_private_accounts",
+    ].includes(code ?? "")
+  ) {
     return diagnostic("invalid_input", 400);
   }
   return diagnostic("service_unavailable", 503);
+}
+
+function tikTokOAuthError(
+  response: Response,
+  body: unknown,
+  operation: Extract<TikTokOperation, "authorization_exchange" | "authorization_refresh">,
+): ApplicationError {
+  const code = isRecord(body) && typeof body.error === "string" ? body.error : null;
+  const diagnostic = (applicationCode: ApplicationError["code"], status: number) =>
+    requestError(
+      applicationCode,
+      "TikTok authorization could not be completed",
+      status,
+      operation,
+      response.status,
+      code,
+    );
+  if (code === "invalid_grant") return diagnostic("authentication_failed", 401);
+  if (response.status === 429) return diagnostic("rate_limited", 429);
+  if (response.status >= 500) return diagnostic("service_unavailable", 503);
+  return diagnostic("invalid_input", 400);
 }
 
 function apiSucceeded(response: Response, body: unknown): boolean {
@@ -235,7 +266,7 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
         : "authorization_exchange";
     const body = await readJson(response, operation);
     if (!response.ok || !isRecord(body)) {
-      throw tikTokError(response, body, "TikTok authorization could not be completed", operation);
+      throw tikTokOAuthError(response, body, operation);
     }
     const scope = typeof body.scope === "string" ? body.scope.split(",").filter(Boolean) : [];
     if (
@@ -476,40 +507,45 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       const end = offset + chunk.byteLength - 1;
       const payload = new Uint8Array(chunk.byteLength);
       payload.set(chunk);
-      let response: Response;
-      try {
-        response = await this.#fetch(input.uploadUrl, {
-          method: "PUT",
-          headers: {
-            "content-type": "video/mp4",
-            "content-length": String(chunk.byteLength),
-            "content-range": `bytes ${offset}-${end}/${input.byteSize}`,
-          },
-          body: payload.buffer,
-          signal: input.signal
-            ? AbortSignal.any([input.signal, AbortSignal.timeout(uploadTimeoutMs)])
-            : AbortSignal.timeout(uploadTimeoutMs),
-        });
-      } catch {
-        throw requestError(
-          "conflict",
-          "TikTok upload result is ambiguous",
-          409,
-          "video_upload",
-          0,
-          "network_ambiguous",
-        );
-      }
       const isFinal = end + 1 === input.byteSize;
-      if ((isFinal && response.status !== 201) || (!isFinal && response.status !== 206)) {
-        throw requestError(
-          "service_unavailable",
-          "TikTok rejected the video upload",
-          503,
-          "video_upload",
-          response.status,
-          "upload_rejected",
-        );
+      for (let attempt = 1; attempt <= maximumUploadAttemptsPerChunk; attempt += 1) {
+        let response: Response;
+        try {
+          response = await this.#fetch(input.uploadUrl, {
+            method: "PUT",
+            headers: {
+              "content-type": "video/mp4",
+              "content-length": String(chunk.byteLength),
+              "content-range": `bytes ${offset}-${end}/${input.byteSize}`,
+            },
+            body: payload.buffer,
+            signal: input.signal
+              ? AbortSignal.any([input.signal, AbortSignal.timeout(uploadTimeoutMs)])
+              : AbortSignal.timeout(uploadTimeoutMs),
+          });
+        } catch {
+          throw requestError(
+            "conflict",
+            "TikTok upload result is ambiguous",
+            409,
+            "video_upload",
+            0,
+            "network_ambiguous",
+          );
+        }
+        const accepted = isFinal ? response.status === 201 : response.status === 206;
+        if (accepted) break;
+        await response.body?.cancel().catch(() => undefined);
+        if (response.status < 500 || attempt === maximumUploadAttemptsPerChunk) {
+          throw requestError(
+            "service_unavailable",
+            "TikTok rejected the video upload",
+            503,
+            "video_upload",
+            response.status,
+            "upload_rejected",
+          );
+        }
       }
       offset = end + 1;
     }

@@ -33,9 +33,9 @@ x-common-environment: &common-environment
   IDENTITY_PROVIDER: mock
   ALLOW_TEST_IDENTITY: "false"
   LOCAL_IDENTITY_STORE_PATH: /var/lib/jingtang/identity.json
-  TERMS_VERSION: "2026-08-26"
-  PRIVACY_VERSION: "2026-08-26"
-  DATA_PURPOSE_VERSION: "2026-08-26"
+  TERMS_VERSION: "2026-08-28"
+  PRIVACY_VERSION: "2026-08-28"
+  DATA_PURPOSE_VERSION: "2026-08-28"
   TERMS_URL: https://jingtangai.com/en/terms/
   PRIVACY_URL: https://jingtangai.com/en/privacy/
   OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com

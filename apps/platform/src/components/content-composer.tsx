@@ -416,8 +416,8 @@ export function ContentComposer({
               {draft.platform === "tiktok" && draft.asset?.mediaType !== "video/mp4" ? (
                 <StatusMessage tone="danger">
                   {locale === "zh-CN"
-                    ? "TikTok R4 仅接受 FILE_UPLOAD 的 MP4；请返回并上传 MP4 源素材。"
-                    : "TikTok R4 accepts FILE_UPLOAD MP4 only. Go back and upload an MP4 Source Asset."}
+                    ? "TikTok 当前仅接受通过 FILE_UPLOAD 传输的 MP4；请返回并上传 MP4 源素材。"
+                    : "TikTok currently accepts MP4 through FILE_UPLOAD only. Go back and upload an MP4 Source Asset."}
                 </StatusMessage>
               ) : null}
               {draft.platform === "tiktok" && !draft.asset?.durationSeconds ? (
@@ -480,7 +480,7 @@ export function ContentComposer({
                         ? "Sent to Facebook as the native Page video's title."
                         : locale === "zh-CN"
                           ? "将作为 TikTok Direct Post 的标题/说明发送；当前只允许 SELF_ONLY。"
-                          : "Sent as the TikTok Direct Post title/caption; R4 allows SELF_ONLY only."}
+                          : "Sent as the TikTok Direct Post title/caption; current access allows SELF_ONLY only."}
                 </small>
               </label>
               <label className="content-field">

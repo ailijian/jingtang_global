@@ -169,3 +169,22 @@ export function tikTokExecutionFailureDisposition(
   ].includes(failureCategory);
   return { needsAttention, terminal: needsAttention || nonRetryable || attempt >= 4 };
 }
+
+export function tikTokPublishStatusFailureDisposition(
+  failureCategory: string,
+  statusAttempt: number,
+  maximumStatusAttempts: number,
+): {
+  readonly needsAttention: boolean;
+  readonly terminal: boolean;
+  readonly requireReauthorization: boolean;
+} {
+  if (failureCategory === "tiktok_auth_removed") {
+    return { needsAttention: true, terminal: true, requireReauthorization: true };
+  }
+  if (failureCategory === "tiktok_internal") {
+    const terminal = statusAttempt >= maximumStatusAttempts;
+    return { needsAttention: terminal, terminal, requireReauthorization: false };
+  }
+  return { needsAttention: false, terminal: true, requireReauthorization: false };
+}

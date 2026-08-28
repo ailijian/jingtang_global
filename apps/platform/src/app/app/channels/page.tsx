@@ -206,8 +206,8 @@ export default async function ChannelsPage({
     <>
       <p>
         {locale === "zh-CN"
-          ? "TikTok Login Kit 仅请求 user.info.basic 与 video.publish。R4 仅连接私密账号并手动 SELF_ONLY 发布。"
-          : "TikTok Login Kit requests user.info.basic and video.publish only. R4 connects a private account and publishes manually as SELF_ONLY."}
+          ? "TikTok Login Kit 仅请求 user.info.basic 与 video.publish。当前仅连接私密账号，并由用户手动选择 SELF_ONLY 发布。"
+          : "TikTok Login Kit requests user.info.basic and video.publish only. Current access is limited to private accounts with manual SELF_ONLY publishing."}
       </p>
       <ul className="channel-scope-list">
         <li>
@@ -239,8 +239,8 @@ export default async function ChannelsPage({
             ? undefined
             : hasPermission(role, "channel.connect")
               ? locale === "zh-CN"
-                ? "TikTok R4 连接尚未在当前环境启用。"
-                : "TikTok R4 connection is not enabled in this environment."
+                ? "当前服务尚未为此账号启用 TikTok 连接。"
+                : "TikTok connection is not enabled for this account."
               : translate(locale, "permission.denied")
         }
       >
@@ -381,7 +381,7 @@ export default async function ChannelsPage({
         <section className="channel-card" aria-labelledby="tiktok-channel-title">
           <div className="channel-card__heading">
             <div>
-              <p className="detail-kicker">TIKTOK · PRIVATE DIRECT POST PILOT</p>
+              <p className="detail-kicker">TIKTOK · CONTROLLED PRIVATE PUBLISHING</p>
               <h2 id="tiktok-channel-title">TikTok</h2>
             </div>
             <span
@@ -444,7 +444,7 @@ export default async function ChannelsPage({
               <p>
                 {locale === "zh-CN"
                   ? "当前只允许 FILE_UPLOAD、手动 SELF_ONLY，互动默认关闭。"
-                  : "This pilot permits FILE_UPLOAD and manual SELF_ONLY only, with interactions off by default."}
+                  : "Current access permits FILE_UPLOAD and manual SELF_ONLY only, with interactions off by default."}
               </p>
               {(tiktokConnected || tiktokDisconnecting) && canDisconnect ? (
                 <DestructiveActionDialog

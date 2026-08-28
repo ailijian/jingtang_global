@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 20
+revision: 23
 status: approved
-effective_date: "2026-08-27"
+effective_date: "2026-08-28"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-27"
-revision_note: The R3 Facebook controlled-access technical slice is complete and accepted while its external submission work remains deferred to R5. The R4 TikTok local implementation candidate now implements the approved Web Login Kit, automatic user.info.basic plus exactly video.publish, company Organization-owned durable App identity, FILE_UPLOAD Direct Post only and unaudited controlled private-account manual SELF_ONLY boundary. Local verification and Code Review passed; controlled deployment/configuration, Acceptance Review and one authorized private Human E2E remain pending. TikTok remains publicly Coming Soon and production_available false; external audit/App Review, public availability, checkpoint and repository synchronization are separately gated.
+revision_note: The R3 Facebook controlled-access technical slice is complete and accepted while its external submission work remains deferred to R5. The R4 TikTok controlled Review slice has a deployed implementation, one completed private Direct Post and completed local authorization/key cleanup, but the 2026-08-28 Acceptance Review found formal-presentation, architecture, Security/Data, legal/versioned-consent, final Code Review and independently observed no-intervention lifecycle-evidence gaps. The local remediation passed canonical self-verification; final Code Review, authorized deployment, complete Human E2E evidence and re-review remain pending. TikTok remains publicly Coming Soon and production_available false; another connection or publish, external audit/App Review, public availability, checkpoint and repository synchronization are separately gated.
 
 authority:
   owns:
@@ -311,7 +311,7 @@ integrations:
     delivery_role: r4_tiktok_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: r4_local_candidate_complete_human_e2e_pending
+    implementation_stage: r4_acceptance_remediation_local_verified_code_review_pending
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -329,7 +329,7 @@ integrations:
           purpose: bind the OAuth result to the exact TikTok user by open_id and render the minimum connected-account identity without reading the user's feed
       requested_scopes:
         - scope: video.publish
-          request_state: implemented_controlled_access_human_e2e_pending
+          request_state: implemented_controlled_access_private_publish_passed
           purpose: query fresh Creator Info, directly post the one explicitly confirmed video and track only the returned publish_id
           baseline_trace:
             - AC-08
@@ -368,8 +368,8 @@ integrations:
       scope_approval_package: prepared_2026_08_27
       scope_approval: passed_2026_08_27
       external_app_or_credential_use: authorized_for_exact_r4_scope
-      implementation: local_candidate_complete_self_verified
-      human_e2e_write: one_controlled_private_self_only_publish_authorized
+      implementation: review_deployed_local_remediation_self_verified_code_review_pending
+      human_e2e_write: one_controlled_private_self_only_publish_passed_lifecycle_evidence_partial
       external_review_submission: unified_r5_separately_gated
 
   linkedin:

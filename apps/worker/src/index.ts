@@ -15,6 +15,7 @@ import {
   shouldResetYouTubeExecutionForRetry,
   tikTokAuthorizationRequiresRefresh,
   tikTokExecutionFailureDisposition,
+  tikTokPublishStatusFailureDisposition,
   tikTokUploadPlan,
   youtubeExecutionFailureDisposition,
 } from "@jingtang/application";
@@ -471,14 +472,31 @@ async function processClaimedTikTokPublish(
       return "ack";
     }
     if (status.state === "failed") {
+      const statusFailureCategory = status.failureCategory ?? "tiktok_publish_failed";
+      const statusDisposition = tikTokPublishStatusFailureDisposition(
+        statusFailureCategory,
+        message.attempt,
+        tikTokMaximumStatusPollAttempts,
+      );
+      if (!statusDisposition.terminal) {
+        await finishOutboxMessage(db, {
+          id: message.id,
+          outcome: "retry",
+          failureCategory: statusFailureCategory,
+          retryAfterSeconds: 15,
+          claimOwner: message.claimOwner,
+          claimGeneration: message.claimGeneration,
+        });
+        return "ack";
+      }
       await recordYouTubeExecutionFailureAndCompleteOutbox(db, {
         workspaceId: work.workspaceId,
         executionId: work.executionId,
         channelId: work.channelId,
         leaseGeneration: work.leaseGeneration,
-        failureCategory: status.failureCategory ?? "tiktok_publish_failed",
-        needsAttention: false,
-        requireReauthorization: false,
+        failureCategory: statusFailureCategory,
+        needsAttention: statusDisposition.needsAttention,
+        requireReauthorization: statusDisposition.requireReauthorization,
         outboxMessageId: message.id,
         claimOwner: message.claimOwner,
         claimGeneration: message.claimGeneration,

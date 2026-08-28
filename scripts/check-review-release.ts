@@ -74,9 +74,9 @@ if (
 }
 for (const marker of [
   "APP_ENV: review",
-  'TERMS_VERSION: "2026-08-26"',
-  'PRIVACY_VERSION: "2026-08-26"',
-  'DATA_PURPOSE_VERSION: "2026-08-26"',
+  'TERMS_VERSION: "2026-08-28"',
+  'PRIVACY_VERSION: "2026-08-28"',
+  'DATA_PURPOSE_VERSION: "2026-08-28"',
   'user: "65532:65532"',
   'ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360"',
   'MAX_SOURCE_ASSET_BYTES: "524288000"',
@@ -217,6 +217,7 @@ for (const marker of [
 
 const platformLayout = read("apps/platform/src/app/layout.tsx");
 const channelPage = read("apps/platform/src/app/app/channels/page.tsx");
+const contentComposer = read("apps/platform/src/components/content-composer.tsx");
 const englishCatalog = read("packages/i18n/src/catalogs/en.ts");
 const chineseCatalog = read("packages/i18n/src/catalogs/zh-CN.ts");
 const publicSiteConfig = read("config/public-site.yaml");
@@ -228,6 +229,9 @@ for (const [marker, sources] of [
   ["连接 YouTube 测试账号", [chineseCatalog]],
   ["Private Beta · pre-launch", [englishCatalog]],
   ["私有测试版 · 尚未公开上线", [chineseCatalog]],
+  ["R4", [channelPage, contentComposer]],
+  ["PILOT", [channelPage]],
+  ["This pilot", [channelPage]],
 ] as const) {
   if (sources.some((source) => source.includes(marker))) {
     throw new Error(`user-facing product content must not expose internal status: ${marker}`);

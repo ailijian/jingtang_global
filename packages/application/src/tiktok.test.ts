@@ -5,6 +5,7 @@ import {
   tikTokAuthorizationRequiresRefresh,
   tikTokExecutionFailureDisposition,
   tikTokOAuthScopes,
+  tikTokPublishStatusFailureDisposition,
   tikTokUploadChunkSize,
   tikTokUploadPlan,
 } from "./tiktok.js";
@@ -75,6 +76,32 @@ describe("TikTok R4 policy", () => {
     expect(tikTokExecutionFailureDisposition("service_unavailable", 1)).toEqual({
       needsAttention: false,
       terminal: false,
+    });
+  });
+
+  it("routes terminal TikTok publish failures by their provider recovery semantics", () => {
+    expect(tikTokPublishStatusFailureDisposition("tiktok_auth_removed", 1, 90)).toEqual({
+      needsAttention: true,
+      terminal: true,
+      requireReauthorization: true,
+    });
+    expect(tikTokPublishStatusFailureDisposition("tiktok_spam_risk", 1, 90)).toEqual({
+      needsAttention: false,
+      terminal: true,
+      requireReauthorization: false,
+    });
+  });
+
+  it("keeps internal retryable after prior processing polls until the status budget is exhausted", () => {
+    expect(tikTokPublishStatusFailureDisposition("tiktok_internal", 4, 90)).toEqual({
+      needsAttention: false,
+      terminal: false,
+      requireReauthorization: false,
+    });
+    expect(tikTokPublishStatusFailureDisposition("tiktok_internal", 90, 90)).toEqual({
+      needsAttention: true,
+      terminal: true,
+      requireReauthorization: false,
     });
   });
 });

@@ -61,8 +61,8 @@ function assertConfig(value: unknown): asserts value is PublicSiteConfig {
       "Jingtang (Shanghai) Intelligent Technology Co., Ltd." ||
     candidate.identity.legal_entity?.["zh-CN"] !== "鲸汤（上海）智能科技有限公司" ||
     candidate.identity.freeze?.status !== "approved" ||
-    candidate.legal?.policy_version !== "2026-08-26" ||
-    candidate.legal.effective_date !== "2026-08-26" ||
+    candidate.legal?.policy_version !== "2026-08-28" ||
+    candidate.legal.effective_date !== "2026-08-28" ||
     !["approved_pending_production_change_authorization", "deployed_verified"].includes(
       candidate.legal.deployment_status ?? "",
     ) ||

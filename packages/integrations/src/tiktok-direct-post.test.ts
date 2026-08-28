@@ -83,6 +83,29 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
+  it("requires reauthorization when TikTok rejects a refresh token", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { error: "invalid_grant", error_description: "Refresh token was revoked" },
+          { status: 400 },
+        ),
+      );
+    let caught: unknown;
+    try {
+      await provider(fetchImplementation).refreshAuthorization("revoked-refresh-token");
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({ code: "authentication_failed" });
+    expect(tikTokFailureDiagnostics(caught)).toEqual({
+      operation: "authorization_refresh",
+      httpStatus: 400,
+      providerCode: "invalid_grant",
+    });
+  });
+
   it("queries fresh Creator Info and initializes only SELF_ONLY FILE_UPLOAD", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
@@ -278,16 +301,19 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
   });
 
-  it("classifies Direct Post provider failures with safe diagnostics", async () => {
+  it("keeps non-authorization Direct Post 403 failures terminal without disconnecting", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json({
-        data: {},
-        error: {
-          code: "unaudited_client_can_only_post_to_private_accounts",
-          message: "must not be logged",
-          log_id: "must-not-be-logged",
+      Response.json(
+        {
+          data: {},
+          error: {
+            code: "unaudited_client_can_only_post_to_private_accounts",
+            message: "must not be logged",
+            log_id: "must-not-be-logged",
+          },
         },
-      }),
+        { status: 403 },
+      ),
     );
     let caught: unknown;
     try {
@@ -302,14 +328,35 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     } catch (error) {
       caught = error;
     }
-    expect(caught).toMatchObject({ code: "service_unavailable" });
+    expect(caught).toMatchObject({ code: "invalid_input" });
     expect(tikTokFailureDiagnostics(caught)).toEqual({
       operation: "direct_post_init",
-      httpStatus: 200,
+      httpStatus: 403,
       providerCode: "unaudited_client_can_only_post_to_private_accounts",
     });
     expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("message");
     expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("logId");
+  });
+
+  it("reserves permission failure for an explicit missing TikTok scope", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { data: {}, error: { code: "scope_not_authorized", message: "missing scope" } },
+          { status: 403 },
+        ),
+      );
+    await expect(
+      provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+        settings,
+      }),
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("diagnoses successful Direct Post responses that omit upload data", async () => {
@@ -356,6 +403,41 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     );
   });
 
+  it("retries the same upload chunk on explicit 5xx responses with a bounded limit", async () => {
+    const recoveringFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 201 }));
+    await provider(recoveringFetch).uploadVideo({
+      uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
+      body: stream([1, 2, 3]),
+      byteSize: 3,
+      chunkSize: 3,
+      totalChunkCount: 1,
+    });
+    expect(recoveringFetch).toHaveBeenCalledTimes(2);
+    expect(new Headers(recoveringFetch.mock.calls[0]?.[1]?.headers).get("content-range")).toBe(
+      "bytes 0-2/3",
+    );
+    expect(new Headers(recoveringFetch.mock.calls[1]?.[1]?.headers).get("content-range")).toBe(
+      "bytes 0-2/3",
+    );
+
+    const exhaustedFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 503 }));
+    await expect(
+      provider(exhaustedFetch).uploadVideo({
+        uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
+        body: stream([1, 2, 3]),
+        byteSize: 3,
+        chunkSize: 3,
+        totalChunkCount: 1,
+      }),
+    ).rejects.toMatchObject({ code: "service_unavailable" });
+    expect(exhaustedFetch).toHaveBeenCalledTimes(3);
+  });
+
   it("maps TikTok publish completion without exposing provider diagnostics", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json({
@@ -369,5 +451,29 @@ describe("TikTok Login Kit and Direct Post provider", () => {
         publishId: "publish-id",
       }),
     ).resolves.toEqual({ state: "published", publicPostId: "post-id" });
+  });
+
+  it("preserves TikTok publish failure reasons for worker recovery policy", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          data: { status: "FAILED", fail_reason: "auth_removed" },
+          error: { code: "ok" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          data: { status: "FAILED", fail_reason: "internal" },
+          error: { code: "ok" },
+        }),
+      );
+    const instance = provider(fetchImplementation);
+    await expect(
+      instance.readPostStatus({ accessToken: "access-token", publishId: "publish-id" }),
+    ).resolves.toEqual({ state: "failed", failureCategory: "tiktok_auth_removed" });
+    await expect(
+      instance.readPostStatus({ accessToken: "access-token", publishId: "publish-id" }),
+    ).resolves.toEqual({ state: "failed", failureCategory: "tiktok_internal" });
   });
 });

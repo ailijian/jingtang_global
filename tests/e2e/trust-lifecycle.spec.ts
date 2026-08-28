@@ -25,6 +25,8 @@ test("disconnect is explicit, fail-closed, recoverable, and distinguishes third-
     ),
   ).toBe(201);
   await page.goto("/app/channels");
+  await expect(page.getByText("TIKTOK · CONTROLLED PRIVATE PUBLISHING")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/\bR4\b|pilot/iu);
   await page.getByRole("button", { name: "Disconnect YouTube" }).click();
   const dialog = page.getByRole("dialog", { name: "Disconnect this YouTube channel?" });
   await expect(dialog).toBeVisible();
