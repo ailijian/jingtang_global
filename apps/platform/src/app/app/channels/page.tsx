@@ -17,6 +17,7 @@ import { ChannelConnectionForm } from "../../../components/channel-connection-fo
 import { StatusAutoRefresh } from "../../../components/status-auto-refresh";
 import { workspacePageContext } from "../../../server/page-context";
 import { getRuntime } from "../../../server/runtime";
+import { hasDisconnectFailure } from "./disconnect-state";
 
 export default async function ChannelsPage({
   searchParams,
@@ -45,7 +46,7 @@ export default async function ChannelsPage({
   const reauthorization = channels.find((channel) => channel.state === "reauthorization_required");
   const disconnecting = channels.find((channel) => channel.state === "disconnecting");
   const disconnected = channels.find((channel) => channel.state === "disconnected");
-  const disconnectFailed = Boolean(disconnecting?.revokeFailureCategory);
+  const disconnectFailed = hasDisconnectFailure(disconnecting?.revokeFailureCategory);
   const disconnectCompleted = result === "disconnecting" && Boolean(disconnected);
   const activeChannel = connected ?? disconnecting ?? reauthorization;
   const canConnect =
@@ -74,7 +75,7 @@ export default async function ChannelsPage({
   );
   const tiktokDisconnecting = tiktokChannels.find((channel) => channel.state === "disconnecting");
   const tiktokDisconnected = tiktokChannels.find((channel) => channel.state === "disconnected");
-  const tiktokDisconnectFailed = Boolean(tiktokDisconnecting?.revokeFailureCategory);
+  const tiktokDisconnectFailed = hasDisconnectFailure(tiktokDisconnecting?.revokeFailureCategory);
   const tiktokDisconnectCompleted = tiktokResult === "disconnecting" && Boolean(tiktokDisconnected);
   const tiktokActive = tiktokConnected ?? tiktokDisconnecting ?? tiktokReauthorization;
   const canConnectTikTok =
