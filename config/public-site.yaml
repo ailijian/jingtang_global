@@ -22,7 +22,7 @@ legal:
   effective_date: "2026-08-28"
   approval_status: approved
   approval_provenance: Human Owner approved the complete R4 TikTok Scope and data/deletion boundary on 2026-08-27 and explicitly authorized correction of the resulting Acceptance Review findings on 2026-08-28; this revision adds TikTok to the formal bilingual Privacy, Terms and Data Deletion presentation
-  deployment_status: approved_pending_production_change_authorization
+  deployment_status: deployed_verified
   routes:
     en:
       privacy: /en/privacy/
@@ -55,5 +55,5 @@ production_readiness:
   tls: verified
   legal_data_approval: approved
   production_rollout: deployed_verified
-  legal_policy_rollout: pending_production_change_authorization
+  legal_policy_rollout: deployed_verified
   product_access_rollout: deployed_verified
