@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 25
+revision: 26
 status: approved
 effective_date: "2026-08-28"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-27"
-revision_note: The R3 Facebook controlled-access technical slice is complete and accepted while its external submission work remains deferred to R5. The second R4 TikTok Acceptance Review confirmed the private Direct Post, automatic lifecycle cleanup, legal rollout and prior remediation evidence, but failed because the deployed adapter called an endpoint outside the approved R4 API allowlist and the detailed Registry Gate fields were stale. The current local remediation removes the unapproved /v2/user/info/ call, binds identity from the token open_id, uses approved Creator Info for display, adds an exact endpoint-allowlist release gate and aligns the detailed Human E2E state. Its first Code Review found that clearing an expired display snapshot incorrectly blocked later authorization reads and that the changed test used a YouTube fixture; both findings are fixed with platform-correct regression coverage, full canonical local verification passed and the final Code Review rerun found no open P0/P1/P2 finding. Commit, protected CI, Review redeployment and Acceptance re-review remain pending. TikTok remains publicly Coming Soon and production_available false; another connection or publish, external audit/App Review, public availability, checkpoint and repository synchronization are separately gated.
+revision_note: The R3 Facebook controlled-access technical slice is complete and accepted while its external submission work remains deferred to R5. The second R4 TikTok Acceptance Review confirmed the private Direct Post, automatic lifecycle cleanup, legal rollout and prior remediation evidence, but failed because the deployed adapter called an endpoint outside the approved R4 API allowlist and the detailed Registry Gate fields were stale. R4 implementation commit a03133e4188c191d0e70d507cbf654da9c66d8cc removes the unapproved /v2/user/info/ operation, binds identity from the token open_id, uses approved Creator Info for display, adds an exact endpoint-allowlist release gate and aligns the detailed Human E2E state. The first Code Review findings were fixed with platform-correct regression coverage, full canonical verification and final Code Review passed, protected CI run 33160273495 passed the exact commit, and the same immutable commit was deployed to Review under change-20260828-r4-endpoint-allowlist with independent release, health, noindex, timer, capacity and log checks passing. R4 is ready for Acceptance re-review, which remains pending. TikTok remains publicly Coming Soon and production_available false; another connection or publish, external audit/App Review, public availability, checkpoint and repository synchronization are separately gated.
 
 authority:
   owns:
@@ -311,7 +311,7 @@ integrations:
     delivery_role: r4_tiktok_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: r4_acceptance_recheck_remediation_local_reviewed_commit_ci_and_redeploy_pending
+    implementation_stage: r4_acceptance_recheck_ready
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -368,7 +368,7 @@ integrations:
       scope_approval_package: prepared_2026_08_27
       scope_approval: passed_2026_08_27
       external_app_or_credential_use: authorized_for_exact_r4_scope
-      implementation: review_deployed_previous_remediation_new_endpoint_fix_and_review_findings_local_verified_and_reviewed_commit_ci_and_redeploy_pending
+      implementation: review_deployed_endpoint_fix_verified_acceptance_recheck_ready
       human_e2e_write: one_controlled_private_self_only_publish_and_automatic_lifecycle_passed
       external_review_submission: unified_r5_separately_gated
 
