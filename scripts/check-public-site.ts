@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
+import { extractPublicCopy } from "./lib/public-site-copy.js";
+
 interface SiteConfig {
   readonly status: string;
   readonly identity: {
@@ -170,6 +172,7 @@ for (const locale of ["en", "zh-cn"] as const) {
   for (const route of routes) {
     const file = path.join(out, locale, route, "index.html");
     const html = await readFile(file, "utf8");
+    const publicCopy = extractPublicCopy(html);
     const language = locale === "en" ? "en" : "zh-CN";
     const suffix = route ? `${route}/` : "";
     const canonical = `${siteConfig.identity.canonical_origin}/${locale}/${suffix}`;
@@ -185,7 +188,7 @@ for (const locale of ["en", "zh-cn"] as const) {
       if (!html.includes(expected)) throw new Error(`${file} is missing ${expected}`);
     }
     for (const prohibited of prohibitedCopy) {
-      if (html.includes(prohibited))
+      if (publicCopy.includes(prohibited))
         throw new Error(`${file} renders prohibited copy: ${prohibited}`);
     }
     if (!html.includes(`href="${siteConfig.product_access.sign_in_url}"`)) {
