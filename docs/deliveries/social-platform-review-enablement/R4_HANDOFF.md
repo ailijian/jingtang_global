@@ -8,8 +8,8 @@
 - Local branch: `codex/r4-acceptance-prep`; reviewed implementation commit `a03133e4188c191d0e70d507cbf654da9c66d8cc` contains the endpoint-boundary and Registry repair. Draft PR #1 must not be merged without fresh authority.
 - Review deployment: `current-release` is `a03133e4188c191d0e70d507cbf654da9c66d8cc`, activated under `change-20260828-r4-endpoint-allowlist`. Platform/PostgreSQL are healthy, Worker and website are running, all four containers have zero restarts, HTTPS health is `200` with `noindex`, and both maintenance timers are active and enabled.
 - Public website deployment: the immutable `e2c015b82b25eb788a3fca209badc0f89a3f9753` release is live. Protected CI run `33154279952` and deployment workflow run `33154699475` passed; independent smoke passed all 19 HTTPS routes and the bilingual legal pages expose version `2026-08-28`.
-- Git synchronization: the authorized temporary branch was pushed to run protected CI. Local/remote `main`, checkpoint, merge and repository synchronization remain untouched and unauthorized.
-- Current Delivery state: the second 2026-08-28 Acceptance Review returned `FAIL`. Its endpoint-boundary and stale Registry findings are fixed in `a03133e4188c191d0e70d507cbf654da9c66d8cc`; canonical verification, final Code Review, protected CI run `33160273495`, exact Review deployment and independent smoke all passed. R4 is ready for Acceptance re-review and is stopped before that Gate pending the Human Owner's explicit instruction. Stage Acceptance remains blocked only by that re-review.
+- Git synchronization: the authorized temporary branch was pushed to run protected CI. Local/remote `main`, merge and repository synchronization remain untouched and unauthorized. The Human Owner separately authorized local R4 checkpoint creation after Acceptance Review passed.
+- Current Delivery state: R4 Acceptance Review and technical Stage Acceptance passed on 2026-08-28. The final re-review evaluated repository evidence commit `ab93c4192665454d68d215d97b758e1624b2ce1f` and deployed implementation commit `a03133e4188c191d0e70d507cbf654da9c66d8cc`; AC-08, AC-10 and AC-12 passed with no blocking finding. R4 is technically closed at the local checkpoint. Public TikTok availability, external audit/App Review submission, R5 execution, merge, push and repository synchronization remain separately gated.
 
 ## Frozen Authority Boundary
 
@@ -22,7 +22,7 @@ Completed under the current R4 scope and explicit deployment authorization:
 
 Not authorized without a fresh Human Owner instruction:
 
-- Additional `git push`, repository synchronization, checkpoint, merge, or release promotion.
+- Additional `git push`, repository synchronization, merge, or release promotion.
 - TikTok Production configuration, external audit/App Review submission, or public `Available` status.
 - A second TikTok post, a public post, `PULL_FROM_URL`, `video.upload`, additional Scope/Product, or a new target account.
 - Facebook/TikTok reviewer material submission. Those external applications remain in the separately gated R5 unified submission stage.
@@ -65,8 +65,8 @@ The Production draft was intentionally not submitted. Do not complete or submit 
 
 ## Remaining Work, in Order
 
-1. Stop. R4 has reached the `acceptance-review` entry condition.
-2. When the Human Owner explicitly instructs it, invoke `$acceptance-review` against the complete R4 criteria, especially AC-08, AC-10 and AC-12. Keep TikTok `coming_soon`, every public capability `not_available`, and `production_available: false`.
+1. Stop. R4 is technically accepted and checkpointed; do not begin R5 without a fresh Human Owner instruction.
+2. Keep TikTok `coming_soon`, every public capability `not_available`, and `production_available: false` until the separately gated external review and public-release work passes.
 
 ## Useful Read-Only Checks
 
@@ -83,5 +83,5 @@ Use repository/operator procedures for any further deployment. Never print runti
 ## Suggested First Prompt in the New Window
 
 ```text
-Use `$acceptance-review` to re-review R4 from docs/deliveries/social-platform-review-enablement/R4_HANDOFF.md. Read AGENTS.md, docs/README.md, the approved BASELINE.md, current PLAN.md, Architecture, Security/Data, public-site config and config/integrations.yaml first. Implementation commit `a03133e4188c191d0e70d507cbf654da9c66d8cc` passed final Code Review, protected CI run `33160273495`, exact Review deployment and independent smoke. Evaluate the complete R4 acceptance criteria, especially AC-08, AC-10 and AC-12, then stop after reporting the Gate result. Do not reconnect TikTok, publish another video, merge, checkpoint, submit TikTok review, configure Production or enable public availability without separate authority.
+R4 passed Acceptance Review and technical Stage Acceptance on 2026-08-28 and has a local checkpoint. Read AGENTS.md, docs/README.md, the approved BASELINE.md, current PLAN.md and config/integrations.yaml before continuing. Stop unless the Human Owner explicitly authorizes the next separately gated action. Do not reconnect TikTok, publish another video, merge, push, synchronize repositories, begin R5, submit TikTok review, configure Production or enable public availability without that authority.
 ```
