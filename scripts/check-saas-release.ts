@@ -82,9 +82,9 @@ for (const role of ["PLATFORM", "DISPATCHER", "WORKER"] as const) {
 }
 requireText(composeText, "RUNTIME_SECRET_BUNDLE_REGION: ap-seoul", "compose.yaml");
 for (const marker of [
-  'TERMS_VERSION: "2026-08-28"',
-  'PRIVACY_VERSION: "2026-08-28"',
-  'DATA_PURPOSE_VERSION: "2026-08-28"',
+  'TERMS_VERSION: "2026-08-28-r4.5"',
+  'PRIVACY_VERSION: "2026-08-28-r4.5"',
+  'DATA_PURPOSE_VERSION: "2026-08-28-r4.5"',
 ] as const) {
   requireText(composeText, marker, "compose.yaml");
 }

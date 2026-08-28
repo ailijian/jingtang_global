@@ -1,13 +1,15 @@
 # JINGTANG V1 UX Architecture & Design Authority
 
 **Status:** Approved  
-**Design Revision:** 1  
-**Effective Date:** 2026-08-20  
+**Design Revision:** 2
+**Effective Date:** 2026-08-28
 **Delivery:** JINGTANG 海外官网与 SaaS 第一版上线  
 **Authority Dimension:** Approved Design Target — material IA、screen responsibility、interaction、UX state、responsive 与 consent semantics  
 **Upstream Authority:** [Approved `BASELINE.md`](BASELINE.md), Revision 1<br>
 **Approval Scope:** D-01 ～ D-12 及由这些决策拥有的规范性 material UX semantics  
 **Approval Provenance:** Human Owner 于 2026-08-20 在 originating Codex task 中明确授权“批准按推荐组合修订”  
+**R4.5 Amendment Authority:** [Social Platform Review Approved `BASELINE.md`](../social-platform-review-enablement/BASELINE.md), Revision 8
+**R4.5 Amendment Provenance:** Human Owner 于 2026-08-28 批准 Instagram Scope 与公开用户移除模型，并明确授权按 Revision 8 修订 Design Authority；本修订不表示功能已实现、已配置或已公开可用
 **Purpose:** 固化 V1 已批准的 material UX decisions，作为 Design Readiness 与后续 planning 的设计输入  
 **Not Owned Here:** Product Scope、Acceptance Criteria、API Contract、Database Schema、技术架构、实现 Stage、视觉 Token、具体组件实现
 
@@ -1549,9 +1551,64 @@ V1 Website IA 保留 `Solutions` 作为一级入口，同时继续受真实能�
 
 ---
 
-# 50. Design Readiness Boundary
+# 50. R4.5 Instagram Material UX Amendment
 
-以上 Material Decisions 已获批准，并与 Approved Baseline Revision 1 建立明确关系。
+本节只拥有 Baseline Revision 8 已批准 Instagram 纵向切片的 material UX 语义。它是待实现目标，不改变 Integration Registry 当前 `Coming Soon` / `not_available` 事实，也不授权 Meta App 配置、凭证、部署或真实发布。
+
+## Channel connection and consent
+
+`Channels → Instagram` 只能在 Registry 与受控账号 Gate 允许时显示可执行连接入口。连接前界面必须以英文与简体中文等义说明：
+
+- 仅支持一个公司受控 Instagram Professional 账号；
+- `instagram_business_basic` 只用于显示准确的 `user_id` 与 `username`；
+- `instagram_business_content_publish` 只用于用户再次确认后发布一个 MP4 Reel；
+- R4.5 固定 `media_type=REELS`、`share_to_feed=false`、Publish Now，不支持 Feed sharing、图片、Carousel、Story、Schedule、评论、消息、指标、编辑或删除；
+- JINGTANG 断开会立即停止本地操作并删除本地授权，但用户仍需在 Instagram 移除 App，Meta 侧撤销完成只在有效回调后确认。
+
+用户必须主动勾选当前版本 Terms、Privacy、Data Deletion 与上述数据用途后才可开始 OAuth；取消、缺少同意、返回权限不完整或账号不是 Professional 时不得形成 Ready Channel。
+
+## Channel card states
+
+Instagram 卡片主视觉与右上状态必须同时表达同一状态，不能仅以小型 badge 承担关键撤销或故障语义：
+
+| State | Main visual meaning | Allowed action |
+| --- | --- | --- |
+| Not connected | Instagram 尚未连接；展示最小权限与限制 | Connect Instagram（仅在受控 Gate 内） |
+| Connecting | 正在完成 Instagram 授权；不得重复启动 | Cancel / return safely |
+| Connected | 显示准确 `@username` 与最小身份；明确 Reels-only | Disconnect Instagram |
+| Local disconnected — removal required | JINGTANG 已停止新操作并删除本地授权；Instagram 移除尚待用户完成 | Open removal instructions；在完成移除后等待自动确认 |
+| Provider revocation confirmed | 已验证 deauthorization callback，Meta 侧授权撤销得到确认 | Connect again（仅在受控 Gate 内） |
+| Reauthorization required | 授权不可用且没有 provider-revocation 结论 | Review removal guidance / reconnect |
+| Cleanup attention | 本地新操作仍被禁止；清理或回调关联需要安全重试 | Retry local cleanup or contact support，不得误报已撤销 |
+
+用户点击 Disconnect 后，界面必须自动进入并持续刷新 `Local disconnected — removal required`，不得卡在“正在断开”。主视觉明确展示 Instagram 路径：**Website permissions → Apps and websites → Active → Remove**。只有签名、重放与租户映射均验证通过的 deauthorization callback 才可自动变为 `Provider revocation confirmed`；token 到期、用户口头确认、本地数据删除或超时都不能触发该文案。
+
+## Instagram platform version and final confirmation
+
+Composer 只允许：
+
+- 已审批 MP4 的准确预览、hash/size 归属与一个 Instagram caption；
+- 固定的 `Reel` 类型和“仅 Reels tab（不分享到 Feed）”只读分发说明；
+- 准确 Professional account；
+- Publish Now。
+
+不得显示可编辑的 Privacy、`share_to_feed`、media type、Schedule 或其他未批准选项。最终确认必须再次展示准确账号、MP4、caption、`REELS`、`share_to_feed=false`、立即发布和“断开不会删除 Instagram 托管 Reel”，且只有 Publisher 明确点击后才能生成临时媒体 URL 或创建容器。
+
+## Asynchronous result and duplicate safety
+
+Content Detail 必须将 `Preparing media`、`Container processing`、`Publishing`、`Published`、`Failed`、`Needs attention` 与 `Unknown — reconciling` 作为长期可回看的独立 Instagram execution 状态。未知结果不可展示“安全重试发布”；在 reconciliation 得出确定结论前，界面禁止创建第二个 Reel。发布成功只表示该 intent 的 provider result，不表示 Instagram 已公开可用，也不表示断开会删除托管内容。
+
+## Responsive, accessibility, and language
+
+上述关键限制、最终确认、移除步骤、pending/confirmed 区别与下一步动作必须具备英文/简体中文语义等价文案；颜色与图标不是唯一状态信号。桌面与移动断点都必须完整显示主视觉提示，按钮具有准确 accessible name，状态变化使用非打断式 live-region 通知，焦点在 OAuth 返回、断开完成或错误后移动到对应状态标题/提示，而不是丢失到页面顶部。
+
+**Status: APPROVED TARGET — Human Owner authorization, 2026-08-28; implementation and external state remain separately gated.**
+
+---
+
+# 51. Design Readiness Boundary
+
+以上 Material Decisions 已获批准；D-01～D-12 与原 Approved Baseline Revision 1 建立关系，R4.5 amendment 与 Social Platform Review Approved Baseline Revision 8 建立关系。
 
 本 Delivery 的 Product / UX Target 可以重新进入正式：
 
@@ -1575,7 +1632,7 @@ Design Readiness 不要求：
 
 ---
 
-# 51. Stop Condition
+# 52. Stop Condition
 
 本 Approved UX Architecture 的编辑在以下条件达到后停止：
 

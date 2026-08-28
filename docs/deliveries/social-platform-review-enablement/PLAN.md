@@ -7,13 +7,13 @@ Planning Preflight: PASS
 - Baseline: `docs/deliveries/social-platform-review-enablement/BASELINE.md`
 - Delivery: JINGTANG Social Platform Developer Review Enablement
 - Status: Approved
-- Baseline Revision: 6
-- Approval: Human Owner explicitly approved the recommended plan and implementation on 2026-08-24 after purchasing a 20 GB Tencent COS storage package, then approved the Review-only `local:v2` envelope amendment while preserving staging/production KMS. On 2026-08-25, the Human Owner explicitly authorized Revision 3 and superseded the earlier public-presentation decisions: official website login must enter the real SaaS, and public/SaaS copy must present the formal product without test or review-environment labeling. On 2026-08-26, the Human Owner explicitly authorized Revision 4, the complete R3 Facebook Scope package, company Business Portfolio Meta App creation/configuration, R3 implementation, and one controlled real Human E2E publish while preserving the later external-review, public-availability, checkpoint and synchronization Gates. On 2026-08-27, the Human Owner authorized Revision 5: Facebook reviewer materials and external applications move to the unified R5 submission stage, R3 technical development is formally closed, and TikTok R4 Scope Approval may start. Later on 2026-08-27, the Human Owner authorized Revision 6: the complete TikTok Scope package, company TikTok Organization/App configuration, exact approved permissions, R4 implementation and one controlled private `SELF_ONLY` Human E2E publish. External TikTok audit/App Review, public `Available`, checkpoint and repository synchronization remain separately gated.
+- Baseline Revision: 8
+- Approval: Human Owner explicitly approved the recommended plan and implementation on 2026-08-24 after purchasing a 20 GB Tencent COS storage package, then approved the Review-only `local:v2` envelope amendment while preserving staging/production KMS. On 2026-08-25, the Human Owner explicitly authorized Revision 3 and superseded the earlier public-presentation decisions: official website login must enter the real SaaS, and public/SaaS copy must present the formal product without test or review-environment labeling. On 2026-08-26, the Human Owner explicitly authorized Revision 4, the complete R3 Facebook Scope package, company Business Portfolio Meta App creation/configuration, R3 implementation, and one controlled real Human E2E publish while preserving the later external-review, public-availability, checkpoint and synchronization Gates. On 2026-08-27, the Human Owner authorized Revision 5: Facebook reviewer materials and external applications move to the unified R5 submission stage, R3 technical development is formally closed, and TikTok R4 Scope Approval may start. Later on 2026-08-27, the Human Owner authorized Revision 6: the complete TikTok Scope package, company TikTok Organization/App configuration, exact approved permissions, R4 implementation and one controlled private `SELF_ONLY` Human E2E publish. On 2026-08-28, the Human Owner authorized Revision 7 and the complete R4.5 Instagram Scope package, then authorized Revision 8 after public evidence established no supported Instagram Login programmatic revoke contract: local immediate disconnect/cryptographic erasure, user-directed removal in Instagram, and provider-revocation confirmation only through a verified deauthorization callback. The Human Owner subsequently authorized Revision 8 alignment of the Integration Registry, Design, Architecture, Security/Data, bilingual legal, testing and Operations owners plus completion of this R4.5 implementation plan. Meta App configuration, external credentials, implementation, deployment, real publishing, commit and push remain separately gated; callback identity mapping, actual App/Standard Access configuration and media-fetch compatibility still require separately authorized evidence.
 - Production preservation: The accepted D3 website and D7 production target remain unchanged. This plan creates only a time-bounded `review` environment and platform-review slices.
 
 ## Outcome and Boundaries
 
-在当前腾讯云首尔 Lighthouse 上以低资源 `review` Docker profile 运行真实 SaaS，但把 `review` 限定为内部部署术语：`jingtangai.com` 登录直达 `review.jingtangai.com/login`，官网与 SaaS 对用户按正式产品呈现，并按 Facebook → TikTok 的顺序交付真实最小权限纵向切片、双语审核体验与可提交证据。外部审核决定不由本 Plan 控制，任何尚未真实可用的能力继续显示 `Coming Soon`。
+在当前腾讯云首尔 Lighthouse 上以低资源 `review` Docker profile 运行真实 SaaS，但把 `review` 限定为内部部署术语：`jingtangai.com` 登录直达 `review.jingtangai.com/login`，官网与 SaaS 对用户按正式产品呈现，并按 Facebook → TikTok → Instagram 的顺序交付真实最小权限纵向切片、双语审核体验与可提交证据。外部审核决定不由本 Plan 控制，任何尚未真实可用的能力继续显示 `Coming Soon`。
 
 ## Stage Progression
 
@@ -31,6 +31,7 @@ Planning Preflight: PASS
 | R2 | 在首尔 Lighthouse/COS 上部署当前 SaaS，接通官网正式登录体验并证明官网不回退 | Deployment checks + Human E2E + Stage Acceptance |
 | R3 | Facebook 最小权限真实纵向切片；平台提交材料统一在 R5 生成 | Scope Approval + Code Review + Acceptance Review + Human E2E |
 | R4 | TikTok 最小权限真实纵向切片；平台提交材料统一在 R5 生成 | Scope Approval + Code Review + Acceptance Review + Human E2E |
+| R4.5 | Instagram 最小权限真实纵向切片；平台提交材料统一在 R5 生成 | Scope Approval + Pre-credential Evidence + Code Review + Acceptance Review + Human E2E |
 | R5 | 全量 review regression、提交就绪记录与可回收/迁移收口 | Final Acceptance Review + Human E2E + Stage Acceptance |
 
 ## Execution Status — 2026-08-28
@@ -71,6 +72,7 @@ Planning Preflight: PASS
   - Acceptance re-review deployment: PASS on 2026-08-28. The 404 MB immutable Review archive for `a03133e4188c191d0e70d507cbf654da9c66d8cc` passed local and remote SHA256 validation; its incremental transfer sent approximately 108 MB by reusing deployed layers. Review activation under `change-20260828-r4-endpoint-allowlist` applied zero new migrations with all 29 present, validated image revision labels, Compose/Caddy, HTTPS, `noindex` and health, then recorded the exact release pointer. Independent checks confirmed platform and PostgreSQL healthy, Worker and website running, all four containers at zero restarts, the unapproved endpoint absent from the deployed adapter and platform executable surface, both maintenance timers active and enabled, host/COS capacity within limits, no recent platform/worker error event, Review health `200`/POST `405`, login `200`, and all 19 public HTTPS routes passing. No TikTok reconnect or additional publish was performed.
   - Acceptance Review re-review: PASS on 2026-08-28 against the approved R4 Baseline at repository evidence commit `ab93c4192665454d68d215d97b758e1624b2ce1f` and deployed implementation commit `a03133e4188c191d0e70d507cbf654da9c66d8cc`. AC-08, AC-10 and AC-12 passed; no blocking acceptance finding remains. The unapproved endpoint is absent from the deployed executable surface, the independently scheduled lifecycle retry completed without intervention, historical executions remain immutable without a duplicate publish, and Registry/public truth remains `Coming Soon` / `production_available: false`.
   - Stage Acceptance: PASS for the R4 technical slice on 2026-08-28. The Human Owner instructed checkpoint creation after the Acceptance Review PASS. The checkpoint records technical closure only and does not authorize another publish, reconnection, public `Available`, external audit/App Review submission, R5 execution, merge, push or repository synchronization. Git history owns the checkpoint identity.
+- R4.5: Scope Approval, Lifecycle Amendment and Authority Alignment PASS on 2026-08-28. The Human Owner approved Instagram Login Web with exactly `instagram_business_basic` and `instagram_business_content_publish`, one company-controlled Professional account, one approved MP4 Reel, fixed `share_to_feed=false`, a separate company Business Portfolio-owned Meta App identity, a tightly bounded short-lived private-COS pull URL, and at most one controlled Human E2E publish after later authorization. Public-policy evidence found no supported Instagram Login programmatic revoke contract, and Baseline Revision 8 adopts local immediate disconnect/cryptographic erasure plus user removal in Instagram and verified callback confirmation. Registry, Design, Architecture, Security/Data, bilingual legal/versioned-consent, test obligations and Operations alignment passed final local validation; the new legal version remains approved pending a separately authorized deployment. Callback identity mapping and COS request/TTL compatibility remain evidence work, and actual App/Standard Access configuration remains unobserved. Implementation code, Meta App configuration, credentials, deployment, provider writes, real publishing, external submission, public availability, checkpoint, commit and push have not started and are not authorized.
 
 ## R0 — Authority and Review Boundary
 
@@ -193,14 +195,100 @@ Planning Preflight: PASS
 - Human E2E: PASS. One controlled private `SELF_ONLY` Direct Post completed without duplication, and operation `0fbac636-898a-4cd9-8bf2-7faf26793549` independently completed the disconnect/revoke/authorized-data cleanup path on its scheduled Worker retry without a database intervention. No reconnection or additional publish was performed.
 - Stage Acceptance: PASS for the R4 technical slice on 2026-08-28. The Human Owner instructed checkpoint creation after the Acceptance Review PASS; Git history owns the checkpoint identity. Reconnection, another external write, external submission, public availability, R5 execution, merge, push and repository synchronization remain separately gated.
 
+## R4.5 — Instagram Review Slice
+
+### Scope Approval
+
+- Approved package and provenance: [`decision-inputs/R4_5_INSTAGRAM_SCOPE_APPROVAL.md`](decision-inputs/R4_5_INSTAGRAM_SCOPE_APPROVAL.md)
+- Prepared and policy-verified: 2026-08-28 against current official Instagram Login, token, publishing, access-level and App Review sources plus Meta's official Instagram API Postman workspace.
+- Approved product boundary: Instagram Login Web; exactly `instagram_business_basic` and `instagram_business_content_publish`; one company-controlled Instagram Professional account; one approved MP4 Reel; user-confirmed caption; `media_type=REELS`; fixed `share_to_feed=false`; Publish Now only; at most one successful external publish for the approved intent.
+- Approved App/media boundary: a separate company Business Portfolio-owned Meta Business App dedicated to Instagram Login, plus one HTTPS/object-bound/short-lived private-COS read URL generated only after immutable final confirmation and transmitted server-to-Meta without browser, persistence, log, audit, screenshot or reviewer-media exposure.
+- Scope Approval status: **PASS on 2026-08-28**, amended by the Human Owner-approved Revision 8 lifecycle decision. The Human Owner later authorized alignment of the Registry, Design, Architecture, Security/Data, bilingual legal, test and Operations owners plus this implementation plan. That authorization still excludes implementation code, Meta App configuration, external credentials, deployment, a real Reel, Advanced Access/App Review, public availability, checkpoint, commit and push.
+
+### Authority Alignment
+
+- Status: **PASS on 2026-08-28**.
+- Integration Registry revision keeps Instagram `coming_soon`, `production_available: false` and every executable capability `not_available`, while recording only the approved scope intent and unimplemented state.
+- Design Revision 2 owns the exact consent, Reels-only confirmation, asynchronous execution, prominent local-disconnect/manual-removal state, callback-confirmed state, bilingual/mobile and accessibility semantics.
+- Architecture Revision 15 owns the separate App/adapter, endpoint allowlist, worker-only signed URL, duplicate-safe execution, generation fence and callback-correlation boundaries.
+- Security/Data Revision 24 owns Meta/Instagram processing, DF-17～DF-19, retention/deletion, local cryptographic erasure, callback truth and temporary-URL handling.
+- Bilingual legal candidate `2026-08-28-r4.5` accurately describes the two permissions, exact Reel, hosted-copy boundary and manual-removal/callback model; it remains approved pending separate production-change authorization and deployment evidence.
+- Operations Revision 22 owns the external evidence sequence, Instagram disconnect/callback runbook, observability and teardown/account-deletion behavior.
+- Final validation: `pnpm verify` passed formatting, package/application/site builds, lint, typecheck, Terraform and release checks, 203 unit tests, contract checks, 632-key bilingual parity, candidate public-site checks, all 29 migrations and integration suites, eight platform E2E, seven website E2E, backup/restore controls and Secret scan. The production dependency audit reports one moderate advisory below the blocking `high` threshold. `pnpm site:release-check` separately failed closed only because `2026-08-28-r4.5` is intentionally `approved_pending_production_change_authorization` / `pending_production_change_authorization` rather than deployed.
+
+### Mandatory Pre-credential Evidence
+
+Before any runtime credential use, implementation that depends on provider behavior, or publishing write, freeze and review all of the following from current official or separately authorized controlled evidence:
+
+1. The Revision 8 user-removal lifecycle: local deny/fence/cancel, Token Key and authorization-data erasure, refresh prohibition, accurate manual-removal instructions, truthful pending/confirmed states, and a minimal callback-correlation record that contains no token or direct account identity.
+2. Whether and how Instagram Login deauthorization and user-data-deletion callbacks work, including signature, subject, replay, response/status and Dashboard configuration contracts. Do not reuse R3 Facebook routes or identity assumptions without proof.
+3. The exact dedicated Meta Business App product/type, Business Portfolio ownership, Standard Access eligibility, controlled-account role binding, redirect/domain requirements, and proof that the R3 Facebook Login App remains unchanged.
+4. Meta's COS media-fetch contract: HTTPS origin, redirect policy, `HEAD`/`GET`/Range behavior, content headers, fetch timing and the smallest tested signed-URL TTL, without a real publish.
+
+Revision 8 closes the programmatic-revoke decision by explicitly adopting Instagram's public user-removal model. Do not call or infer Facebook Login's User Permissions delete endpoint. Evidence-only App configuration, OAuth/user-removal callback observation and one container-create probe that never calls `media_publish` each require separate Human Owner authorization before execution.
+
+### Pre-credential Evidence Result
+
+- Review date and boundary: 2026-08-28; public official Meta documentation only, without login, Dashboard access, App configuration, credentials, provider API calls or external writes.
+- Programmatic revoke: **CLOSED BY BASELINE REVISION 8, NOT CLAIMED AS SUPPORTED**. No current official Instagram Login-specific revoke endpoint/contract was found; Facebook Login's User Permissions delete endpoint is not transferable proof. R4.5 now uses local immediate erasure plus user-directed Instagram removal and callback confirmation.
+- Deauthorization/data deletion: **PARTIAL — BLOCKED**. Dashboard URL obligations and the generic signed data-deletion response are documented, but the Instagram Login-specific deauthorization payload and authorization-subject mapping are not.
+- Dedicated App/Standard Access: **PASS for the policy/design contract**. Actual Business Portfolio/App/account/redirect configuration remains later external evidence.
+- COS fetch: **PARTIAL — BLOCKED**. Meta documents pull from a publicly reachable `video_url`, but not the request mechanics or smallest safe signed-URL TTL; a later credentialed, non-publishing compatibility probe is required.
+- Governing evidence and decision paths: [`decision-inputs/R4_5_INSTAGRAM_SCOPE_APPROVAL.md`](decision-inputs/R4_5_INSTAGRAM_SCOPE_APPROVAL.md), “Pre-credential Evidence Review — 2026-08-28”.
+
+No R4.5 implementation or external configuration may start under the current authorization. The prior local Meta Developer Support draft is **SUPERSEDED / NOT SUBMITTED** and is no longer required to resolve the approved revoke model. The next authorized action after this planning candidate is a local, provider-independent implementation stage that stops before App configuration or credential use; external evidence work remains separately authorized.
+
+### Planned Implementation
+
+This sequence defines execution after each named authorization; it is not authorization to start any pending phase.
+
+| Phase | Outcome | Allowed evidence/dependency | Stop condition and Gate |
+| --- | --- | --- | --- |
+| I0 — Authority alignment | Current Registry, Design, Architecture, Security/Data, bilingual legal, Operations and PLAN agree with Revision 8 | Public sources and approved baseline only | Current local candidate validates; no code/provider action |
+| I1 — Provider-independent domain/data/contracts | Add Instagram platform/version/intent/execution/channel lifecycle state, migrations, one-way callback-correlation shape and deterministic fixtures; preserve backward compatibility and tenant/RBAC/RLS | Approved semantics only; no Meta payload assumption, credential or network | Focused migration/contract/domain tests pass |
+| I2 — Local adapter/UI skeleton | Add dependency-injected provider interfaces, exact endpoint/field/permission allowlist, OAuth state binding, token vault boundary, Reels-only confirmation, worker signed-URL seam, duplicate-safe state machine, prominent manual-removal UI and deterministic callback/media fixtures | Official public contract plus local fakes; provider-dependent callback subject/signature and COS request mechanics remain an explicit unimplemented seam | Focused unit/integration/E2E/i18n/accessibility/redaction tests pass; no real OAuth/API |
+| I3 — Local candidate review | Run canonical `pnpm verify`, final diff/security review and Code Review | No external state | No blocking finding; candidate is ready for evidence configuration, not deployment |
+| E1 — Dedicated App and callback evidence | Separately configure/inspect the Instagram Login App, Standard Access, controlled account/redirects and callbacks; deploy only the reviewed callback-capable candidate if separately authorized; observe one OAuth → user removal callback | Separate App/credential/deployment authorization; no publish | Freeze signature, subject, replay, response and tenant mapping; prove R3 App unchanged |
+| E2 — COS compatibility evidence | Execute one container-create probe for the exact approved MP4 and candidate signed URL | Separate credentialed probe authorization; never call `media_publish` | Freeze redirect/method/range/header/fetch timing and smallest successful TTL; clean probe state |
+| I4 — Provider-dependent closure | Implement the evidence-frozen callback verifier/mapping, media-fetch behavior and exact runtime configuration; update tests and evidence | E1/E2 observed contracts only | Focused verification + full `pnpm verify` + final Code Review pass |
+| D1 — Controlled Review deployment | Deploy the exact reviewed candidate and approved legal version; configure only approved runtime credentials and callbacks | Separate deployment authorization and protected change reference | Health, `noindex`, public `Coming Soon`, legal/version consent, logs, callback routes and release truth pass |
+| H1 — One real Human E2E | Connect controlled Professional account → exact identity → approved MP4/caption → one Reel → result → local disconnect → manual Instagram removal → verified callback | Separate external-write authorization limited to one intent and one successful Reel | No duplicate, no leaked URL, no early provider-revocation claim; hosted Reel remains provider-owned |
+| A1 — Acceptance and Stage closure | Acceptance Review against AC-15/AC-16, Human Owner Stage Acceptance and R5 evidence handoff | All prior Gates passed | Stop before checkpoint, commit/push, external App Review or public availability unless separately authorized |
+
+I1～I3 may be executed under a future authorization that explicitly excludes Meta App configuration, credentials, deployment and provider calls. E1/E2 are deliberately after a reviewed local callback/adapter candidate exists, removing the prior circular dependency; I4 may not guess missing provider behavior and must use the frozen evidence.
+
+### Required Verification
+
+- Focused policy/contract checks prove that code and configuration use only the approved login product, hosts, endpoints, fields, permissions, account type, media type and fixed distribution value.
+- Unit/integration coverage includes OAuth state/code replay, token exchange/refresh/expiry, exact scopes, Professional-account and tenant binding, publishing limit, signed-URL secrecy/expiry and object/method binding, container status, one-publish idempotency, ambiguous timeout/reconciliation, generation fencing, local disconnect/key retirement, refresh prohibition, manual-removal UX, callback signature/replay/tenant mapping, pending-versus-confirmed truth, account/Workspace deletion, retention and pseudonymization.
+- Static release checks reject Facebook App/permission/revoke reuse, any permission/endpoint/field/media/distribution expansion, browser/persistence/log/audit/metric exposure of the signed URL, a second `media_publish` for one intent, and public executable Instagram capability while Registry says `Coming Soon`.
+- Bilingual legal/catalog parity, policy-version consent/re-consent, desktop/mobile main-visual disconnect state, keyboard/focus/live-region behavior and automatic status refresh receive focused tests before full E2E.
+- Canonical full repository verification passes on the final implementation candidate, followed by final Code Review with no blocking finding.
+- The exact reviewed candidate passes controlled Review deployment, health/security/log/release-truth checks while Instagram remains publicly unavailable.
+- A separately authorized Human E2E proves connect → exact Professional identity → approved MP4/caption → immutable confirmation → one Reels-tab-only publish → truthful tracking → immediate local disconnect/cleanup → visible manual-removal requirement → user removal in Instagram → verified callback confirmation, without duplicate creation or an early provider-revocation claim.
+
+### Gates
+
+- Scope Approval: **PASS on 2026-08-28**.
+- Lifecycle Amendment: **PASS on 2026-08-28** under Baseline Revision 8; programmatic revoke is not required or claimed, and the public user-removal/callback-confirmation model is authoritative.
+- Authority Alignment: **PASS on 2026-08-28**; canonical `pnpm verify` passed, while the approved legal version is intentionally not deployed and the production site release Gate remains closed.
+- Evidence Gate: **PARTIAL / EXTERNAL EVIDENCE PENDING**; the separate App/Standard Access policy contract passed, while callback identity mapping, actual dedicated-App configuration and COS fetch/TTL behavior still require separately authorized controlled evidence.
+- Implementation authorization: required and currently **NOT GRANTED**.
+- Self Verification: required after implementation.
+- Code Review: required on the final candidate.
+- Deployment authorization and checks: required separately.
+- Human E2E external-write authorization: required separately and limited to one approved intent/Reel.
+- Acceptance Review: required after verification and Human E2E.
+- Stage Acceptance: required; it does not authorize external App Review, public availability, checkpoint, commit or push.
+
 ## R5 — Submission Readiness and Closure
 
 ### Implementation
 
 - 执行官网、review SaaS、tenant/RBAC、upload/approve/publish/track/revoke/delete、双语/移动端、安全和备份恢复全量回归。
 - 执行 release-truth content audit，确认外部页面不含内部环境或 Delivery 术语，同时没有把 `Coming Soon`、私密上传、Schedule、账号访问或安全限制扩大为不可证实的可用状态。
-- 确认 Facebook/TikTok Registry 仍与真实 production state 一致；记录 `submission_ready` 或实际外部状态但不把第三方批准写成 Acceptance。
-- 为 Facebook 和 TikTok 分别完成 Reviewer Account、Instructions、Scope/Permission-to-UI trace、Data Flow/Retention/Deletion、支持联系人和完整 E2E Demo Script/Video，并核对实际 App 配置。
+- 确认 Facebook/TikTok/Instagram Registry 仍与真实 production state 一致；记录 `submission_ready` 或实际外部状态但不把第三方批准写成 Acceptance。
+- 为 Facebook、TikTok 和 Instagram 分别完成 Reviewer Account、Instructions、Scope/Permission-to-UI trace、Data Flow/Retention/Deletion、支持联系人和完整 E2E Demo Script/Video，并核对实际 App 配置；若 R4.5 未完成技术 Stage Acceptance，不得把 Instagram 材料记为提交就绪。
 - 在另行授权下执行各平台独立的 Business/Domain Verification、Advanced Access/Audit 和外部 App Review；统一阶段只合并项目执行窗口，不把这些平台外部流程合并成一个申请或一个状态。
 - 输出受保护的 reviewer handoff checklist 和 review 环境 teardown/migration checklist。
 

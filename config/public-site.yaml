@@ -1,5 +1,5 @@
 schema_version: 1
-revision: 9
+revision: 10
 status: production
 effective_date: "2026-08-28"
 owner: JINGTANG Human Owner
@@ -18,11 +18,11 @@ identity:
     approval_provenance: Human Owner supplied and confirmed the exact values for D3 implementation
 
 legal:
-  policy_version: "2026-08-28"
+  policy_version: "2026-08-28-r4.5"
   effective_date: "2026-08-28"
   approval_status: approved
-  approval_provenance: Human Owner approved the complete R4 TikTok Scope and data/deletion boundary on 2026-08-27 and explicitly authorized correction of the resulting Acceptance Review findings on 2026-08-28; this revision adds TikTok to the formal bilingual Privacy, Terms and Data Deletion presentation
-  deployment_status: deployed_verified
+  approval_provenance: Human Owner approved Social Platform Review Baseline Revision 8 and on 2026-08-28 explicitly authorized the aligned bilingual Privacy, Terms and Data Deletion revision; this candidate adds the exact Instagram two-permission, one-Reel, local-disconnect, manual-removal and callback-confirmation boundary without claiming availability
+  deployment_status: approved_pending_production_change_authorization
   routes:
     en:
       privacy: /en/privacy/
@@ -55,5 +55,5 @@ production_readiness:
   tls: verified
   legal_data_approval: approved
   production_rollout: deployed_verified
-  legal_policy_rollout: deployed_verified
+  legal_policy_rollout: pending_production_change_authorization
   product_access_rollout: deployed_verified

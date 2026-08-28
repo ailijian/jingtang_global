@@ -10,9 +10,9 @@ const base = {
   IDENTITY_PROVIDER: "mock",
   ALLOW_TEST_IDENTITY: "true",
   SESSION_COOKIE_SECRET: "a-secure-test-secret-with-32-characters",
-  TERMS_VERSION: "2026-08-28",
-  PRIVACY_VERSION: "2026-08-28",
-  DATA_PURPOSE_VERSION: "2026-08-28",
+  TERMS_VERSION: "2026-08-28-r4.5",
+  PRIVACY_VERSION: "2026-08-28-r4.5",
+  DATA_PURPOSE_VERSION: "2026-08-28-r4.5",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
   OBJECT_STORAGE_ENDPOINT: "http://localhost:9000",
@@ -125,7 +125,7 @@ describe("environment isolation", () => {
         ...production,
         PRIVACY_VERSION: "2026-08-26",
       }),
-    ).toThrow("Production requires policy version 2026-08-28");
+    ).toThrow("Production requires policy version 2026-08-28-r4.5");
     expect(() =>
       parseAppConfig({
         ...production,

@@ -53,7 +53,7 @@ for (const route of routes) {
     (route.includes("/privacy/") ||
       route.includes("/terms/") ||
       route.includes("/data-deletion/")) &&
-    !html.includes("2026-08-28")
+    !html.includes("2026-08-28-r4.5")
   ) {
     throw new Error(`${route} does not expose the released policy version`);
   }

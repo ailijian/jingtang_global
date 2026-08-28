@@ -209,16 +209,24 @@ test("keyboard focus, mobile navigation, public identity, and legal version are 
         ? "Jingtang (Shanghai) Intelligent Technology Co., Ltd."
         : "鲸汤（上海）智能科技有限公司",
     );
-    await expect(page.locator("body")).toContainText("2026-08-28");
+    await expect(page.locator("body")).toContainText("2026-08-28-r4.5");
     await expect(page.locator("body")).toContainText("user.info.basic");
     await expect(page.locator("body")).toContainText("video.publish");
+    await expect(page.locator("body")).toContainText("instagram_business_basic");
+    await expect(page.locator("body")).toContainText("instagram_business_content_publish");
     await expect(page.getByRole("link", { name: "developer@jingtangai.com" })).toBeVisible();
 
     await page.goto(`/${locale.route}/terms/`);
     await expect(page.locator("body")).toContainText("TikTok Direct Post");
     await expect(page.locator("body")).toContainText("SELF_ONLY");
+    await expect(page.locator("body")).toContainText("share_to_feed=false");
 
     await page.goto(`/${locale.route}/data-deletion/`);
     await expect(page.locator("body")).toContainText("TikTok");
+    await expect(page.locator("body")).toContainText("Instagram");
+    await expect(page.locator("body")).toContainText(
+      "Website permissions → Apps and websites → Active",
+    );
+    await expect(page.locator("body")).toContainText("deauthorization callback");
   }
 });

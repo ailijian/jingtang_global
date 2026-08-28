@@ -1,10 +1,11 @@
 schema_version: 1
-revision: 27
+revision: 28
 status: approved
 effective_date: "2026-08-28"
 owner: JINGTANG Integration Owner
-last_policy_verification_date: "2026-08-27"
-revision_note: The R3 Facebook and R4 TikTok controlled-access technical slices are complete and accepted while their external submission work remains deferred to R5. R4 implementation commit a03133e4188c191d0e70d507cbf654da9c66d8cc removes the unapproved /v2/user/info/ operation, binds identity from the token open_id, uses approved Creator Info for display, adds an exact endpoint-allowlist release gate and aligns the detailed Human E2E state. Platform-correct regression coverage, full canonical verification, final Code Review, protected CI run 33160273495, exact immutable Review deployment and independent release checks passed. The final Acceptance re-review at repository evidence commit ab93c4192665454d68d215d97b758e1624b2ce1f passed AC-08, AC-10 and AC-12 with no blocking finding, and the Human Owner instructed R4 technical checkpoint creation. TikTok remains publicly Coming Soon and production_available false; another connection or publish, external audit/App Review, public availability, R5 execution, merge, push and repository synchronization are separately gated.
+last_policy_verification_date: "2026-08-28"
+revision_note: >-
+  The R3 Facebook and R4 TikTok controlled-access technical slices are complete and accepted while their external submission work remains deferred to R5. R4.5 Instagram scope and lifecycle are approved under Social Platform Review Baseline Revision 8: a separate Instagram Login App, exactly instagram_business_basic and instagram_business_content_publish, one controlled Professional account, one confirmed MP4 Reel, share_to_feed false, short-lived private-COS pull, and local immediate disconnect followed by user removal and verified deauthorization-callback confirmation. R4.5 remains unimplemented and externally unconfigured; callback mapping, actual App configuration and COS fetch compatibility are pending evidence. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false; implementation, external configuration, credentials, deployment, publishing, external review, public availability, commit and push are separately gated.
 
 authority:
   owns:
@@ -58,6 +59,24 @@ policy_sources:
   meta_app_review:
     url: https://developers.facebook.com/docs/resp-plat-initiatives/individual-processes/app-review/submission-guide
     verified_on: "2026-08-26"
+  instagram_login:
+    url: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login
+    verified_on: "2026-08-28"
+  instagram_business_login:
+    url: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login
+    verified_on: "2026-08-28"
+  instagram_content_publishing:
+    url: https://developers.facebook.com/docs/instagram-platform/content-publishing
+    verified_on: "2026-08-28"
+  instagram_app_review:
+    url: https://developers.facebook.com/docs/instagram-platform/app-review
+    verified_on: "2026-08-28"
+  instagram_use_case_configuration:
+    url: https://developers.facebook.com/docs/development/create-an-app/instagram-use-case
+    verified_on: "2026-08-28"
+  meta_user_data_deletion:
+    url: https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback
+    verified_on: "2026-08-28"
   tiktok_login_kit_web:
     url: https://developers.tiktok.com/doc/login-kit-web
     verified_on: "2026-08-27"
@@ -290,10 +309,10 @@ integrations:
   instagram:
     display_name: Instagram
     wave: wave_1
-    delivery_role: future_integration_not_in_plan
+    delivery_role: r4_5_instagram_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: not_in_current_plan
+    implementation_stage: scope_approved_revision_8_implementation_not_started
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -302,8 +321,79 @@ integrations:
       reauthorize: {state: not_available, public_label: Coming Soon}
       disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
     authorization:
-      mechanism: none
-      requested_scopes: []
+      mechanism: instagram_api_with_instagram_login_web
+      app_ownership: separate_company_business_portfolio_durable_app_id
+      account_boundary: one_company_controlled_professional_account
+      requested_scopes:
+        - scope: instagram_business_basic
+          request_state: approved_not_implemented
+          purpose: bind the exact authorized Professional account and display only user_id and username
+          baseline_trace:
+            - AC-15
+            - AC-16
+          design_trace:
+            - D-02
+            - D-05
+            - D-12
+          ui_surface:
+            - Channels / Connect Instagram / purpose and permission explanation
+            - Channels / exact Professional account identity
+            - Publish Confirmation / exact account and removal consequence
+          user_action:
+            - user explicitly accepts the current legal and Instagram data-purpose notice
+            - user explicitly connects the one controlled Professional account
+          api_methods:
+            - GET /me?fields=user_id,username
+        - scope: instagram_business_content_publish
+          request_state: approved_not_implemented
+          purpose: create and publish one explicitly confirmed MP4 Reel and track only that returned container and media
+          baseline_trace:
+            - AC-15
+            - AC-16
+          design_trace:
+            - D-02
+            - D-03
+            - D-05
+            - D-12
+          ui_surface:
+            - Content Review / Instagram Reel platform version and caption
+            - Publish Confirmation / exact account, MP4, caption, REELS and share_to_feed false
+            - Content Detail / returned container and publish result
+          user_action:
+            - authorized Publisher explicitly confirms the exact account, approved MP4, caption and Reels-tab-only distribution
+          api_methods:
+            - GET /{IG_USER_ID}/content_publishing_limit
+            - POST /{IG_USER_ID}/media with media_type=REELS and share_to_feed=false
+            - GET /{CONTAINER_ID}?fields=status_code,status
+            - POST /{IG_USER_ID}/media_publish exactly once for the approved intent
+            - GET /{MEDIA_ID} with only approved result fields
+      excluded_scopes:
+        - scope: instagram_business_manage_comments
+          reason: no comment reading or moderation
+        - scope: instagram_business_manage_messages
+          reason: no messaging
+        - scope: instagram_business_content_publish_beyond_reels
+          reason: images, carousels, Stories, feed sharing, scheduling, editing and deletion are outside R4.5
+        - scope: facebook_login_and_page_permissions
+          reason: R4.5 uses a separate Instagram Login App and does not reuse the R3 Facebook Login authorization path
+    current_constraints:
+      - public status remains Coming Soon and no public executable entry is rendered
+      - scope and lifecycle are approved, but no Instagram implementation, App configuration, credential use or provider call has started
+      - one company-controlled Professional account, one approved MP4 Reel, user-confirmed caption, media_type REELS, fixed share_to_feed false and Publish Now only
+      - the worker may generate a server-to-Meta HTTPS URL only after immutable confirmation; it is object/method-bound, shortest feasible and at most 60 minutes, and must never reach browser, persistence, logs, audit, metrics, screenshots or reviewer media
+      - disconnect denies and fences immediately, cancels queued work, destroys the local token key and authorization/account data, stops refresh and requires the user to remove the App in Instagram
+      - local disconnect or token expiry is never represented as Meta-side revocation; only a verified deauthorization callback may confirm provider revocation
+      - no Facebook User Permissions delete endpoint is called or inferred for Instagram Login
+      - the Instagram-hosted Reel is not implicitly deleted by disconnect or JINGTANG data deletion
+      - actual callback identity mapping, dedicated App/Standard Access configuration and COS fetch/TTL compatibility remain external evidence gates
+    r4_5_entry_gates:
+      - scope_approval: passed_2026_08_28_baseline_revision_8
+      - registry_design_architecture_security_data_legal_test_operations_alignment: passed_2026_08_28_full_verify
+      - implementation_authorization: not_granted
+      - callback_identity_mapping: external_evidence_pending_separate_authorization
+      - dedicated_app_and_standard_access_configuration: external_evidence_pending_separate_authorization
+      - cos_fetch_and_ttl_compatibility: external_evidence_pending_separate_authorization
+      - deployment_and_real_publish: not_authorized
 
   tiktok:
     display_name: TikTok

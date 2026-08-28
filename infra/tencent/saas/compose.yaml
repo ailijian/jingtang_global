@@ -36,9 +36,9 @@ x-common-environment: &common-environment
   CIAM_PASSWORD_AUTH_SOURCE_ID: ${CIAM_PASSWORD_AUTH_SOURCE_ID:?required}
   CIAM_USER_STORE_ID: ${CIAM_USER_STORE_ID:?required}
   SESSION_COOKIE_SECRET: unused-outside-platform-000000000000
-  TERMS_VERSION: "2026-08-28"
-  PRIVACY_VERSION: "2026-08-28"
-  DATA_PURPOSE_VERSION: "2026-08-28"
+  TERMS_VERSION: "2026-08-28-r4.5"
+  PRIVACY_VERSION: "2026-08-28-r4.5"
+  DATA_PURPOSE_VERSION: "2026-08-28-r4.5"
   TERMS_URL: https://jingtangai.com/en/terms/
   PRIVACY_URL: https://jingtangai.com/en/privacy/
   OBJECT_STORAGE_ENDPOINT: https://cos.ap-seoul.myqcloud.com

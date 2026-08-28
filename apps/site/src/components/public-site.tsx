@@ -261,6 +261,12 @@ function PlatformPolicyLinks({ t }: { readonly t: Translator }) {
       <a href="https://www.tiktok.com/legal/privacy-policy" rel="noreferrer">
         {t("site.external.tiktokPrivacy")}
       </a>
+      <a href="https://help.instagram.com/581066165581870" rel="noreferrer">
+        {t("site.external.instagramTerms")}
+      </a>
+      <a href="https://privacycenter.instagram.com/policy/" rel="noreferrer">
+        {t("site.external.instagramPrivacy")}
+      </a>
     </p>
   );
 }
@@ -273,6 +279,9 @@ function PlatformTermsLinks({ t }: { readonly t: Translator }) {
       </a>
       <a href="https://www.tiktok.com/legal/terms-of-service" rel="noreferrer">
         {t("site.external.readTikTokTerms")}
+      </a>
+      <a href="https://help.instagram.com/581066165581870" rel="noreferrer">
+        {t("site.external.readInstagramTerms")}
       </a>
     </p>
   );
