@@ -293,8 +293,7 @@ async function tikTokAuthorization(
         grantedScopes: [...refreshed.grantedScopes],
       }
     : stored;
-  const user = await tikTokProvider.readAuthorizedUser(authorization.accessToken);
-  if (user.openId !== authorization.openId || user.openId !== work.externalAccountId) {
+  if (authorization.openId !== work.externalAccountId) {
     throw new Error("authorized_channel_identity_mismatch");
   }
   if (!requiresRefresh && work.tokenCiphertextReference) return stored;
@@ -1213,11 +1212,7 @@ async function processAuthorizedDataRetention(
             if (!tikTokProvider) throw new Error("tiktok_configuration_required");
             const stored = parseStoredTikTokAuthorization(opened);
             const refreshed = await tikTokProvider.refreshAuthorization(stored.refreshToken);
-            const user = await tikTokProvider.readAuthorizedUser(refreshed.accessToken);
-            if (
-              refreshed.openId !== material.externalAccountId ||
-              user.openId !== material.externalAccountId
-            ) {
+            if (refreshed.openId !== material.externalAccountId) {
               throw new Error("authorized_channel_identity_mismatch");
             }
             return {
@@ -1229,7 +1224,10 @@ async function processAuthorizedDataRetention(
                 openId: refreshed.openId,
                 grantedScopes: [...refreshed.grantedScopes],
               },
-              displayName: user.displayName,
+              // The approved R4 API boundary does not include /v2/user/info/.
+              // Delete the expiring display snapshot while refreshing the token/open_id binding;
+              // fresh Creator Info supplies the user-visible identity at publish time.
+              displayName: null,
             };
           }
           const stored = parseStoredYouTubeAuthorization(opened);

@@ -31,6 +31,7 @@ import {
   prepareYouTubeDisconnect,
   prepareAccountIdentityDeletion,
   purgeExpiredLifecycleRecords,
+  readConnectedChannelAuthorization,
   readSession,
   readExpiredYouTubeAuthorization,
   readWorkspaceDataDeletionMaterial,
@@ -948,6 +949,109 @@ describe("D6 unified trust lifecycle", () => {
       externalAccountId: null,
       tokenEnvelopeCiphertext: null,
       tokenCiphertextReference: null,
+    });
+  });
+
+  it("keeps TikTok authorization usable after retention clears the display snapshot", async () => {
+    const owner = await fixture("tiktok-retention");
+    const accountReference = `tiktok-${randomUUID()}`;
+    const channel = await beginTikTokConnection(db, {
+      workspaceId: owner.workspace.id,
+      consentRecordId: owner.consent.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+      oauthStateDigest: createHash("sha256").update(randomUUID()).digest("hex"),
+    });
+    const envelope = await vault.seal({
+      accessToken: "tiktok-retention-access",
+      accessTokenExpiresAt: new Date("2030-01-01T00:00:00.000Z").toISOString(),
+      refreshToken: "tiktok-retention-refresh",
+      refreshTokenExpiresAt: new Date("2031-01-01T00:00:00.000Z").toISOString(),
+      openId: accountReference,
+      grantedScopes: tikTokOAuthScopes,
+    });
+    await completeTikTokConnection(db, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      consentRecordId: owner.consent.id,
+      actorUserId: owner.user.id,
+      externalAccountId: accountReference,
+      displayName: "TikTok retention account",
+      grantedScopes: tikTokOAuthScopes,
+      tokenEnvelopeCiphertext: envelope.ciphertext,
+      tokenCiphertextReference: envelope.keyReference,
+      correlationId: randomUUID(),
+    });
+    const expiry = new Date(Date.now() + 12 * 60 * 60 * 1000);
+    await adminDb.channel.update({
+      where: { id: channel.id },
+      data: { authorizedDataExpiresAt: expiry },
+    });
+    await enqueueDueLifecycleOperations(workerDb);
+    const operation = await adminDb.lifecycleOperation.findFirstOrThrow({
+      where: { channelId: channel.id, kind: LifecycleOperationKind.AUTHORIZED_DATA_RETENTION },
+      orderBy: { requestedAt: "desc" },
+    });
+    const guard = await forceClaim(operation.id, `tiktok-retention-${randomUUID()}`);
+    const material = await readExpiredYouTubeAuthorization(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      expectedAuthorizedDataExpiresAt: operation.deadlineAt,
+      lifecycleClaim: guard,
+    });
+    const refreshedEnvelope = await vault.seal({
+      accessToken: "tiktok-retention-refreshed-access",
+      accessTokenExpiresAt: new Date("2030-02-01T00:00:00.000Z").toISOString(),
+      refreshToken: "tiktok-retention-refreshed-refresh",
+      refreshTokenExpiresAt: new Date("2031-02-01T00:00:00.000Z").toISOString(),
+      openId: accountReference,
+      grantedScopes: tikTokOAuthScopes,
+    });
+    const correlationId = randomUUID();
+    await refreshYouTubeAuthorizedData(workerDb, {
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      tokenEnvelopeCiphertext: refreshedEnvelope.ciphertext,
+      tokenCiphertextReference: refreshedEnvelope.keyReference,
+      externalAccountId: material.externalAccountId,
+      expectedTokenCiphertextReference: material.tokenCiphertextReference,
+      expectedAuthorizedDataExpiresAt: operation.deadlineAt,
+      channelOperationGeneration: material.channelOperationGeneration,
+      displayName: null,
+      platform: "tiktok",
+      now: new Date(),
+      correlationId,
+      lifecycleClaim: guard,
+    });
+    await completeTokenKeyRetirement({
+      workspaceId: owner.workspace.id,
+      channelId: channel.id,
+      correlationId,
+      keyReference: envelope.keyReference,
+    });
+    await expect(
+      completeAuthorizedDataRetention(workerDb, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        correlationId,
+        lifecycleClaim: guard,
+      }),
+    ).resolves.toBe(true);
+    await finishLifecycleOperation(workerDb, {
+      ...guard,
+      state: LifecycleOperationState.COMPLETED,
+    });
+    await expect(
+      readConnectedChannelAuthorization(db, {
+        workspaceId: owner.workspace.id,
+        channelId: channel.id,
+        platform: "tiktok",
+      }),
+    ).resolves.toMatchObject({
+      externalAccountId: accountReference,
+      displayName: null,
+      tokenEnvelopeCiphertext: refreshedEnvelope.ciphertext,
+      tokenCiphertextReference: refreshedEnvelope.keyReference,
     });
   });
 

@@ -77,14 +77,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       code,
       redirectUri: tikTokOAuthRedirectUri(),
     });
-    const identity = await provider.readAuthorizedUser(tokens.accessToken);
-    if (identity.openId !== tokens.openId) {
-      throw new ApplicationError(
-        "permission_denied",
-        "TikTok identity did not match the token",
-        403,
-      );
-    }
+    const creator = await provider.readCreatorInfo(tokens.accessToken);
     await persistSealedTokenEnvelope(
       vault,
       {
@@ -101,8 +94,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           channelId: decoded.channelId,
           consentRecordId: decoded.consentRecordId,
           actorUserId: session.user.id,
-          externalAccountId: identity.openId,
-          displayName: identity.displayName,
+          externalAccountId: tokens.openId,
+          displayName: creator.creatorNickname,
           grantedScopes: tokens.grantedScopes,
           tokenEnvelopeCiphertext: envelope.ciphertext,
           tokenCiphertextReference: envelope.keyReference,

@@ -79,16 +79,10 @@ export async function POST(request: NextRequest, context: Context) {
       if (material.externalAccountId !== version.accountReference) {
         throw new ApplicationError("permission_denied", "TikTok channel selection changed", 403);
       }
-      const [identity, creator] = await Promise.all([
-        provider.readAuthorizedUser(authorization.accessToken),
-        provider.readCreatorInfo(authorization.accessToken),
-      ]);
-      if (
-        identity.openId !== authorization.openId ||
-        identity.openId !== version.accountReference
-      ) {
+      if (authorization.openId !== version.accountReference) {
         throw new ApplicationError("permission_denied", "TikTok identity changed", 403);
       }
+      const creator = await provider.readCreatorInfo(authorization.accessToken);
       if (
         !creator.privacyLevelOptions.includes("SELF_ONLY") ||
         (creator.commentDisabled && !body.tiktok.disableComment) ||

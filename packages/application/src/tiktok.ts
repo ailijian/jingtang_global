@@ -20,13 +20,6 @@ export interface StoredTikTokAuthorization {
   readonly grantedScopes: readonly string[];
 }
 
-export interface TikTokUserIdentity {
-  readonly openId: string;
-  readonly unionId?: string;
-  readonly displayName: string;
-  readonly avatarUrl?: string;
-}
-
 export interface TikTokCreatorInfo {
   readonly creatorUsername: string;
   readonly creatorNickname: string;
@@ -58,7 +51,6 @@ export interface TikTokOAuthProvider {
   }): Promise<TikTokAuthorizationTokens>;
   refreshAuthorization(refreshToken: string): Promise<TikTokAuthorizationTokens>;
   revokeAuthorization(accessToken: string): Promise<void>;
-  readAuthorizedUser(accessToken: string): Promise<TikTokUserIdentity>;
   readCreatorInfo(accessToken: string): Promise<TikTokCreatorInfo>;
   initializeDirectPost(input: {
     readonly accessToken: string;

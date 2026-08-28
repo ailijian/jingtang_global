@@ -309,7 +309,7 @@ export async function readConnectedChannelAuthorization(
   },
 ): Promise<{
   readonly externalAccountId: string;
-  readonly displayName: string;
+  readonly displayName: string | null;
   readonly tokenEnvelopeCiphertext: string;
   readonly tokenCiphertextReference: string | null;
 }> {
@@ -322,7 +322,7 @@ export async function readConnectedChannelAuthorization(
         state: ChannelState.CONNECTED,
       },
     });
-    if (!channel?.externalAccountId || !channel.displayName || !channel.tokenEnvelopeCiphertext) {
+    if (!channel?.externalAccountId || !channel.tokenEnvelopeCiphertext) {
       throw new Error("channel_reauthorization_required");
     }
     return {

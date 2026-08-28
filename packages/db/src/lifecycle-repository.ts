@@ -1078,7 +1078,7 @@ export async function refreshYouTubeAuthorizedData(
     readonly expectedTokenCiphertextReference: string | null;
     readonly expectedAuthorizedDataExpiresAt: Date;
     readonly channelOperationGeneration: bigint;
-    readonly displayName: string;
+    readonly displayName: string | null;
     readonly now?: Date;
     readonly correlationId: string;
     readonly lifecycleClaim: LifecycleClaimGuard;

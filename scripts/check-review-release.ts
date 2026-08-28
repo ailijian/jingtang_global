@@ -54,6 +54,7 @@ const requireCamPolicy = (
 
 const composeText = read("infra/tencent/review/compose.yaml");
 const runtimeEnvExample = read("infra/tencent/review/runtime.env.example");
+const tikTokProviderSource = read("packages/integrations/src/tiktok-direct-post.ts");
 const pinnedNode =
   "node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03";
 const compose = parse(composeText) as {
@@ -125,6 +126,32 @@ for (const forbidden of [
   if (composeText.includes(forbidden) || runtimeEnvExample.includes(forbidden)) {
     throw new Error(`review runtime configuration must not depend on ${forbidden}`);
   }
+}
+
+const approvedTikTokEndpointLiterals = [
+  "https://open.tiktokapis.com/v2/oauth/revoke/",
+  "https://open.tiktokapis.com/v2/oauth/token/",
+  "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
+  "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+  "https://open.tiktokapis.com/v2/post/publish/video/init/",
+  "https://www.tiktok.com/v2/auth/authorize/",
+].sort();
+const implementedTikTokEndpointLiterals = [
+  ...new Set(
+    [
+      ...tikTokProviderSource.matchAll(
+        /"(https:\/\/(?:www\.tiktok\.com|open\.tiktokapis\.com)\/[^"]+)"/gu,
+      ),
+    ].map((match) => match[1]),
+  ),
+].sort();
+if (
+  JSON.stringify(implementedTikTokEndpointLiterals) !==
+  JSON.stringify(approvedTikTokEndpointLiterals)
+) {
+  throw new Error(
+    `TikTok provider endpoint literals must match the approved R4 allow-list: ${implementedTikTokEndpointLiterals.join(", ")}`,
+  );
 }
 
 const caddy = read("infra/tencent/public-site/Caddyfile");

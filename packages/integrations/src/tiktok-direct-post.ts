@@ -4,7 +4,6 @@ import {
   type TikTokAuthorizationTokens,
   type TikTokCreatorInfo,
   type TikTokOAuthProvider,
-  type TikTokUserIdentity,
 } from "@jingtang/application";
 
 const requestTimeoutMs = 30_000;
@@ -16,7 +15,6 @@ type TikTokOperation =
   | "authorization_exchange"
   | "authorization_refresh"
   | "authorization_revocation"
-  | "authorized_user"
   | "creator_info"
   | "direct_post_init"
   | "video_upload"
@@ -341,39 +339,6 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
         null,
       );
     }
-  }
-
-  public async readAuthorizedUser(accessToken: string): Promise<TikTokUserIdentity> {
-    const url = new URL("https://open.tiktokapis.com/v2/user/info/");
-    url.searchParams.set("fields", "open_id,union_id,avatar_url,display_name");
-    const response = await this.#fetch(url, {
-      headers: bearer(accessToken),
-      signal: AbortSignal.timeout(requestTimeoutMs),
-    });
-    const body = await readJson(response, "authorized_user");
-    if (!apiSucceeded(response, body)) {
-      throw tikTokError(response, body, "TikTok identity could not be read", "authorized_user");
-    }
-    const user =
-      isRecord(body) && isRecord(body.data) && isRecord(body.data.user)
-        ? body.data.user
-        : undefined;
-    if (!user || typeof user.open_id !== "string" || typeof user.display_name !== "string") {
-      throw requestError(
-        "service_unavailable",
-        "TikTok omitted the authorized user",
-        503,
-        "authorized_user",
-        response.status,
-        "authorized_user_missing",
-      );
-    }
-    return {
-      openId: user.open_id,
-      displayName: user.display_name,
-      ...(typeof user.union_id === "string" ? { unionId: user.union_id } : {}),
-      ...(typeof user.avatar_url === "string" ? { avatarUrl: user.avatar_url } : {}),
-    };
   }
 
   public async readCreatorInfo(accessToken: string): Promise<TikTokCreatorInfo> {
