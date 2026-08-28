@@ -74,6 +74,7 @@ export default async function ChannelsPage({
   );
   const tiktokDisconnecting = tiktokChannels.find((channel) => channel.state === "disconnecting");
   const tiktokDisconnected = tiktokChannels.find((channel) => channel.state === "disconnected");
+  const tiktokDisconnectFailed = Boolean(tiktokDisconnecting?.revokeFailureCategory);
   const tiktokDisconnectCompleted = tiktokResult === "disconnecting" && Boolean(tiktokDisconnected);
   const tiktokActive = tiktokConnected ?? tiktokDisconnecting ?? tiktokReauthorization;
   const canConnectTikTok =
@@ -281,6 +282,7 @@ export default async function ChannelsPage({
             !facebookDisconnectCompleted) ||
           (tiktokResult === "disconnecting" &&
             Boolean(tiktokDisconnecting) &&
+            !tiktokDisconnectFailed &&
             !tiktokDisconnectCompleted)
         }
       />
@@ -403,11 +405,13 @@ export default async function ChannelsPage({
                 : "The private TikTok account is connected; publishing still requires approval and a separate SELF_ONLY confirmation."}
             </p>
           ) : null}
-          {tiktokResult === "failed" || tiktokResult === "disconnect_failed" ? (
-            <p className="channel-notice channel-notice--error">
+          {tiktokResult === "failed" ||
+          tiktokResult === "disconnect_failed" ||
+          tiktokDisconnectFailed ? (
+            <p className="channel-notice channel-notice--error" role="alert">
               {locale === "zh-CN"
-                ? "TikTok 操作未能安全完成，请重试。"
-                : "The TikTok operation could not be completed safely. Try again."}
+                ? "TikTok 已停止新操作，但授权清理尚未完成。请重试断开；历史帖子不会被删除。"
+                : "New TikTok operations are blocked, but authorization cleanup is not complete. Retry disconnecting; historical posts are not deleted."}
             </p>
           ) : null}
           {tiktokResult === "denied" ? (
@@ -420,6 +424,15 @@ export default async function ChannelsPage({
               {locale === "zh-CN"
                 ? "TikTok 授权已撤销并清理。"
                 : "TikTok authorization was revoked and cleaned up."}
+            </p>
+          ) : null}
+          {tiktokResult === "disconnecting" &&
+          !tiktokDisconnectFailed &&
+          !tiktokDisconnectCompleted ? (
+            <p className="channel-notice" role="status">
+              {locale === "zh-CN"
+                ? "正在撤销 TikTok 授权、销毁令牌密钥并清理本地授权数据。页面会自动更新。"
+                : "TikTok authorization is being revoked, its token key retired, and local authorization data cleaned up. This page updates automatically."}
             </p>
           ) : null}
           {tiktokActive ? (
@@ -436,7 +449,15 @@ export default async function ChannelsPage({
               {(tiktokConnected || tiktokDisconnecting) && canDisconnect ? (
                 <DestructiveActionDialog
                   action="/api/v1/channels/tiktok/disconnect"
-                  triggerLabel={locale === "zh-CN" ? "断开 TikTok" : "Disconnect TikTok"}
+                  triggerLabel={
+                    tiktokDisconnecting
+                      ? locale === "zh-CN"
+                        ? "重试断开 TikTok"
+                        : "Retry disconnecting TikTok"
+                      : locale === "zh-CN"
+                        ? "断开 TikTok"
+                        : "Disconnect TikTok"
+                  }
                   title={
                     locale === "zh-CN"
                       ? "断开这个 TikTok 账号？"

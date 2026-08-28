@@ -18,7 +18,6 @@ import {
 import {
   enqueueTokenKeyRetirement,
   pseudonymizePlatformAuthorizedData,
-  pseudonymizeYouTubeAuthorizedData,
 } from "./lifecycle-repository.js";
 import { appendAudit, withTenant } from "./repository.js";
 
@@ -1628,22 +1627,19 @@ async function requireYouTubeReauthorizationInTransaction(
   let authorizedAuditTargetIds: readonly string[] = [input.channelId];
   if (channel.externalAccountId) {
     const platform = input.platform ?? "youtube";
-    authorizedAuditTargetIds = await (platform === "facebook"
-      ? pseudonymizePlatformAuthorizedData(transaction, {
-          platform,
-          workspaceId: input.workspaceId,
-          channelId: input.channelId,
-          accountReference: channel.externalAccountId,
-          replacementAccountReference: `expired:${input.channelId}`,
-          replacementDisplayName: "Expired Facebook Page authorization",
-        })
-      : pseudonymizeYouTubeAuthorizedData(transaction, {
-          workspaceId: input.workspaceId,
-          channelId: input.channelId,
-          accountReference: channel.externalAccountId,
-          replacementAccountReference: `expired:${input.channelId}`,
-          replacementDisplayName: "Expired YouTube authorization",
-        }));
+    authorizedAuditTargetIds = await pseudonymizePlatformAuthorizedData(transaction, {
+      platform,
+      workspaceId: input.workspaceId,
+      channelId: input.channelId,
+      accountReference: channel.externalAccountId,
+      replacementAccountReference: `expired:${input.channelId}`,
+      replacementDisplayName:
+        platform === "youtube"
+          ? "Expired YouTube authorization"
+          : platform === "facebook"
+            ? "Expired Facebook Page authorization"
+            : "Expired TikTok authorization",
+    });
   }
   await transaction.$executeRaw`SELECT pseudonymize_channel_audit(
       ${input.workspaceId}::uuid,

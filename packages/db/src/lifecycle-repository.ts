@@ -642,6 +642,16 @@ export async function failYouTubeDisconnect(
       workspaceId: input.workspaceId,
       channelId: input.channelId,
     });
+    const channel = await transaction.channel.findFirst({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform } : {}),
+      },
+      select: { platform: true },
+    });
+    if (!channel) return false;
+    const platform = authorizedPlatform(channel.platform);
     const result = await transaction.channel.updateMany({
       where: {
         id: input.channelId,
@@ -663,7 +673,7 @@ export async function failYouTubeDisconnect(
       targetId: input.channelId,
       result: "failed",
       correlationId: input.correlationId,
-      metadata: { platform: input.platform ?? "youtube", failure_category: input.failureCategory },
+      metadata: { platform, failure_category: input.failureCategory },
     });
     return true;
   });
