@@ -90,7 +90,7 @@ export default async function ContentDetailPage({
   const activeExecution = content.publishing.executions.some((entry) =>
     ["not_started", "publishing", "processing"].includes(entry.state),
   );
-  const retryableExecution = content.publishing.executions[0]?.retryable === true;
+  const retryableExecution = content.publishing.currentRevisionExecutions[0]?.retryable === true;
   const executionLabel =
     version.platform === "facebook"
       ? ({
@@ -344,7 +344,7 @@ export default async function ContentDetailPage({
           ) : null}
           {content.status === "approved" ? (
             <PublishActions
-              key={content.publishing.executions[0]?.id ?? "new-publish"}
+              key={content.publishing.currentRevisionExecutions[0]?.id ?? "new-publish"}
               locale={locale}
               contentId={content.id}
               revisionId={content.revision.id}
@@ -364,7 +364,7 @@ export default async function ContentDetailPage({
                         Boolean(content.sourceAsset.durationSeconds)) &&
                 hasPermission(role, "content.publish")
               }
-              hasExecution={content.publishing.executionCount > 0}
+              hasExecution={content.publishing.currentRevisionExecutions.length > 0}
               canRetry={retryableExecution}
               polling={activeExecution}
               sourceFilename={content.sourceAsset.filename}

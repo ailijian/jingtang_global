@@ -153,7 +153,7 @@ Required closure before submission:
 - [x] Full local verification and Code Review pass.
 - [x] TikTok Dashboard verifies `review.jingtangai.com` as the owned Domain property for the provider-only media route.
 - [x] Exact candidate passes controlled `hold-worker` deployment and read-only release/health/legal/security verification without provider use.
-- [ ] One separately authorized private Human E2E passes on the deployed `PULL_FROM_URL` path.
+- [x] One separately authorized private Human E2E passes on the deployed `PULL_FROM_URL` path: exact candidate `8d35648aac362d2722671fdd8ae7d418368aa235` completed one `SELF_ONLY` post without duplication or signed-URL leakage, and the worker returned to its held state.
 - [ ] Reviewer instructions and demo are regenerated from the final implementation.
 
 ### Data flow, retention and deletion references
@@ -165,9 +165,9 @@ Required closure before submission:
 
 ### TikTok readiness checklist
 
-- [x] Revision 9 local implementation, Code Review, `review.jingtangai.com` Domain-property verification and controlled `hold-worker` deployment pass; fresh Human E2E evidence remains separate.
+- [x] Revision 9 local implementation, Code Review, `review.jingtangai.com` Domain-property verification, controlled deployment and fresh private `PULL_FROM_URL` Human E2E pass; post-E2E UI remediation deployment and Acceptance remain separate.
 - [ ] Actual Production draft and Sandbox product/Scope/domain/legal fields match the final implementation.
-- [ ] Protected reviewer account/Sandbox user verified without storing credentials here.
+- [x] Protected Sandbox user `lijiancn` completed the controlled OAuth/Creator Info/private-publish journey without storing credentials here.
 - [ ] Fresh end-to-end video recorded from the exact final web candidate and kept within current portal limits.
 - [ ] Product and `video.publish` rationale, reviewer steps and video timestamps align.
 - [ ] Audit/Review form accurately states current private-only behavior and intended public product use.
@@ -195,12 +195,12 @@ Resume only after the Human Owner explicitly restarts R4.5 and a company-control
 ## Release-Truth and Full Regression Checklist
 
 - [x] Canonical `pnpm verify` passes on the final local candidate: 217 unit tests, all database integration suites, nine platform E2E, seven site E2E, 30 migrations, backup/restore and a 426-file Secret scan passed on 2026-08-29.
-- [x] `pnpm site:release-check` outcome is reconciled with the actual public legal/version deployment state: it correctly failed closed because `2026-08-28-r4.5` remains pending separate production-change authorization.
-- [x] Live read-only website truth checks passed all 19 authoritative English/Simplified Chinese routes and exact Sign in links; the live site accurately exposes the deployed `2026-08-28` policy marker rather than the undeployed candidate version.
-- [x] Live read-only Review checks passed HTTPS health and login `200`, `noindex`, container health, zero restarts and active/enabled backup and capacity timers without printing Secret values.
+- [x] `pnpm site:release-check` is reconciled with the deployed legal/version state: controlled rollout activated legal version `2026-08-28-r4.5` on exact candidate `8d35648aac362d2722671fdd8ae7d418368aa235`, after which the production release Gate passed.
+- [x] Live read-only website truth checks passed all 19 authoritative English/Simplified Chinese routes and exact Sign in links on the deployed `2026-08-28-r4.5` legal version.
+- [x] Live read-only Review checks passed HTTPS health and login `200`, health `POST` `405`, `noindex`, container health and zero restarts; the Fresh Human E2E ended with zero active work and the worker returned to `exited`.
 - [x] Tenant/RBAC, upload, submit/approve, confirmation, publish/result, disconnect/revoke/delete, migration, backup/restore, i18n, mobile/accessibility and secret scans pass through the canonical suite.
 - [x] Public pages contain no prohibited internal Delivery/environment terminology and do not claim Schedule, public platform availability or third-party approval.
-- [x] Registry is consistent with actual deployed and external state, including the Instagram pause, the completed TikTok local remediation and the undeployed historical Review runtime.
+- [x] Registry is consistent with actual deployed and external state, including the Instagram pause, the exact TikTok Revision 9 deployment and Fresh Human E2E, the undeployed post-E2E UI remediation, pending Acceptance and unchanged public `Coming Soon` status.
 - [x] Final R5 diff and the preserved, previously reviewed I1～I3 worktree boundary were reviewed for unintended scope expansion and Secret/identifier leakage; no blocking R5 documentation/Registry finding remains.
 
 ## Teardown and Migration Checklist
@@ -230,4 +230,4 @@ R5 may continue local regression and material preparation, but it must stop befo
 - Business/Domain Verification, Advanced Access/Audit or App Review submission;
 - any further deployment, public `Available`, Stage Acceptance, checkpoint, commit or push beyond the explicit evidence-reconciliation authorization recorded above.
 
-R5 cannot be marked complete while Instagram remains paused under the current Baseline, TikTok fresh Human E2E/Acceptance evidence remains absent, required current demo videos/reviewer accounts are absent, or Final Acceptance/Human E2E/Stage Acceptance have not been explicitly completed.
+R5 cannot be marked complete while Instagram remains paused under the current Baseline, TikTok post-E2E remediation deployment/Acceptance evidence remains absent, required current demo videos or remaining protected reviewer-account evidence are absent, or Final Acceptance/Stage Acceptance have not been explicitly completed.

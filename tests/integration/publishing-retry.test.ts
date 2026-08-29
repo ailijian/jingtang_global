@@ -15,6 +15,7 @@ import {
   getContentDetail,
   recordConsent,
   submitContent,
+  updateContentDraft,
   upsertIdentityUser,
 } from "@jingtang/db";
 import { LocalEnvelopeTokenVault } from "@jingtang/integrations";
@@ -229,5 +230,30 @@ describe("safe publishing retry", () => {
     await expect(
       adminDb.publishingIntent.count({ where: { workspaceId: workspace.id } }),
     ).resolves.toBe(2);
+
+    await updateContentDraft(db, {
+      workspaceId: workspace.id,
+      contentId: content.id,
+      actorUserId: user.id,
+      internalTitle: "Safe retry fixture revision two",
+      platformVersions: [
+        {
+          platform: "youtube",
+          accountReference: "UC_SAFE_RETRY",
+          accountDisplayName: "Safe retry channel",
+          title: "Safe retry title revision two",
+          description: "Safe retry description revision two",
+          privacyStatus: "private",
+          madeForKids: false,
+        },
+      ],
+      correlationId: randomUUID(),
+    });
+    const revisedDetail = await getContentDetail(db, workspace.id, content.id);
+    expect(revisedDetail?.publishing.executionCount).toBe(2);
+    expect(revisedDetail?.publishing.currentRevisionExecutions).toEqual([]);
+    expect(
+      revisedDetail?.publishing.executions.find((execution) => execution.id === first.executionId),
+    ).toMatchObject({ state: "failed", retryable: true });
   });
 });

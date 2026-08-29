@@ -129,6 +129,7 @@ export interface ContentDetailView extends ContentSummaryView {
     readonly intentCount: number;
     readonly executionCount: number;
     readonly executions: readonly PlatformExecutionView[];
+    readonly currentRevisionExecutions: readonly PlatformExecutionView[];
   };
   readonly activity: readonly {
     readonly id: string;
@@ -478,11 +479,19 @@ export async function getContentDetail(
         providerPublishState: true,
         providerResourceId: true,
         providerResultId: true,
+        publishingIntent: { select: { revisionId: true } },
         outboxMessage: { select: { state: true } },
         updatedAt: true,
       },
       orderBy: { updatedAt: "desc" },
     });
+    const executionViews = executions.map((execution) => ({
+      revisionId: execution.publishingIntent.revisionId,
+      view: platformExecutionView({
+        ...execution,
+        outboxState: execution.outboxMessage?.state ?? null,
+      }),
+    }));
     const targetIds = [
       entry.id,
       ...revisions.map((candidate) => candidate.id),
@@ -544,12 +553,10 @@ export async function getContentDetail(
       publishing: {
         intentCount,
         executionCount: executions.length,
-        executions: executions.map((execution) =>
-          platformExecutionView({
-            ...execution,
-            outboxState: execution.outboxMessage?.state ?? null,
-          }),
-        ),
+        executions: executionViews.map((execution) => execution.view),
+        currentRevisionExecutions: executionViews
+          .filter((execution) => execution.revisionId === revision.id)
+          .map((execution) => execution.view),
       },
       activity: activity.map((event) => ({
         id: event.id,
