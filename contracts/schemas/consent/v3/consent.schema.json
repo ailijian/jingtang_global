@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:consent:consent:v3",
+  "title": "ConsentRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "consent_id",
+    "user_id",
+    "terms_version",
+    "privacy_version",
+    "data_purpose_version",
+    "displayed_locale",
+    "acceptance_method",
+    "accepted_at"
+  ],
+  "properties": {
+    "consent_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "format": "uuid" },
+    "terms_version": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "privacy_version": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "data_purpose_version": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "displayed_locale": { "type": "string", "enum": ["en", "zh-CN"] },
+    "acceptance_method": {
+      "type": "string",
+      "enum": [
+        "registration_checkbox",
+        "reconsent_gate",
+        "youtube_connection_checkbox",
+        "facebook_connection_checkbox",
+        "tiktok_connection_checkbox"
+      ]
+    },
+    "accepted_at": { "type": "string", "format": "date-time" }
+  }
+}

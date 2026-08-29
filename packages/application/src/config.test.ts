@@ -10,9 +10,9 @@ const base = {
   IDENTITY_PROVIDER: "mock",
   ALLOW_TEST_IDENTITY: "true",
   SESSION_COOKIE_SECRET: "a-secure-test-secret-with-32-characters",
-  TERMS_VERSION: "2026-08-26",
-  PRIVACY_VERSION: "2026-08-26",
-  DATA_PURPOSE_VERSION: "2026-08-26",
+  TERMS_VERSION: "2026-08-28-r4.5",
+  PRIVACY_VERSION: "2026-08-28-r4.5",
+  DATA_PURPOSE_VERSION: "2026-08-28-r4.5",
   TERMS_URL: "https://jingtangai.com/en/terms/",
   PRIVACY_URL: "https://jingtangai.com/en/privacy/",
   OBJECT_STORAGE_ENDPOINT: "http://localhost:9000",
@@ -123,6 +123,12 @@ describe("environment isolation", () => {
     expect(() =>
       parseAppConfig({
         ...production,
+        PRIVACY_VERSION: "2026-08-26",
+      }),
+    ).toThrow("Production requires policy version 2026-08-28-r4.5");
+    expect(() =>
+      parseAppConfig({
+        ...production,
         TERMS_VERSION: "obsolete",
         TERMS_URL: "https://example.com",
       }),
@@ -136,6 +142,8 @@ describe("environment isolation", () => {
       FACEBOOK_APP_ID: "1779590139842024",
       FACEBOOK_APP_SECRET: "facebook-app-secret",
       FACEBOOK_OAUTH_STATE_SECRET: "a-separate-facebook-state-secret-value",
+      OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      LOCAL_TOKEN_KEY_STORE_PATH: "/tmp/jingtang-test-oauth-token-keys.json",
     };
     expect(() => parseAppConfig(facebook)).toThrow();
     expect(
@@ -165,6 +173,35 @@ describe("environment isolation", () => {
         LOCAL_TOKEN_KEY_STORE_PATH: "/tmp/jingtang-test-oauth-token-keys.json",
       }).YOUTUBE_OAUTH_ENABLED,
     ).toBe(true);
+  });
+
+  it("requires complete TikTok OAuth secrets and a protected token vault", () => {
+    expect(() => parseAppConfig({ ...base, TIKTOK_OAUTH_ENABLED: "true" })).toThrow();
+
+    const tiktok = {
+      ...base,
+      TIKTOK_OAUTH_ENABLED: "true",
+      TIKTOK_CLIENT_KEY: "test-tiktok-client-key",
+      TIKTOK_CLIENT_SECRET: "test-tiktok-client-secret",
+      TIKTOK_OAUTH_STATE_SECRET: "a-separate-tiktok-state-secret-value",
+      TIKTOK_MEDIA_URL_SIGNING_SECRET: "a-separate-tiktok-media-signing-secret",
+      OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      LOCAL_TOKEN_KEY_STORE_PATH: "/tmp/jingtang-test-oauth-token-keys.json",
+    };
+
+    expect(parseAppConfig(tiktok).TIKTOK_OAUTH_ENABLED).toBe(true);
+    expect(() =>
+      parseAppConfig({
+        ...tiktok,
+        TIKTOK_CLIENT_SECRET: tiktok.TIKTOK_OAUTH_STATE_SECRET,
+      }),
+    ).toThrow("Session, provider, state, and token-encryption secrets must be distinct");
+    expect(() =>
+      parseAppConfig({
+        ...tiktok,
+        TIKTOK_MEDIA_URL_SIGNING_SECRET: tiktok.TIKTOK_CLIENT_SECRET,
+      }),
+    ).toThrow("Session, provider, state, and token-encryption secrets must be distinct");
   });
 
   it("does not require a browser-only OAuth state secret in the deployed worker", () => {
@@ -205,7 +242,7 @@ describe("environment isolation", () => {
         OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         LOCAL_TOKEN_KEY_STORE_PATH: "/var/lib/jingtang/oauth-envelope-keys.json",
       }),
-    ).toThrow("Staging and production YouTube OAuth require the Tencent KMS token vault");
+    ).toThrow("Staging and production OAuth require the Tencent KMS token vault");
   });
 
   it("requires a separate wrapped-key bucket and complete Tencent KMS configuration", () => {

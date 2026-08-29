@@ -22,6 +22,22 @@ describe("locale contract", () => {
     expect(translate("en", "state.empty")).toBe("No items yet");
   });
 
+  it("keeps TikTok publishing labels platform-specific", () => {
+    const keys = [
+      "detail.publish.tiktok.openVideo",
+      "detail.publish.tiktok.providerLinkCleared",
+      "detail.execution.tiktok.processing",
+      "detail.execution.tiktok.published",
+    ] as const;
+
+    for (const locale of ["en", "zh-CN"] as const) {
+      for (const key of keys) {
+        expect(translate(locale, key)).toContain("TikTok");
+        expect(translate(locale, key)).not.toContain("YouTube");
+      }
+    }
+  });
+
   it("formats values without changing stored values", () => {
     const stored = 1234;
     expect(formatNumber("en", stored)).toMatch(/1.?234/);

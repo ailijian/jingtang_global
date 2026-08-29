@@ -186,21 +186,40 @@ export class S3AssetStorage implements AssetStorage {
     );
   }
 
-  async open(key: string): Promise<{
+  async open(
+    key: string,
+    range?: { readonly start: number; readonly end: number },
+  ): Promise<{
     readonly body: ReadableStream<Uint8Array>;
     readonly contentType?: string;
     readonly contentLength?: number;
+    readonly contentRange?: string;
   }> {
+    if (
+      range &&
+      (!Number.isSafeInteger(range.start) ||
+        !Number.isSafeInteger(range.end) ||
+        range.start < 0 ||
+        range.end < range.start)
+    ) {
+      throw new Error("source_asset_range_invalid");
+    }
     const result = await this.#withTimeout((abortSignal) =>
-      this.#client.send(new GetObjectCommand({ Bucket: this.#bucket, Key: key }), {
-        abortSignal,
-      }),
+      this.#client.send(
+        new GetObjectCommand({
+          Bucket: this.#bucket,
+          Key: key,
+          ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}),
+        }),
+        { abortSignal },
+      ),
     );
     if (!result.Body) throw new Error("source_asset_body_missing");
     return {
       body: result.Body.transformToWebStream() as ReadableStream<Uint8Array>,
       ...(result.ContentType ? { contentType: result.ContentType } : {}),
       ...(result.ContentLength !== undefined ? { contentLength: result.ContentLength } : {}),
+      ...(result.ContentRange ? { contentRange: result.ContentRange } : {}),
     };
   }
 }

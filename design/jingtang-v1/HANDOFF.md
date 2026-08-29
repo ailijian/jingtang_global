@@ -4,6 +4,8 @@ Package: D1-UI-R2
 
 Status: Approved — D1-UI-R2 Human UI Final Approval and Stage Acceptance recorded 2026-08-20
 
+R4.5 amendment: Approved material semantics from Design Authority Revision 2; implementation/rendered verification pending
+
 ## Source of Truth and Use
 
 Implementation consumes this package in this order:
@@ -51,12 +53,12 @@ If a material meaning conflicts, upstream authority wins and implementation stop
 | `JT-COMP-01` | Composer Stepper | Content, Platforms, Customize, Review; complete/current/error/disabled | D4 |
 | `JT-COMP-02` | Asset Upload | empty, drag, uploading, failed, complete, removed | D4 |
 | `JT-COMP-03` | Platform Account Selector | ready, selected, reauth, unsupported, unavailable, coming soon | D4/D5 |
-| `JT-COMP-04` | Platform Fields | YouTube title/description/privacy/audience/required settings | D4/D5 |
+| `JT-COMP-04` | Platform Fields | Platform-specific fields; Instagram permits caption plus read-only REELS/share_to_feed=false/Publish Now facts, never fake privacy/schedule controls | D4/D5/R4.5 |
 | `JT-COMP-05` | Platform Preview | media, final fields, target account; not a literal platform screenshot | D4/D5 |
 | `JT-APR-01` | Approval Review | exact revision, history, approve, reject/comment, stale state | D4 |
 | `JT-PUB-06` | Publish Confirmation | exact content/accounts/fields/mode/approval; explicit confirm | D5 |
 | `JT-PUB-07` | Execution Result | publishing, processing, published, failed, needs attention, cancelled | D4/D5 |
-| `JT-CHAN-01` | Channel Summary | not connected through disconnected | D5/D6 |
+| `JT-CHAN-01` | Channel Summary | not connected through disconnected; Instagram adds local-disconnected/manual-removal-required and callback-confirmed provider revocation | D5/D6/R4.5 |
 | `JT-CHAN-02` | OAuth Explanation/Return | before leaving, returning, success, cancel, provider error | D5 |
 | `JT-TRUST-01` | Destructive Confirmation | disconnect, JINGTANG data deletion, Workspace deletion | D6 |
 | `JT-AUDIT-01` | Activity Event | actor, action, target, timestamp, result, safe metadata | D2/D4–D6 |
@@ -112,6 +114,15 @@ If a material meaning conflicts, upstream authority wins and implementation stop
 2. Delete JINGTANG Data identifies JINGTANG-held data and request progress.
 3. Third-party deletion is not shown as supported in V1.
 
+### R4.5 Instagram
+
+1. Connection consent names exactly `instagram_business_basic` and `instagram_business_content_publish`, one Professional account, one MP4 Reel and the hosted-copy/removal boundary. Partial permission or non-Professional return is not Connected.
+2. Instagram Customize exposes only caption. Final confirmation repeats exact `@username`, MP4, caption, `REELS`, `share_to_feed=false`, Publish Now and that disconnect does not delete the hosted Reel.
+3. Execution distinguishes preparing media, container processing, publishing, published, failed, needs attention and unknown/reconciling. Unknown state never offers a second publish action.
+4. Disconnect moves automatically from working to a prominent main-card `JINGTANG locally disconnected — remove the App in Instagram` state, including **Website permissions → Apps and websites → Active → Remove**. The corner badge and main visual must agree.
+5. Token expiry, local cleanup, elapsed time or user assertion cannot render `Provider revocation confirmed`; only the verified deauthorization callback may do so. Invalid callback state remains locally denied with safe support/retry guidance.
+6. English and Simplified Chinese copy, 320px reflow, 200% zoom, keyboard focus and non-repeating live-region status are blocking implementation checks.
+
 ## Copy and Configuration Slots
 
 These slots must be supplied by their owner; the UI fallback is truthful and non-actionable.
@@ -153,6 +164,7 @@ These slots must be supplied by their owner; the UI fallback is truthful and non
 | D4 | Content list/detail, Composer, approval queues/review | Exact revisions, upload/platform validation, separate approval semantics, role-sensitive actions |
 | D5 | YouTube Channel/OAuth/consent, confirmation, execution result/recovery | Exact account/content confirmation, truthful external state, reauthorization return path |
 | D6 | Activity, disconnect/revoke/delete, Security/Data completion | Destructive semantics, progress/evidence, verified claims only |
+| R4.5 | Instagram connection/consent, Reels-only confirmation, asynchronous result, local disconnect/manual removal/callback confirmation | Exact two-permission truth, no second publish, no early provider-revocation claim, bilingual/mobile/accessibility parity |
 
 Every Stage consumes [`LOCALIZATION.md`](LOCALIZATION.md). D2 owns catalogs and locale preference; D3 owns public locale routing; D4–D6 must verify each received UI surface in both locales; D7 owns final parity and production evidence.
 

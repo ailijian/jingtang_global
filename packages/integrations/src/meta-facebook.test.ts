@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { facebookOAuthScopes } from "@jingtang/application";
 
-import { MetaFacebookOAuthProvider } from "./meta-facebook.js";
+import { MetaFacebookOAuthProvider, metaFacebookFailureDiagnostics } from "./meta-facebook.js";
 
 const appSecret = "company-meta-app-secret";
 
@@ -231,7 +231,7 @@ describe("Meta Facebook provider", () => {
   it("streams one resumable MP4 upload and publishes its handle to the exact Page", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(Response.json({ id: "upload:upload-session" }))
+      .mockResolvedValueOnce(Response.json({ id: "upload:upload-session?sig=session-signature" }))
       .mockImplementationOnce(async (_url, init) => {
         expect(new Uint8Array(await new Response(init?.body as BodyInit).arrayBuffer())).toEqual(
           new Uint8Array([1, 2, 3]),
@@ -266,9 +266,13 @@ describe("Meta Facebook provider", () => {
     const [sessionUrl] = fetchImplementation.mock.calls[0] ?? [];
     expect((sessionUrl as URL).href).toContain("graph.facebook.com/v26.0/meta-app-id/uploads");
     const [uploadUrl, uploadInit] = fetchImplementation.mock.calls[1] ?? [];
-    expect((uploadUrl as URL).href).toBe("https://graph.facebook.com/v26.0/upload:upload-session");
+    expect((uploadUrl as URL).origin + (uploadUrl as URL).pathname).toBe(
+      "https://graph.facebook.com/v26.0/upload:upload-session",
+    );
+    expect((uploadUrl as URL).searchParams.get("sig")).toBe("session-signature");
     expect(uploadInit?.body).toBeInstanceOf(ReadableStream);
     expect(new Headers(uploadInit?.headers).get("authorization")).toBe("OAuth user-token");
+    expect(new Headers(uploadInit?.headers).get("content-type")).toBe("video/mp4");
     const [publishUrl, publishInit] = fetchImplementation.mock.calls[2] ?? [];
     expect((publishUrl as URL).origin).toBe("https://graph-video.facebook.com");
     expect((publishUrl as URL).pathname).toBe("/v26.0/company-page/videos");
@@ -278,6 +282,55 @@ describe("Meta Facebook provider", () => {
     expect(form.get("fbuploader_video_file_chunk")).toBe("uploaded-file-handle");
     expect(form.get("title")).toBe("Approved title");
   });
+
+  it.each([
+    { graphCode: 190, expectedCode: "authentication_failed" },
+    { graphCode: 10, expectedCode: "permission_denied" },
+    { graphCode: 100, expectedCode: "invalid_input" },
+  ])(
+    "classifies Meta HTTP 400 code $graphCode and preserves safe operation diagnostics",
+    async ({ graphCode, expectedCode }) => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+        Response.json(
+          {
+            error: {
+              message: "must not be exposed",
+              code: graphCode,
+              error_subcode: 1234,
+              is_transient: false,
+            },
+          },
+          { status: 400 },
+        ),
+      );
+      let caught: unknown;
+      try {
+        await provider(fetchImplementation).uploadPageVideo({
+          userAccessToken: "user-token",
+          pageAccessToken: "page-token",
+          pageId: "company-page",
+          title: "Approved title",
+          description: "",
+          mediaType: "video/mp4",
+          byteSize: 1,
+          sha256: createHash("sha256")
+            .update(new Uint8Array([1]))
+            .digest("hex"),
+          body: new ReadableStream<Uint8Array>(),
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toMatchObject({ code: expectedCode });
+      expect(metaFacebookFailureDiagnostics(caught)).toEqual({
+        operation: "upload_session_create",
+        httpStatus: 400,
+        graphCode,
+        graphSubcode: 1234,
+        transient: false,
+      });
+    },
+  );
 
   it("does not retry-classify an ambiguous upload or publish completion as safe", async () => {
     const uploadFetch = vi

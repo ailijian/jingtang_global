@@ -1,10 +1,10 @@
 schema_version: 1
-revision: 5
+revision: 8
 status: approved
 effective_date: "2026-08-20"
 owner: JINGTANG Contract Owner
 governance: contracts/README.md
-revision_note: R3 adopts v2 Platform Version, Publishing Intent, and Platform Execution contracts for Facebook Page video publishing while retaining v1 as immutable history
+revision_note: Revision 9 adopts Publishing Intent v5 and Platform Execution v5 for TikTok PULL_FROM_URL while retaining prior major versions as immutable history
 
 formats:
   schema: json_schema_2020_12
@@ -27,11 +27,11 @@ catalog:
     status: implemented
   - id: consent
     owner_stage: D2
-    canonical_path: contracts/schemas/consent/v2/consent.schema.json
+    canonical_path: contracts/schemas/consent/v4/consent.schema.json
     status: implemented
   - id: channel
     owner_stage: D2
-    canonical_path: contracts/schemas/channel/v1/channel.schema.json
+    canonical_path: contracts/schemas/channel/v2/channel.schema.json
     status: implemented
   - id: audit_event
     owner_stage: D2
@@ -55,7 +55,7 @@ catalog:
     status: implemented
   - id: platform_version
     owner_stage: D4
-    canonical_path: contracts/schemas/content/v2/platform-version.schema.json
+    canonical_path: contracts/schemas/content/v4/platform-version.schema.json
     status: implemented
   - id: approval
     owner_stage: D4
@@ -63,11 +63,11 @@ catalog:
     status: implemented
   - id: publishing_intent
     owner_stage: D4
-    canonical_path: contracts/schemas/publishing/v2/publishing-intent.schema.json
+    canonical_path: contracts/schemas/publishing/v5/publishing-intent.schema.json
     status: implemented
   - id: platform_execution
     owner_stage: D4
-    canonical_path: contracts/schemas/publishing/v2/platform-execution.schema.json
+    canonical_path: contracts/schemas/publishing/v5/platform-execution.schema.json
     status: implemented
 
 compatibility:

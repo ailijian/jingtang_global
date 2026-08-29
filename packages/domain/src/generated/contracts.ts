@@ -52,11 +52,15 @@ export interface ConsentRecord {
     | "registration_checkbox"
     | "reconsent_gate"
     | "youtube_connection_checkbox"
-    | "facebook_connection_checkbox";
+    | "facebook_connection_checkbox"
+    | "instagram_connection_checkbox"
+    | "tiktok_connection_checkbox";
   accepted_at: string;
 }
 
-export interface ChannelSummary {
+export type ChannelSummary = {
+  [k: string]: unknown;
+} & {
   channel_id: string;
   workspace_id: string;
   platform: "youtube" | "facebook" | "instagram" | "tiktok" | "linkedin" | "pinterest" | "x";
@@ -69,6 +73,7 @@ export interface ChannelSummary {
     | "reauthorization_required"
     | "disconnecting"
     | "disconnected";
+  provider_removal_state: "not_applicable" | "pending_user_action" | "confirmed";
   granted_scopes: string[];
   capabilities: {
     publish: "available" | "beta" | "not_available";
@@ -77,7 +82,7 @@ export interface ChannelSummary {
   authorized_at?: string | null;
   refreshed_at?: string | null;
   denied_at?: string | null;
-}
+};
 
 export interface AuditEvent {
   event_id: string;
@@ -108,6 +113,7 @@ export interface SourceAsset {
   filename: string;
   media_type: string;
   byte_size: number;
+  duration_seconds?: number | null;
   sha256: string;
   status: "pending_upload" | "complete" | "failed";
   ownership_confirmed: true;
@@ -134,12 +140,12 @@ export type PlatformVersion = {
   platform_version_id: string;
   workspace_id: string;
   revision_id: string;
-  platform: "youtube" | "facebook";
+  platform: "youtube" | "facebook" | "instagram" | "tiktok";
   account_reference: string;
   account_display_name: string;
   title: string;
   description: string;
-  privacy_status: "private" | "unlisted" | "public";
+  privacy_status: "private" | "unlisted" | "public" | "unselected";
   made_for_kids: boolean;
   validation_status: "valid" | "invalid";
   created_at: string;
@@ -194,12 +200,14 @@ export interface PublishingIntent {
   confirmed_at: string;
 }
 
-export interface PlatformExecution {
+export type PlatformExecution = {
+  [k: string]: unknown;
+} & {
   platform_execution_id: string;
   workspace_id: string;
   publishing_intent_id: string;
   platform_version_id: string;
-  platform: "youtube" | "facebook";
+  platform: "youtube" | "facebook" | "instagram" | "tiktok";
   account_reference: string;
   operation: "publish";
   attempt: number;
@@ -215,6 +223,10 @@ export interface PlatformExecution {
   failure_category?: string | null;
   provider_id?: string | null;
   provider_url?: string | null;
+  provider_create_state?: "not_started" | "started" | "succeeded" | "ambiguous" | "failed";
+  provider_publish_state?: "not_started" | "started" | "succeeded" | "ambiguous" | "failed";
+  provider_resource_id?: string | null;
+  provider_result_id?: string | null;
   created_at: string;
   updated_at: string;
-}
+};

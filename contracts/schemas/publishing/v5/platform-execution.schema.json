@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:publishing:platform-execution:v5",
+  "title": "PlatformExecution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "platform_execution_id",
+    "workspace_id",
+    "publishing_intent_id",
+    "platform_version_id",
+    "platform",
+    "account_reference",
+    "operation",
+    "attempt",
+    "idempotency_key",
+    "state",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "platform_execution_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "publishing_intent_id": { "type": "string", "format": "uuid" },
+    "platform_version_id": { "type": "string", "format": "uuid" },
+    "platform": { "type": "string", "enum": ["youtube", "facebook", "instagram", "tiktok"] },
+    "account_reference": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "operation": { "type": "string", "enum": ["publish"] },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "state": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "publishing",
+        "processing",
+        "published",
+        "failed",
+        "needs_attention",
+        "cancelled"
+      ]
+    },
+    "failure_category": { "type": ["string", "null"], "maxLength": 80 },
+    "provider_id": { "type": ["string", "null"], "maxLength": 255 },
+    "provider_url": { "type": ["string", "null"], "format": "uri" },
+    "provider_create_state": {
+      "type": "string",
+      "enum": ["not_started", "started", "succeeded", "ambiguous", "failed"]
+    },
+    "provider_publish_state": {
+      "type": "string",
+      "enum": ["not_started", "started", "succeeded", "ambiguous", "failed"]
+    },
+    "provider_resource_id": { "type": ["string", "null"], "maxLength": 255 },
+    "provider_result_id": { "type": ["string", "null"], "maxLength": 255 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "platform": { "const": "instagram" } }, "required": ["platform"] },
+      "then": {
+        "required": [
+          "provider_create_state",
+          "provider_publish_state",
+          "provider_resource_id",
+          "provider_result_id"
+        ],
+        "properties": {
+          "provider_create_state": {},
+          "provider_publish_state": {},
+          "provider_resource_id": {},
+          "provider_result_id": {}
+        }
+      },
+      "else": {
+        "properties": {
+          "provider_create_state": false,
+          "provider_publish_state": false,
+          "provider_resource_id": false,
+          "provider_result_id": false
+        }
+      }
+    }
+  ]
+}

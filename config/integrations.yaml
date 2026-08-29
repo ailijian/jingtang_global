@@ -1,10 +1,11 @@
 schema_version: 1
-revision: 9
+revision: 35
 status: approved
-effective_date: "2026-08-26"
+effective_date: "2026-08-30"
 owner: JINGTANG Integration Owner
-last_policy_verification_date: "2026-08-26"
-revision_note: The Human Owner approved the complete R3 Facebook Scope package on 2026-08-26. Facebook remains publicly Coming Soon and production_available false while implementation begins; only pages_show_list, pages_read_engagement, and pages_manage_posts are approved, with public_profile automatic and every other Facebook/Instagram permission excluded.
+last_policy_verification_date: "2026-08-29"
+revision_note: >-
+  Revision 9 replaces TikTok R4 FILE_UPLOAD with PULL_FROM_URL for server-stored media. Exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 passed one controlled private SELF_ONLY Human E2E without duplicate or signed-URL leakage; exact remediation candidate 742b575e9f6b3330c6ec58c35ae3c10ac5efb396 is deployed to Review with hold-worker after blocking CI and passed read-only UI verification, Revision 9 Acceptance Review and technical Stage Acceptance. COS remains private and only the final-confirmed object may be exposed to TikTok through a 65-minute provider-only HTTPS grant bound to object key, hash, size and GET. TikTok Dashboard reports review.jingtangai.com as a verified Domain property. Reviewer media, final portal reconciliation, external submission and public availability remain pending. R4.5 Instagram remains paused. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false.
 
 authority:
   owns:
@@ -58,6 +59,39 @@ policy_sources:
   meta_app_review:
     url: https://developers.facebook.com/docs/resp-plat-initiatives/individual-processes/app-review/submission-guide
     verified_on: "2026-08-26"
+  instagram_login:
+    url: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login
+    verified_on: "2026-08-28"
+  instagram_business_login:
+    url: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login
+    verified_on: "2026-08-28"
+  instagram_content_publishing:
+    url: https://developers.facebook.com/docs/instagram-platform/content-publishing
+    verified_on: "2026-08-28"
+  instagram_app_review:
+    url: https://developers.facebook.com/docs/instagram-platform/app-review
+    verified_on: "2026-08-28"
+  instagram_use_case_configuration:
+    url: https://developers.facebook.com/docs/development/create-an-app/instagram-use-case
+    verified_on: "2026-08-28"
+  meta_user_data_deletion:
+    url: https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback
+    verified_on: "2026-08-28"
+  tiktok_login_kit_web:
+    url: https://developers.tiktok.com/doc/login-kit-web
+    verified_on: "2026-08-27"
+  tiktok_scopes:
+    url: https://developers.tiktok.com/doc/scopes-overview
+    verified_on: "2026-08-27"
+  tiktok_direct_post:
+    url: https://developers.tiktok.com/doc/content-posting-api-get-started
+    verified_on: "2026-08-27"
+  tiktok_content_sharing_guidelines:
+    url: https://developers.tiktok.com/doc/content-sharing-guidelines
+    verified_on: "2026-08-29"
+  tiktok_app_review:
+    url: https://developers.tiktok.com/doc/app-review-guidelines
+    verified_on: "2026-08-29"
 
 integrations:
   youtube:
@@ -171,7 +205,7 @@ integrations:
     delivery_role: r3_facebook_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: review_r3_repository_candidate_verified
+    implementation_stage: review_r3_technical_slice_complete_external_review_deferred
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -179,14 +213,14 @@ integrations:
       track_result: {state: not_available, public_label: Coming Soon}
       reauthorize: {state: not_available, public_label: Coming Soon}
       disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
-    controlled_access_state: repository_candidate_verified_deployment_pending
+    controlled_access_state: deployed_controlled_access_human_e2e_pass
     authorization:
       mechanism: meta_oauth_web_server
       api_version_intent: v26.0
       app_ownership: company_business_portfolio_durable_app_id
       requested_scopes:
         - scope: pages_show_list
-          request_state: approved_for_r3_implementation
+          request_state: implemented_controlled_access_unified_submission_pending
           purpose: show only Pages the authenticating person manages and verify the explicitly selected Page
           ui_surface:
             - Channels / Connect Facebook / permission explanation
@@ -197,7 +231,7 @@ integrations:
           api_methods:
             - GET /me/accounts with minimum fields
         - scope: pages_read_engagement
-          request_state: approved_for_r3_implementation
+          request_state: implemented_controlled_access_unified_submission_pending
           purpose: read the selected Page identity and track only the Page video returned by the user's confirmed publish
           depends_on:
             - pages_show_list
@@ -211,7 +245,7 @@ integrations:
             - read selected Page metadata
             - read returned video ID with minimum supported result fields
         - scope: pages_manage_posts
-          request_state: approved_for_r3_implementation
+          request_state: implemented_controlled_access_unified_submission_pending
           purpose: create one native video on the exact selected Page after a separate immutable Publish Now confirmation
           depends_on:
             - pages_show_list
@@ -262,21 +296,23 @@ integrations:
     r3_entry_gates:
       - scope_approval: passed_2026_08_26
       - security_data_processor_update: passed_2026_08_26
-      - business_portfolio_and_page: external_configuration_required
-      - meta_app_and_business_verification: external_configuration_required
-      - implementation_and_callbacks: repository_verified_deployment_pending
-      - code_review: pending
-      - acceptance_review: pending
-      - human_e2e: pending
-      - external_app_review_submission: separately_gated
+      - business_portfolio_and_page: configured_2026_08_27
+      - meta_app_and_business_verification: app_configured_business_verification_pending
+      - implementation_and_callbacks: deployed_callbacks_configured_deauthorization_and_data_deletion_signed_e2e_pass
+      - code_review: passed_2026_08_27
+      - acceptance_review: passed_2026_08_27
+      - technical_stage_acceptance: passed_2026_08_27
+      - human_e2e: page_publish_disconnect_reconnect_deauthorization_and_data_deletion_callbacks_pass
+      - reviewer_materials_and_external_prerequisites: deferred_to_unified_r5_submission_stage
+      - external_app_review_submission: unified_r5_separately_gated
 
   instagram:
     display_name: Instagram
     wave: wave_1
-    delivery_role: future_integration_not_in_plan
+    delivery_role: r4_5_instagram_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: not_in_current_plan
+    implementation_stage: r4_5_paused_controlled_professional_account_unavailable
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -285,16 +321,92 @@ integrations:
       reauthorize: {state: not_available, public_label: Coming Soon}
       disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
     authorization:
-      mechanism: none
-      requested_scopes: []
+      mechanism: instagram_api_with_instagram_login_web
+      app_ownership: separate_company_business_portfolio_durable_app_id
+      account_boundary: one_company_controlled_professional_account
+      requested_scopes:
+        - scope: instagram_business_basic
+          request_state: approved_provider_independent_candidate_only
+          purpose: bind the exact authorized Professional account and display only user_id and username
+          baseline_trace:
+            - AC-15
+            - AC-16
+          design_trace:
+            - D-02
+            - D-05
+            - D-12
+          ui_surface:
+            - Channels / Connect Instagram / purpose and permission explanation
+            - Channels / exact Professional account identity
+            - Publish Confirmation / exact account and removal consequence
+          user_action:
+            - user explicitly accepts the current legal and Instagram data-purpose notice
+            - user explicitly connects the one controlled Professional account
+          api_methods:
+            - GET /me?fields=user_id,username
+        - scope: instagram_business_content_publish
+          request_state: approved_provider_independent_candidate_only
+          purpose: create and publish one explicitly confirmed MP4 Reel and track only that returned container and media
+          baseline_trace:
+            - AC-15
+            - AC-16
+          design_trace:
+            - D-02
+            - D-03
+            - D-05
+            - D-12
+          ui_surface:
+            - Content Review / Instagram Reel platform version and caption
+            - Publish Confirmation / exact account, MP4, caption, REELS and share_to_feed false
+            - Content Detail / returned container and publish result
+          user_action:
+            - authorized Publisher explicitly confirms the exact account, approved MP4, caption and Reels-tab-only distribution
+          api_methods:
+            - GET /{IG_USER_ID}/content_publishing_limit
+            - POST /{IG_USER_ID}/media with media_type=REELS and share_to_feed=false
+            - GET /{CONTAINER_ID}?fields=status_code,status
+            - POST /{IG_USER_ID}/media_publish exactly once for the approved intent
+            - GET /{MEDIA_ID} with only approved result fields
+      excluded_scopes:
+        - scope: instagram_business_manage_comments
+          reason: no comment reading or moderation
+        - scope: instagram_business_manage_messages
+          reason: no messaging
+        - scope: instagram_business_content_publish_beyond_reels
+          reason: images, carousels, Stories, feed sharing, scheduling, editing and deletion are outside R4.5
+        - scope: facebook_login_and_page_permissions
+          reason: R4.5 uses a separate Instagram Login App and does not reuse the R3 Facebook Login authorization path
+    current_constraints:
+      - public status remains Coming Soon and no public executable entry is rendered
+      - provider-independent domain, persistence, contracts, UI skeleton and deterministic fixtures are implemented locally
+      - a separate Business Portfolio-owned Instagram Login App and exact Review redirect are configured; deauthorization and data-deletion callback fields were observed but left empty because no callback-capable candidate is deployed
+      - the company-controlled Professional account could not complete registration/review in a searchable state, so tester binding, Standard Access, OAuth and callback evidence are paused by Human Owner decision on 2026-08-29
+      - one company-controlled Professional account, one approved MP4 Reel, user-confirmed caption, media_type REELS, fixed share_to_feed false and Publish Now only
+      - the worker may generate a server-to-Meta HTTPS URL only after immutable confirmation; it is object/method-bound, shortest feasible and at most 60 minutes, and must never reach browser, persistence, logs, audit, metrics, screenshots or reviewer media
+      - disconnect denies and fences immediately, cancels queued work, destroys the local token key and authorization/account data, stops refresh and requires the user to remove the App in Instagram
+      - local disconnect or token expiry is never represented as Meta-side revocation; only a verified deauthorization callback may confirm provider revocation
+      - no Facebook User Permissions delete endpoint is called or inferred for Instagram Login
+      - the Instagram-hosted Reel is not implicitly deleted by disconnect or JINGTANG data deletion
+      - actual callback identity mapping, dedicated App/Standard Access configuration and COS fetch/TTL compatibility remain external evidence gates
+    r4_5_entry_gates:
+      - scope_approval: passed_2026_08_28_baseline_revision_8
+      - registry_design_architecture_security_data_legal_test_operations_alignment: passed_2026_08_28_full_verify
+      - provider_independent_implementation: local_candidate_complete_code_review_passed_2026_08_28
+      - provider_dependent_implementation_authorization: not_granted
+      - dedicated_app_configuration: separate_instagram_login_app_and_review_redirect_configured_2026_08_28
+      - controlled_professional_account: blocked_registration_review_not_searchable_paused_2026_08_29
+      - callback_identity_mapping: blocked_controlled_account_and_callback_deployment_pending
+      - standard_access_configuration: blocked_controlled_account_binding_pending
+      - cos_fetch_and_ttl_compatibility: external_evidence_pending_separate_authorization
+      - deployment_and_real_publish: not_authorized
 
   tiktok:
     display_name: TikTok
     wave: wave_2
-    delivery_role: future_integration_not_in_delivery
+    delivery_role: r4_tiktok_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: not_in_current_delivery
+    implementation_stage: r4_technical_stage_accepted
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -303,8 +415,68 @@ integrations:
       reauthorize: {state: not_available, public_label: Coming Soon}
       disconnect_and_revoke: {state: not_available, public_label: Coming Soon}
     authorization:
-      mechanism: none
-      requested_scopes: []
+      mechanism: tiktok_login_kit_web_oauth_2
+      app_ownership: company_tiktok_organization_durable_app_identity
+      api_version_intent: v2
+      media_transfer: pull_from_url_only
+      automatic_scopes:
+        - scope: user.info.basic
+          purpose: bind the OAuth result to the exact TikTok user by open_id and render the minimum connected-account identity without reading the user's feed
+      requested_scopes:
+        - scope: video.publish
+          request_state: implemented_controlled_access_private_publish_passed
+          purpose: query fresh Creator Info, directly post the one explicitly confirmed video and track only the returned publish_id
+          baseline_trace:
+            - AC-08
+            - AC-10
+            - AC-12
+          ui_surface:
+            - Channels / Connect TikTok / identity and permission explanation
+            - Content Review / fresh Creator Info, caption, privacy, interactions and disclosures
+            - Publish Confirmation / exact account, MP4, fields and policy consent
+            - Content Detail / returned processing or failure status
+          user_action:
+            - user explicitly connects their TikTok account
+            - authorized Publisher manually selects an allowed privacy value and explicitly confirms the exact account, media and fields
+          api_methods:
+            - POST /v2/post/publish/creator_info/query/
+            - POST /v2/post/publish/video/init/ with PULL_FROM_URL and the final-confirmed provider-only HTTPS URL
+            - POST /v2/post/publish/status/fetch/ for the returned publish_id
+      excluded_scopes:
+        - scope: video.upload
+          reason: R4 is Direct Post only and does not create TikTok Inbox drafts
+        - scope: video.list
+          reason: R4 does not read existing TikTok posts or synchronize a feed
+        - scope: expanded_profile_metrics_and_other_products
+          reason: expanded profile data, Display API, Research, Data Portability, Ads, Messaging, Comments, Share Kit, Photos and Webhooks are outside R4
+    current_constraints:
+      - public status remains Coming Soon and no public executable entry is rendered
+      - before TikTok audit, only a controlled private account and a manually selected SELF_ONLY value returned by fresh Creator Info are permitted
+      - privacy has no default; Comment, Duet and Stitch are off by default and remain disabled when Creator Info disallows them
+      - commercial-content and AI disclosures plus applicable Music and Branded Content policy consent are part of the immutable final confirmation
+      - media transfer is PULL_FROM_URL only; COS remains private and the final-confirmed object is exposed through a provider-only HTTPS URL bound to object key, SHA-256, byte size, GET and a fixed 65-minute lifetime
+      - the provider-only media URL is secret-equivalent and must not enter browsers, databases, task payloads, audit events, logs, metrics, errors, screenshots or review videos; the ingress access log skips the exact media route
+      - TikTok Dashboard reports review.jingtangai.com as a verified Domain property for the provider-only media route; exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 passed one controlled duplicate-free private PULL_FROM_URL Human E2E and the worker returned to hold-worker
+      - a private unaudited post may complete without a public post ID or external link; the UI must not fabricate one
+      - disconnect denies first, invokes the TikTok revoke endpoint, retires the token key and removes local authorization data without claiming to delete a TikTok-hosted post
+      - company TikTok Organization owns the durable App identity; Review secrets, tokens, redirect URLs, Sandbox users, data and runtime configuration are retired before future production cutover
+      - Revision 9 approved PULL_FROM_URL remediation locally on 2026-08-29, the exact Review Domain property was verified, and exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 passed a controlled SELF_ONLY Human E2E without duplicate or signed-URL leakage; exact post-E2E remediation candidate 742b575e9f6b3330c6ec58c35ae3c10ac5efb396 passed blocking CI, hold-worker deployment, read-only UI verification, Revision 9 Acceptance Review and technical Stage Acceptance on 2026-08-30
+    r4_entry_gates:
+      scope_approval_package: prepared_2026_08_27
+      scope_approval: passed_2026_08_27
+      external_app_or_credential_use: authorized_for_exact_r4_scope
+      implementation: review_deployed_endpoint_fix_verified_technical_stage_accepted
+      human_e2e_write: one_controlled_private_self_only_publish_and_automatic_lifecycle_passed
+      acceptance_review: passed_2026_08_28
+      technical_stage_acceptance: passed_2026_08_28
+      external_review_submission: unified_r5_separately_gated
+      revision_9_local_implementation: passed_verification_and_code_review_2026_08_29
+      revision_9_url_property: review_domain_verified_2026_08_29
+      revision_9_deployment: exact_remediation_candidate_742b575e9f6b3330c6ec58c35ae3c10ac5efb396_hold_worker_deployed_verified_2026_08_30
+      revision_9_human_e2e: exact_candidate_8d35648aac362d2722671fdd8ae7d418368aa235_pull_from_url_private_self_only_passed_no_duplicate_no_signed_url_leakage_2026_08_29
+      revision_9_acceptance: passed_ac_08_ac_10_ac_12_2026_08_30
+      revision_9_technical_stage_acceptance: passed_human_owner_2026_08_30
+      r5_policy_revalidation: revision_9_technical_stage_accepted_submission_evidence_pending_2026_08_30
 
   linkedin:
     display_name: LinkedIn

@@ -1,7 +1,7 @@
 # JINGTANG Contract Governance
 
 - Status: Approved
-- Contract Governance Revision: 3
+- Contract Governance Revision: 5
 - Effective Date: 2026-08-20
 - Owner: JINGTANG Contract Owner
 - Architecture: [`docs/architecture/README.md`](../docs/architecture/README.md)
@@ -55,6 +55,7 @@ The Baseline-approved labels are represented without collapsing three meanings:
 - Publishing Intent: `none`, `ready`, `scheduled`, `cancelled`. `scheduled` is a valid contract value but no integration may create it while the registry capability is `not_available`.
 - Platform Execution: `not_started`, `publishing`, `processing`, `published`, `failed`, `needs_attention`, `cancelled`.
 - Channel State: `not_connected`, `connecting`, `connected`, `reauthorization_required`, `disconnecting`, `disconnected`.
+- Instagram Provider Removal State: `not_applicable`, `pending_user_action`, `confirmed`. Only a verified deauthorization callback may move the provider state to `confirmed`; local cleanup or token expiry may not.
 
 `Scheduled`, `Publishing`, `Processing`, `Published`, `Failed`, `Needs Attention`, and `Cancelled` are projections from Publishing Intent or per-platform execution, not alternative Content Lifecycle rows. Aggregate projections must retain every platform result and may not report `published` while any selected execution is failed, processing, or needs attention.
 
@@ -92,11 +93,14 @@ The manifest routes these contracts to D2 or D4. Their machine schemas must pres
 - Identifies Workspace, intent, platform, channel/account, adapter operation, attempt, idempotency key, state, safe failure category, provider ID/URL when available, and timestamps.
 - Retry never changes the approved payload or selected account. A changed payload requires a new revision, approval, and confirmation.
 - Provider-specific raw errors are not public contract fields.
+- Instagram persists separate provider-neutral container-create and media-publish checkpoints. `started` or `ambiguous` requires reconciliation before another write, and returned container/media identifiers are immutable until authorized-data cleanup pseudonymizes them.
 
 ### Channel
 
 - Stores platform/account identity, granted scope set, capability snapshot, channel state, consent reference, token-ciphertext reference, authorization/refresh timestamps, and deny/deletion markers.
 - Tokens, authorization codes, client secrets, and signed URLs are forbidden from every public/API/event schema.
+- TikTok provider-only media grants are secret-equivalent runtime capabilities. Their URL/token never enters a browser, public contract, database, task/event payload, audit event, log, metric, error, screenshot, or review video.
+- Instagram local disconnect is represented separately from provider removal: it clears local authorization/account data immediately, while `pending_user_action` remains visible until a verified callback records `confirmed`.
 
 ### Audit Event
 
@@ -131,5 +135,7 @@ The manifest routes these contracts to D2 or D4. Their machine schemas must pres
 
 ## Revision Record
 
+- Revision 5 — 2026-08-29：Revision 9 replaces TikTok's server-stored-media `FILE_UPLOAD` contract with Publishing Intent v5 `PULL_FROM_URL`. Platform Execution v5 accompanies the breaking intent major. The temporary provider-only HTTPS grant remains runtime-only, binds the final-confirmed private COS object key, SHA-256, byte size, GET method and 65-minute lifetime, and is forbidden from all persisted or public contracts. Prior majors remain immutable compatibility history.
+- Revision 4 — 2026-08-28：R4.5 adds breaking-major Instagram-aware Consent v4, Channel v2, Platform Version v4, Publishing Intent v4 and Platform Execution v4 contracts. The wire boundary fixes one MP4 Reel to `REELS`, `shareToFeed=false` and immediate mode, persists duplicate-safe create/publish checkpoints, keeps signed media URLs out of every contract, and separates immediate local disconnect from verified-callback provider confirmation. Prior majors remain immutable compatibility history.
 - Revision 3 — 2026-08-21：D4 实现 Source Asset、Content Lifecycle、Platform Version、Approval、Publishing Intent 与 Platform Execution 合同；审批 API 只改变 Content Lifecycle，不创建 Publishing Intent 或 Platform Execution。
 - Revision 2 — 2026-08-20：随 Human Owner 授权的 Baseline Revision 2 增加 `en`/`zh-CN` locale vocabulary、Locale Preference contract 路由与 Consent displayed locale；Revision 1 的 domain 状态、权限、兼容性和 Stage ownership 保持不变。

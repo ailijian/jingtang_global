@@ -1,6 +1,7 @@
 export * from "./cognito-identity.js";
 export * from "./google-youtube-oauth.js";
 export * from "./deterministic-youtube-test-adapter.js";
+export * from "./deterministic-instagram-provider.js";
 export * from "./local-envelope-token-vault.js";
 export * from "./meta-facebook.js";
 export * from "./mock-identity.js";
@@ -9,6 +10,7 @@ export * from "./tencent-cloud-credentials.js";
 export * from "./tencent-ciam-identity.js";
 export * from "./tencent-kms-envelope-token-vault.js";
 export * from "./tencent-runtime-secret-bundle.js";
+export * from "./tiktok-direct-post.js";
 export * from "./token-envelope-vault.js";
 export * from "./rabbit-command-transport.js";
 export * from "./runtime-secret-files.js";

@@ -328,14 +328,23 @@ ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
   "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/generate-internal-secrets.sh'"
 ```
 
-依次交互式安装八个外部密钥。脚本关闭回显，且拒绝覆盖已有值：
+每次部署（包括现有主机升级）都运行一次 TikTok 媒体签名密钥的 create-only
+检查。文件已存在时脚本只验证所有者、权限和最小长度并原样保留；文件缺失时才
+原子生成新值，绝不显示或覆盖 Secret：
+
+```bash
+ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
+  "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/ensure-tiktok-media-signing-secret.sh'"
+```
+
+首次部署依次交互式安装九个外部密钥。脚本关闭回显，且拒绝覆盖已有值：
 
 ```bash
 for JT_SECRET_NAME in \
   platform-cam-secret-id platform-cam-secret-key \
   worker-cam-secret-id worker-cam-secret-key \
   backup-cam-secret-id backup-cam-secret-key \
-  youtube-client-secret facebook-app-secret; do
+  youtube-client-secret facebook-app-secret tiktok-client-secret; do
   ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
     "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/install-external-secret.sh' '$JT_SECRET_NAME'"
 done
@@ -367,10 +376,36 @@ test "${#JT_IMAGES_SHA256}" -eq 64
 ```bash
 ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" \
   "sudo '/srv/jingtang/review/releases/$JT_RELEASE_SHA/activate-release.sh' \
-    '$JT_RELEASE_SHA' '$JT_IMAGES_SHA256' '$JT_CHANGE_REF'"
+    '$JT_RELEASE_SHA' '$JT_IMAGES_SHA256' '$JT_CHANGE_REF' 'hold-worker'"
 ```
 
-激活会校验发布包、镜像 revision label、Compose、Caddy、`runtime.env` 和 live 配置，前向迁移数据库，启动 PostgreSQL、platform 和 worker，重建共享 Caddy，然后检查容器健康、官网 HTTPS 及 SaaS `noindex`。失败时会恢复进入激活前的官网/Review 配置；数据库迁移不会向后回滚。健康检查通过后，脚本只保留当前版本与上一可回滚版本，并按经过验证的完整 Git SHA 自动删除更早的 Review 发布目录、无 rollback 证据的废弃 SHA 候选、失败候选中的大镜像归档及旧镜像标签；共享镜像层仍由 Docker 保留，不会清理 rollback 配置证据、数据库卷、state、secrets 或用户对象。
+激活要求显式选择 `hold-worker` 或 `start-worker`。默认部署准备使用上面的
+`hold-worker`：脚本会先停止旧 worker，校验新增签名 Secret，前向迁移数据库，
+启动 PostgreSQL 与 platform、重建共享 Caddy，并在 worker 保持停止的前提下检查
+官网 HTTPS、SaaS health 与 `noindex`，因此激活本身不会恢复排队的 provider 操作。
+只有变更授权明确涵盖恢复当前 durable provider 工作时才可改用 `start-worker`；
+不得因容器健康检查而隐含扩大 API 调用或发布授权。
+
+失败时会恢复进入激活前的官网/Review 配置；数据库迁移不会向后回滚。
+`hold-worker` 失败回退也保持 worker 停止，避免意外恢复 provider 调用。
+健康检查通过后，脚本只保留当前版本与上一可回滚版本，并按经过验证的完整 Git SHA
+自动删除更早的 Review 发布目录、无 rollback 证据的废弃 SHA 候选、失败候选中的
+大镜像归档及旧镜像标签；共享镜像层仍由 Docker 保留，不会清理 rollback 配置证据、
+数据库卷、state、secrets 或用户对象。成功记录同时包含所选 worker mode。
+
+在另行授权恢复 provider 操作后，使用当前不可变发布配置启动 worker，并立即检查状态；
+该动作可能领取已有 outbox/lifecycle 工作，因此不得在仅授权部署、未授权 provider
+调用时执行：
+
+```bash
+ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" "$JT_SSH_TARGET" '
+  sudo docker compose --project-directory /srv/jingtang/review \
+    --env-file /srv/jingtang/review/runtime.env \
+    --env-file /srv/jingtang/review/release.env \
+    -f /srv/jingtang/review/compose.yaml up -d worker
+  sudo docker inspect --format="{{.State.Status}}" jingtang-review-worker-1
+'
+```
 
 新空环境创建首个预授权账号：
 
@@ -666,7 +701,7 @@ ssh -t -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" jingtang-production '
 3. 运行 `pnpm site:deploy:tencent`；
 4. 运行 `pnpm site:production-smoke` 并检查两个 Sign in 链接。
 
-Review 应用更新使用第 4.4、4.6、4.8 和 4.9 节。已有主机不得再次运行 `generate-internal-secrets.sh`，也不得覆盖 `runtime.env` 或已有外部密钥。新发布只传输新的不可变 release，读取其校验和后运行新的 `activate-release.sh`；成功后重新安装 timers，以确保主机使用当前发布中的维护脚本和 unit。
+Review 应用更新使用第 4.4、4.6、4.7 中的 create-only TikTok 签名 Secret 检查、4.8 和 4.9 节。已有主机不得再次运行 `generate-internal-secrets.sh`，也不得覆盖 `runtime.env` 或已有外部密钥。新发布只传输新的不可变 release，验证/补建缺失的 TikTok 媒体签名 Secret，读取 archive 校验和后以明确的 worker mode 运行新的 `activate-release.sh`；成功后重新安装 timers，以确保主机使用当前发布中的维护脚本和 unit。
 
 每次发布后记录：UTC 时间、Git SHA、变更引用、CI 结果、两个 archive SHA256、容器/health、官网 smoke、登录验收、备份对象键和恢复演练结果。服务器会把成功 Review 激活追加到 `/srv/jingtang/review/change-record.log`。
 
@@ -756,7 +791,7 @@ ssh -o IdentitiesOnly=yes -i "$JT_SSH_IDENTITY" jingtang-production '
 一次人工部署或维护只有在以下项目均完成后才能结束：
 
 - 目标主机、Git SHA、变更引用和执行人已记录；
-- 官网和 Review release 指针正确，四个容器运行且 health 正常；
+- 官网和 Review release 指针正确；platform/PostgreSQL/Caddy 健康，worker 状态与 change record 中明确授权的 `hold-worker` 或 `start-worker` 一致；
 - 公网只暴露批准端口，Review 保持 `noindex`；
 - `pnpm site:production-smoke` 和所需人工登录流程通过；
 - 没有“测试、内测、审核环境”等内部对外文案；

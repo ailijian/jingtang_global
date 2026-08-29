@@ -1199,6 +1199,15 @@
   .app-content main {
     padding: 34px 20px 60px;
   }
+  .channel-card__heading {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .channel-status {
+    max-width: 100%;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
   .mobile-context {
     display: flex;
     min-height: 48px;

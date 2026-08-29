@@ -3,6 +3,9 @@ import path from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
+import { extractPublicCopy } from "./lib/public-site-copy.js";
+import { requireCoherentProductionLegalRollout } from "./lib/public-site-rollout.js";
+
 interface SiteConfig {
   readonly status: string;
   readonly identity: {
@@ -75,6 +78,13 @@ for (const [id, integration] of Object.entries(registry.integrations)) {
 }
 
 if (productionCheck) {
+  const productionLegalRollout =
+    siteConfig.status === "production"
+      ? requireCoherentProductionLegalRollout({
+          deploymentStatus: siteConfig.legal.deployment_status,
+          policyRollout: siteConfig.production_readiness.legal_policy_rollout,
+        })
+      : undefined;
   const required = {
     config_status: siteConfig.status,
     legal_approval: siteConfig.legal.approval_status,
@@ -92,13 +102,13 @@ if (productionCheck) {
       ? {
           config_status: "production",
           legal_approval: "approved",
-          legal_deployment: "deployed_verified",
+          legal_deployment: productionLegalRollout,
           domain_ownership: "verified",
           dns: "deployed_verified",
           tls: "verified",
           legal_data_approval: "approved",
           rollout: "deployed_verified",
-          legal_policy_rollout: "deployed_verified",
+          legal_policy_rollout: productionLegalRollout,
           product_access_rollout: "deployed_verified",
         }
       : {
@@ -170,6 +180,7 @@ for (const locale of ["en", "zh-cn"] as const) {
   for (const route of routes) {
     const file = path.join(out, locale, route, "index.html");
     const html = await readFile(file, "utf8");
+    const publicCopy = extractPublicCopy(html);
     const language = locale === "en" ? "en" : "zh-CN";
     const suffix = route ? `${route}/` : "";
     const canonical = `${siteConfig.identity.canonical_origin}/${locale}/${suffix}`;
@@ -185,7 +196,7 @@ for (const locale of ["en", "zh-cn"] as const) {
       if (!html.includes(expected)) throw new Error(`${file} is missing ${expected}`);
     }
     for (const prohibited of prohibitedCopy) {
-      if (html.includes(prohibited))
+      if (publicCopy.includes(prohibited))
         throw new Error(`${file} renders prohibited copy: ${prohibited}`);
     }
     if (!html.includes(`href="${siteConfig.product_access.sign_in_url}"`)) {

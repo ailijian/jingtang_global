@@ -164,6 +164,7 @@ export function facebookExecutionFailureDisposition(
     "execution_not_authorized",
     "facebook_mp4_required",
     "facebook_video_too_large",
+    "invalid_input",
     "source_asset_size_mismatch",
     "source_asset_hash_mismatch",
     "source_asset_body_missing",

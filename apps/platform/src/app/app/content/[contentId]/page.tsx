@@ -1,5 +1,11 @@
-import { getContentDetail, listFacebookChannels, listYouTubeChannels } from "@jingtang/db";
-import { hasPermission, type Locale } from "@jingtang/domain";
+import {
+  getContentDetail,
+  listFacebookChannels,
+  listInstagramChannels,
+  listTikTokChannels,
+  listYouTubeChannels,
+} from "@jingtang/db";
+import { hasPermission, type Locale, type Platform } from "@jingtang/domain";
 import { formatDateTime, formatNumber, translate } from "@jingtang/i18n";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,7 +18,7 @@ import { getRuntime } from "../../../../server/runtime";
 
 function platformAccountLabel(
   locale: Locale,
-  platform: "youtube" | "facebook",
+  platform: Platform,
   accountDisplayName: string,
   accountReference: string,
 ): string {
@@ -21,14 +27,30 @@ function platformAccountLabel(
       ? locale === "zh-CN"
         ? "已断开的 Facebook Page"
         : "Disconnected Facebook Page"
-      : translate(locale, "detail.publish.channelDisconnected");
+      : platform === "instagram"
+        ? locale === "zh-CN"
+          ? "已在本地断开的 Instagram 账号"
+          : "Locally disconnected Instagram account"
+        : platform === "tiktok"
+          ? locale === "zh-CN"
+            ? "已断开的 TikTok 账号"
+            : "Disconnected TikTok account"
+          : translate(locale, "detail.publish.channelDisconnected");
   }
   if (accountReference.startsWith("expired:")) {
     return platform === "facebook"
       ? locale === "zh-CN"
         ? "授权已过期的 Facebook Page"
         : "Facebook Page authorization expired"
-      : translate(locale, "detail.publish.channelExpired");
+      : platform === "instagram"
+        ? locale === "zh-CN"
+          ? "授权已过期的 Instagram 账号"
+          : "Instagram authorization expired"
+        : platform === "tiktok"
+          ? locale === "zh-CN"
+            ? "授权已过期的 TikTok 账号"
+            : "TikTok authorization expired"
+          : translate(locale, "detail.publish.channelExpired");
   }
   return `${accountDisplayName} · ${accountReference}`;
 }
@@ -56,7 +78,11 @@ export default async function ContentDetailPage({
   const currentConnectedChannel = (
     await (version.platform === "facebook"
       ? listFacebookChannels(getRuntime().db, workspaceId)
-      : listYouTubeChannels(getRuntime().db, workspaceId))
+      : version.platform === "instagram"
+        ? listInstagramChannels(getRuntime().db, workspaceId)
+        : version.platform === "tiktok"
+          ? listTikTokChannels(getRuntime().db, workspaceId)
+          : listYouTubeChannels(getRuntime().db, workspaceId))
   ).find((channel) => channel.state === "connected" && channel.externalAccountId);
   const versionTargetsCurrentChannel =
     currentConnectedChannel?.externalAccountId === version.accountReference;
@@ -64,6 +90,7 @@ export default async function ContentDetailPage({
   const activeExecution = content.publishing.executions.some((entry) =>
     ["not_started", "publishing", "processing"].includes(entry.state),
   );
+  const retryableExecution = content.publishing.currentRevisionExecutions[0]?.retryable === true;
   const executionLabel =
     version.platform === "facebook"
       ? ({
@@ -75,15 +102,35 @@ export default async function ContentDetailPage({
           needs_attention: "detail.execution.needsAttention",
           cancelled: "detail.execution.cancelled",
         } as const)
-      : ({
-          not_started: "detail.execution.notStarted",
-          publishing: "detail.execution.publishing",
-          processing: "detail.execution.processing",
-          published: "detail.execution.published",
-          failed: "detail.execution.failed",
-          needs_attention: "detail.execution.needsAttention",
-          cancelled: "detail.execution.cancelled",
-        } as const);
+      : version.platform === "instagram"
+        ? ({
+            not_started: "detail.execution.notStarted",
+            publishing: "detail.execution.instagram.publishing",
+            processing: "detail.execution.instagram.processing",
+            published: "detail.execution.instagram.published",
+            failed: "detail.execution.instagram.failed",
+            needs_attention: "detail.execution.needsAttention",
+            cancelled: "detail.execution.cancelled",
+          } as const)
+        : version.platform === "tiktok"
+          ? ({
+              not_started: "detail.execution.notStarted",
+              publishing: "detail.execution.tiktok.publishing",
+              processing: "detail.execution.tiktok.processing",
+              published: "detail.execution.tiktok.published",
+              failed: "detail.execution.tiktok.failed",
+              needs_attention: "detail.execution.needsAttention",
+              cancelled: "detail.execution.cancelled",
+            } as const)
+          : ({
+              not_started: "detail.execution.notStarted",
+              publishing: "detail.execution.publishing",
+              processing: "detail.execution.processing",
+              published: "detail.execution.published",
+              failed: "detail.execution.failed",
+              needs_attention: "detail.execution.needsAttention",
+              cancelled: "detail.execution.cancelled",
+            } as const);
   return (
     <>
       <header className="page-heading detail-heading">
@@ -224,7 +271,15 @@ export default async function ContentDetailPage({
                         ? locale === "zh-CN"
                           ? "没有已连接的 Facebook Page"
                           : "No connected Facebook Page"
-                        : translate(locale, "detail.publish.currentChannelNone")}
+                        : version.platform === "instagram"
+                          ? locale === "zh-CN"
+                            ? "没有已连接的 Instagram Professional 账号"
+                            : "No connected Instagram Professional account"
+                          : version.platform === "tiktok"
+                            ? locale === "zh-CN"
+                              ? "没有已连接的 TikTok 账号"
+                              : "No connected TikTok account"
+                            : translate(locale, "detail.publish.currentChannelNone")}
                   </dd>
                 </div>
               </dl>
@@ -240,7 +295,11 @@ export default async function ContentDetailPage({
                     locale,
                     version.platform === "facebook"
                       ? "detail.publish.facebook.openVideo"
-                      : "detail.publish.openVideo",
+                      : version.platform === "instagram"
+                        ? "detail.publish.instagram.openReel"
+                        : version.platform === "tiktok"
+                          ? "detail.publish.tiktok.openVideo"
+                          : "detail.publish.openVideo",
                   )}
                 </a>
               ) : execution.state === "published" && historicalChannelIdentityCleared ? (
@@ -249,7 +308,13 @@ export default async function ContentDetailPage({
                     ? locale === "zh-CN"
                       ? "Facebook 授权数据已删除，因此不再保存外部帖子链接。"
                       : "The external post link is no longer stored after Facebook Authorized Data deletion."
-                    : translate(locale, "detail.publish.providerLinkCleared")}
+                    : version.platform === "instagram"
+                      ? locale === "zh-CN"
+                        ? "Instagram 授权数据已删除，因此不再保存外部 Reel 标识或链接。"
+                        : "The external Reel reference is no longer stored after Instagram Authorized Data deletion."
+                      : version.platform === "tiktok"
+                        ? translate(locale, "detail.publish.tiktok.providerLinkCleared")
+                        : translate(locale, "detail.publish.providerLinkCleared")}
                 </small>
               ) : null}
               {execution.state === "needs_attention" ? (
@@ -279,6 +344,7 @@ export default async function ContentDetailPage({
           ) : null}
           {content.status === "approved" ? (
             <PublishActions
+              key={content.publishing.currentRevisionExecutions[0]?.id ?? "new-publish"}
               locale={locale}
               contentId={content.id}
               revisionId={content.revision.id}
@@ -286,12 +352,20 @@ export default async function ContentDetailPage({
                 versionTargetsCurrentChannel &&
                 (version.platform === "youtube"
                   ? version.privacyStatus === "private"
-                  : version.privacyStatus === "public" &&
-                    content.sourceAsset.mediaType === "video/mp4" &&
-                    content.sourceAsset.byteSize <= 500 * 1024 * 1024) &&
+                  : version.platform === "facebook"
+                    ? version.privacyStatus === "public" &&
+                      content.sourceAsset.mediaType === "video/mp4" &&
+                      content.sourceAsset.byteSize <= 500 * 1024 * 1024
+                    : version.platform === "instagram"
+                      ? false
+                      : version.privacyStatus === "unselected" &&
+                        content.sourceAsset.mediaType === "video/mp4" &&
+                        content.sourceAsset.byteSize <= 500 * 1024 * 1024 &&
+                        Boolean(content.sourceAsset.durationSeconds)) &&
                 hasPermission(role, "content.publish")
               }
-              hasExecution={content.publishing.executionCount > 0}
+              hasExecution={content.publishing.currentRevisionExecutions.length > 0}
+              canRetry={retryableExecution}
               polling={activeExecution}
               sourceFilename={content.sourceAsset.filename}
               title={version.title}
@@ -299,6 +373,8 @@ export default async function ContentDetailPage({
               channel={versionChannelLabel}
               madeForKids={version.madeForKids}
               platform={version.platform}
+              channelId={currentConnectedChannel?.id ?? null}
+              durationSeconds={content.sourceAsset.durationSeconds}
             />
           ) : null}
           <span className="unavailable-pill">{translate(locale, "composer.schedule")}</span>

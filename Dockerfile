@@ -121,7 +121,8 @@ FROM runtime-base AS migration
 # The migration image shares the exact production dependency and application
 # layers. Only its execution identity/command differ, so releases do not carry
 # a second development dependency tree.
+# Keep the image non-root by default. The Review Compose profile explicitly
+# elevates only its one-shot migration job to read the root-managed admin URL.
 ARG VCS_REF
 LABEL org.opencontainers.image.revision=$VCS_REF
-USER root
 CMD ["node", "apps/platform/scripts/migrate-review.mjs"]

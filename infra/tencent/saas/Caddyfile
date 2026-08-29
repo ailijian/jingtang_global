@@ -11,10 +11,14 @@ app.jingtangai.com {
 	# must never enter the ingress access log.
 	@youtube_oauth_callback path /api/v1/channels/youtube/oauth/callback
 	log_skip @youtube_oauth_callback
+	# The TikTok media token is a secret-equivalent capability and must not enter
+	# ingress access logs.
+	@tiktok_media path /api/v1/media/tiktok
+	log_skip @tiktok_media
 
 	header {
 		-Server
-		Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; form-action 'self' https://accounts.google.com; upgrade-insecure-requests"
+		Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; form-action 'self' https://accounts.google.com; upgrade-insecure-requests"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"

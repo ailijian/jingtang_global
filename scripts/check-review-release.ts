@@ -54,6 +54,7 @@ const requireCamPolicy = (
 
 const composeText = read("infra/tencent/review/compose.yaml");
 const runtimeEnvExample = read("infra/tencent/review/runtime.env.example");
+const tikTokProviderSource = read("packages/integrations/src/tiktok-direct-post.ts");
 const pinnedNode =
   "node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03";
 const compose = parse(composeText) as {
@@ -74,9 +75,9 @@ if (
 }
 for (const marker of [
   "APP_ENV: review",
-  'TERMS_VERSION: "2026-08-26"',
-  'PRIVACY_VERSION: "2026-08-26"',
-  'DATA_PURPOSE_VERSION: "2026-08-26"',
+  'TERMS_VERSION: "2026-08-28-r4.5"',
+  'PRIVACY_VERSION: "2026-08-28-r4.5"',
+  'DATA_PURPOSE_VERSION: "2026-08-28-r4.5"',
   'user: "65532:65532"',
   'ACTIVE_SOURCE_ASSET_SOFT_QUOTA_BYTES: "16106127360"',
   'MAX_SOURCE_ASSET_BYTES: "524288000"',
@@ -89,6 +90,11 @@ for (const marker of [
   "FACEBOOK_GRAPH_API_VERSION: v26.0",
   "FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret",
   "FACEBOOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/facebook-state-secret",
+  'TIKTOK_OAUTH_ENABLED: "true"',
+  "TIKTOK_CLIENT_KEY: ${REVIEW_TIKTOK_CLIENT_KEY:?required}",
+  "TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret",
+  "TIKTOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/tiktok-state-secret",
+  "TIKTOK_MEDIA_URL_SIGNING_SECRET_FILE: /run/jingtang-secrets/tiktok-media-url-signing-secret",
   "/srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro",
   "DATABASE_URL_FILE:",
   "profiles: [tools]",
@@ -123,6 +129,36 @@ for (const forbidden of [
   }
 }
 
+const approvedTikTokEndpointLiterals = [
+  "https://open.tiktokapis.com/v2/oauth/revoke/",
+  "https://open.tiktokapis.com/v2/oauth/token/",
+  "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
+  "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+  "https://open.tiktokapis.com/v2/post/publish/video/init/",
+  "https://www.tiktok.com/v2/auth/authorize/",
+].sort();
+const implementedTikTokEndpointLiterals = [
+  ...new Set(
+    [
+      ...tikTokProviderSource.matchAll(
+        /"(https:\/\/(?:www\.tiktok\.com|open\.tiktokapis\.com)\/[^"]+)"/gu,
+      ),
+    ].map((match) => match[1]),
+  ),
+].sort();
+if (
+  JSON.stringify(implementedTikTokEndpointLiterals) !==
+  JSON.stringify(approvedTikTokEndpointLiterals)
+) {
+  throw new Error(
+    `TikTok provider endpoint literals must match the approved R4 allow-list: ${implementedTikTokEndpointLiterals.join(", ")}`,
+  );
+}
+requireText(tikTokProviderSource, 'source: "PULL_FROM_URL"', "TikTok provider");
+if (tikTokProviderSource.includes("FILE_UPLOAD") || tikTokProviderSource.includes("upload_url")) {
+  throw new Error("TikTok server-stored media must use PULL_FROM_URL only");
+}
+
 const caddy = read("infra/tencent/public-site/Caddyfile");
 for (const marker of [
   "review.jingtangai.com",
@@ -132,13 +168,15 @@ for (const marker of [
   "header_up X-Real-IP {remote_host}",
   'X-Robots-Tag "noindex, nofollow, noarchive"',
   "log_skip @sensitive_callback",
+  "/api/v1/channels/tiktok/oauth/callback",
+  "/api/v1/media/tiktok",
   "https://*.cos.ap-seoul.myqcloud.com",
 ]) {
   requireText(caddy, marker, "public-site Caddyfile");
 }
 requireText(
   caddy,
-  "connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com https://www.facebook.com;",
+  "media-src 'self' blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.cos.ap-seoul.myqcloud.com; form-action 'self' https://accounts.google.com https://www.facebook.com https://www.tiktok.com;",
   "Review Content-Security-Policy",
 );
 
@@ -212,9 +250,94 @@ for (const marker of [
 
 const platformLayout = read("apps/platform/src/app/layout.tsx");
 const channelPage = read("apps/platform/src/app/app/channels/page.tsx");
+const contentComposer = read("apps/platform/src/components/content-composer.tsx");
 const englishCatalog = read("packages/i18n/src/catalogs/en.ts");
 const chineseCatalog = read("packages/i18n/src/catalogs/zh-CN.ts");
 const publicSiteConfig = read("config/public-site.yaml");
+const integrationsConfig = parse(read("config/integrations.yaml")) as {
+  integrations?: Record<
+    string,
+    {
+      public_status?: string;
+      production_available?: boolean;
+      capabilities?: Record<string, { state?: string }>;
+    }
+  >;
+};
+const instagramRegistry = integrationsConfig.integrations?.instagram;
+if (
+  instagramRegistry?.public_status !== "coming_soon" ||
+  instagramRegistry.production_available !== false ||
+  Object.values(instagramRegistry.capabilities ?? {}).some(
+    (capability) => capability.state !== "not_available",
+  )
+) {
+  throw new Error("Instagram must remain publicly Coming Soon and non-executable in R4.5 I1-I3");
+}
+const instagramContract = read("packages/application/src/instagram.ts");
+const deterministicInstagramProvider = read(
+  "packages/integrations/src/deterministic-instagram-provider.ts",
+);
+const integrationsIndex = read("packages/integrations/src/index.ts");
+const workerSource = read("apps/worker/src/index.ts");
+const instagramDisconnectRoute = read(
+  "apps/platform/src/app/api/v1/channels/instagram/disconnect/route.ts",
+);
+for (const marker of [
+  '"instagram_business_basic"',
+  '"instagram_business_content_publish"',
+  'fields: ["access_token", "caption", "media_type=REELS", "share_to_feed=false", "video_url"]',
+  'readonly method: "GET"',
+  "expiresInSeconds > 3_600",
+  'return "[REDACTED_INSTAGRAM_MEDIA_URL]"',
+]) {
+  requireText(instagramContract, marker, "Instagram provider-independent contract");
+}
+if (instagramContract.includes("revokeAuthorization")) {
+  throw new Error("Instagram provider contract must not claim a programmatic revoke operation");
+}
+for (const marker of [
+  "https://instagram.local.invalid",
+  "https://cos.local.invalid",
+  "DeterministicInstagramProvider",
+]) {
+  requireText(deterministicInstagramProvider, marker, "deterministic Instagram provider");
+}
+requireText(
+  integrationsIndex,
+  "./deterministic-instagram-provider.js",
+  "Instagram integration export",
+);
+requireText(
+  workerSource,
+  'message.topic === "platform.instagram.publish.v1"',
+  "Instagram worker deny gate",
+);
+requireText(
+  workerSource,
+  'failureCategory: "instagram_provider_evidence_required"',
+  "Instagram worker deny gate",
+);
+if (
+  instagramDisconnectRoute.includes("revokeAuthorization") ||
+  instagramDisconnectRoute.includes("fetch(")
+) {
+  throw new Error("Instagram local disconnect must not invoke a provider or network revocation");
+}
+for (const forbidden of [
+  "INSTAGRAM_APP_ID",
+  "INSTAGRAM_APP_SECRET",
+  "INSTAGRAM_OAUTH_ENABLED",
+  "INSTAGRAM_ACCESS_TOKEN",
+]) {
+  if (
+    composeText.includes(forbidden) ||
+    runtimeEnvExample.includes(forbidden) ||
+    config.includes(forbidden)
+  ) {
+    throw new Error(`R4.5 I1-I3 must not configure external Instagram credential: ${forbidden}`);
+  }
+}
 for (const [marker, sources] of [
   ["REVIEW ENVIRONMENT · NOT FOR SALE", [platformLayout, englishCatalog]],
   ["审核环境 · 非销售用途", [platformLayout, chineseCatalog]],
@@ -223,6 +346,9 @@ for (const [marker, sources] of [
   ["连接 YouTube 测试账号", [chineseCatalog]],
   ["Private Beta · pre-launch", [englishCatalog]],
   ["私有测试版 · 尚未公开上线", [chineseCatalog]],
+  ["R4", [channelPage, contentComposer]],
+  ["PILOT", [channelPage]],
+  ["This pilot", [channelPage]],
 ] as const) {
   if (sources.some((source) => source.includes(marker))) {
     throw new Error(`user-facing product content must not expose internal status: ${marker}`);
@@ -245,9 +371,27 @@ const internalSecrets = read("infra/tencent/review/generate-internal-secrets.sh"
 for (const marker of [
   "oauth-token-encryption-key",
   "facebook-state-secret",
+  "tiktok-state-secret",
+  "tiktok-media-url-signing-secret",
   "openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n'",
 ]) {
   requireText(internalSecrets, marker, "review internal-secret generator");
+}
+const tikTokMediaSecretUpgrade = read("infra/tencent/review/ensure-tiktok-media-signing-secret.sh");
+for (const marker of [
+  "tiktok-media-url-signing-secret",
+  'metadata="$(stat -c \'%a %u %g\' "$target")"',
+  'if [[ "$metadata" != "400 $service_uid $service_uid" ]]',
+  'ln "$next" "$target"',
+  "already exists and was preserved",
+]) {
+  requireText(tikTokMediaSecretUpgrade, marker, "TikTok media signing-secret upgrade");
+}
+if (
+  tikTokMediaSecretUpgrade.includes("mv -f") ||
+  tikTokMediaSecretUpgrade.includes('rm -f -- "$target"')
+) {
+  throw new Error("TikTok media signing-secret upgrade must never replace the live secret");
 }
 
 const backupScript = read("infra/tencent/review/backup-review.sh");
@@ -275,6 +419,7 @@ for (const script of [
   "infra/tencent/review/package-release.sh",
   "infra/tencent/review/prepare-host.sh",
   "infra/tencent/review/generate-internal-secrets.sh",
+  "infra/tencent/review/ensure-tiktok-media-signing-secret.sh",
   "infra/tencent/review/install-external-secret.sh",
   "infra/tencent/review/install-maintenance-timers.sh",
   "infra/tencent/review/backup-review.sh",
@@ -292,7 +437,14 @@ const activation = read("infra/tencent/review/activate-release.sh");
 for (const marker of [
   "candidate_init",
   "previous_review_running",
-  "compose_live up -d postgres platform worker",
+  'readonly worker_mode="${4:-}"',
+  '[[ "$worker_mode" != "hold-worker" && "$worker_mode" != "start-worker" ]]',
+  "tiktok-media-url-signing-secret",
+  "compose_live stop worker",
+  "compose_live up -d platform",
+  'if [[ "$worker_mode" == "start-worker" ]]',
+  "compose_live up -d worker",
+  "worker_mode=$worker_mode",
   "https://jingtangai.com/",
   "https://review.jingtangai.com/api/v1/health",
   "--request POST",
@@ -313,6 +465,7 @@ for (const marker of [
   'await import("@jingtang/application")',
   "node /app/packages/db/node_modules/prisma/build/index.js validate",
   'docker save --output "$output_dir/jingtang-review-images.tar"',
+  "ensure-tiktok-media-signing-secret.sh",
 ]) {
   requireText(packageRelease, marker, "review package runtime-identity smoke");
 }

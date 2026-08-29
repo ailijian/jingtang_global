@@ -49,6 +49,7 @@ describe("Tencent runtime secret bundles", () => {
         SESSION_COOKIE_SECRET: "a-production-session-secret-over-32-bytes",
         FACEBOOK_APP_SECRET: "meta-app-secret",
         FACEBOOK_OAUTH_STATE_SECRET: "facebook-state-secret",
+        TIKTOK_MEDIA_URL_SIGNING_SECRET: "a-dedicated-tiktok-media-url-signing-secret",
       },
       masterKeyId: "kms-secret-key",
       kms: kms(),
@@ -74,6 +75,9 @@ describe("Tencent runtime secret bundles", () => {
     expect(environment.SESSION_COOKIE_SECRET).toHaveLength(41);
     expect(environment.FACEBOOK_APP_SECRET).toBe("meta-app-secret");
     expect(environment.FACEBOOK_OAUTH_STATE_SECRET).toBe("facebook-state-secret");
+    expect(environment.TIKTOK_MEDIA_URL_SIGNING_SECRET).toBe(
+      "a-dedicated-tiktok-media-url-signing-secret",
+    );
     await expect(
       decryptRuntimeSecretBundle({ role: "worker", serialized: store.body, kms: kms() }),
     ).rejects.toThrow("runtime_secret_bundle_scope_mismatch");

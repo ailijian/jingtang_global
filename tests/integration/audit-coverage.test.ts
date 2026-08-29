@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import { youtubeOAuthScopes } from "@jingtang/application";
+import { tikTokOAuthScopes, youtubeOAuthScopes } from "@jingtang/application";
 import {
+  beginTikTokConnection,
   acceptInvitation,
   beginWorkspaceDataDeletion,
   beginYouTubeConnection,
   changeMemberRole,
   claimNextOutboxMessage,
   completeSourceAsset,
+  completeTikTokConnection,
   completeWorkspaceDataDeletion,
   completeYouTubeConnection,
   completeYouTubeDisconnect,
@@ -31,9 +33,12 @@ import {
   listActivity,
   prepareYouTubeDisconnect,
   readExpiredYouTubeAuthorization,
+  readTikTokExecutionWorkItem,
   readYouTubeExecutionWorkItem,
   recordAuthorizationDenied,
   recordConsent,
+  recordTikTokPublishInitialized,
+  recordTikTokTransferAccepted,
   recordUserScopedAudit,
   recordYouTubeExecutionFailure,
   recordYouTubeExecutionPublished,
@@ -156,10 +161,21 @@ const platformVersion = (accountReference: string, label: string) => ({
   madeForKids: false,
 });
 
+const tikTokPlatformVersion = (accountReference: string, label: string) => ({
+  platform: "tiktok" as const,
+  accountReference,
+  accountDisplayName: "Audit TikTok account",
+  title: `${label} TikTok caption`,
+  description: "",
+  privacyStatus: "unselected" as const,
+  madeForKids: false,
+});
+
 async function sourceAsset(
   owner: Awaited<ReturnType<typeof identityFixture>>,
   label: string,
   outcome: "complete" | "failed" = "complete",
+  durationSeconds?: number,
 ) {
   const id = randomUUID();
   await createPendingSourceAsset(db, {
@@ -169,6 +185,7 @@ async function sourceAsset(
     filename: `${label}.mp4`,
     mediaType: "video/mp4",
     byteSize: 3,
+    ...(durationSeconds ? { durationSeconds } : {}),
     sha256: "a".repeat(64),
     ownershipConfirmed: true,
     uploadedByUserId: owner.user.id,
@@ -190,6 +207,37 @@ async function sourceAsset(
     });
   }
   return id;
+}
+
+async function reviewedTikTokContent(
+  owner: Awaited<ReturnType<typeof identityFixture>>,
+  accountReference: string,
+  label: string,
+) {
+  const assetId = await sourceAsset(owner, label, "complete", 3);
+  const content = await createContent(db, {
+    workspaceId: owner.workspace.id,
+    actorUserId: owner.user.id,
+    internalTitle: `${label} internal`,
+    sourceAssetId: assetId,
+    platformVersions: [tikTokPlatformVersion(accountReference, label)],
+    correlationId: randomUUID(),
+  });
+  const submission = await submitContent(db, {
+    workspaceId: owner.workspace.id,
+    contentId: content.id,
+    actorUserId: owner.user.id,
+    correlationId: randomUUID(),
+  });
+  await decideContent(db, {
+    workspaceId: owner.workspace.id,
+    contentId: content.id,
+    revisionId: submission.revisionId,
+    actorUserId: owner.user.id,
+    result: "approved",
+    correlationId: randomUUID(),
+  });
+  return { contentId: content.id, revisionId: submission.revisionId };
 }
 
 async function reviewedContent(
@@ -594,6 +642,108 @@ describe("AC-11 runtime Audit coverage", () => {
       outcome: "completed",
       claimOwner: claimedSuccess.claimOwner,
       claimGeneration: claimedSuccess.claimGeneration,
+    });
+
+    const tikTokConsent = await recordConsent(db, {
+      userId: owner.user.id,
+      termsVersion: "audit-terms-v1",
+      privacyVersion: "audit-privacy-v1",
+      dataPurposeVersion: "audit-tiktok-v1",
+      displayedLocale: "zh-CN",
+      acceptanceMethod: "tiktok_connection_checkbox",
+    });
+    const tikTokChannel = await beginTikTokConnection(db, {
+      workspaceId: owner.workspace.id,
+      consentRecordId: tikTokConsent.id,
+      actorUserId: owner.user.id,
+      correlationId: randomUUID(),
+      oauthStateDigest: "b".repeat(64),
+    });
+    const tikTokEnvelope = await vault.seal({
+      accessToken: "audit-tiktok-access",
+      refreshToken: "audit-tiktok-refresh",
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      grantedScopes: tikTokOAuthScopes,
+    });
+    await completeTikTokConnection(db, {
+      workspaceId: owner.workspace.id,
+      channelId: tikTokChannel.id,
+      consentRecordId: tikTokConsent.id,
+      actorUserId: owner.user.id,
+      externalAccountId: "AUDIT_TIKTOK_OPEN_ID",
+      displayName: "Audit TikTok account",
+      grantedScopes: tikTokOAuthScopes,
+      tokenEnvelopeCiphertext: tikTokEnvelope.ciphertext,
+      tokenCiphertextReference: tikTokEnvelope.keyReference,
+      correlationId: randomUUID(),
+    });
+    const tikTokContent = await reviewedTikTokContent(
+      owner,
+      "AUDIT_TIKTOK_OPEN_ID",
+      "tiktok-published-content",
+    );
+    const tikTokPublish = await confirmContentPublishing(db, {
+      workspaceId: owner.workspace.id,
+      contentId: tikTokContent.contentId,
+      revisionId: tikTokContent.revisionId,
+      actorUserId: owner.user.id,
+      consentVersion: "audit-purpose-v1",
+      idempotencyKey: `audit-tiktok-${randomUUID()}`,
+      correlationId: randomUUID(),
+      tikTokSettings: {
+        privacyLevel: "SELF_ONLY",
+        disableComment: true,
+        disableDuet: true,
+        disableStitch: true,
+        brandContentToggle: false,
+        brandOrganicToggle: false,
+        isAigc: false,
+        musicUsageConfirmed: true,
+        creatorInfoConfirmed: true,
+        creatorUsername: "audit_creator",
+        creatorNickname: "Audit Creator",
+        maximumVideoDurationSeconds: 60,
+      },
+    });
+    const claimedTikTok = await claimExecution(tikTokPublish.executionId);
+    const tikTokWork = await readTikTokExecutionWorkItem(
+      db,
+      owner.workspace.id,
+      tikTokPublish.executionId,
+    );
+    await recordTikTokPublishInitialized(db, {
+      workspaceId: owner.workspace.id,
+      executionId: tikTokPublish.executionId,
+      publishId: "audit-tiktok-publish-id",
+      channelId: tikTokWork.channelId,
+      leaseGeneration: tikTokWork.leaseGeneration,
+    });
+    await recordTikTokTransferAccepted(db, {
+      workspaceId: owner.workspace.id,
+      executionId: tikTokPublish.executionId,
+      publishId: "audit-tiktok-publish-id",
+      channelId: tikTokWork.channelId,
+      leaseGeneration: tikTokWork.leaseGeneration,
+    });
+    await recordYouTubeExecutionPublished(db, {
+      workspaceId: owner.workspace.id,
+      executionId: tikTokPublish.executionId,
+      channelId: tikTokWork.channelId,
+      leaseGeneration: tikTokWork.leaseGeneration,
+      platform: "tiktok",
+    });
+    await releaseYouTubeChannelOperationLease(
+      db,
+      owner.workspace.id,
+      tikTokWork.channelId,
+      tikTokPublish.executionId,
+      tikTokWork.leaseGeneration,
+    );
+    await finishOutboxMessage(workerDb, {
+      id: claimedTikTok.id,
+      outcome: "completed",
+      claimOwner: claimedTikTok.claimOwner,
+      claimGeneration: claimedTikTok.claimGeneration,
     });
 
     const failedContent = await reviewedContent(

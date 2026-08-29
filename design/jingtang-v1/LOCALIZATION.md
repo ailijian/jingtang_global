@@ -59,6 +59,9 @@ Status: Approved — D1-UI-R2 Human UI Final Approval recorded 2026-08-20
 | Confirm and publish | 确认并发布 | Only explicit external-write action |
 | Reconnect YouTube | 重新连接 YouTube | Reauthorization action |
 | Disconnect channel | 断开渠道 | Separate from data deletion |
+| JINGTANG locally disconnected — remove the App in Instagram | JINGTANG 已在本地断开——请在 Instagram 移除 App | Must remain visibly pending until verified callback |
+| Provider revocation confirmed | 平台侧撤销已确认 | Instagram uses only after verified deauthorization callback |
+| Reels tab only; not shared to Feed | 仅发布到 Reels 标签页；不分享到 Feed | Fixed R4.5 `share_to_feed=false`, never an editable choice |
 | Delete JINGTANG data | 删除 JINGTANG 数据 | Does not delete third-party content |
 
 JINGTANG and platform product names remain unchanged. The Chinese legal entity uses `鲸汤（上海）智能科技有限公司`; its English expression remains an owner-supplied, legally approved slot and is never invented by translation.
@@ -80,5 +83,6 @@ JINGTANG and platform product names remain unchanged. The Chinese legal entity u
 | Composer/Approval | Steps, platform fields, exact revision, user content unchanged, separate publish |
 | Channels/Publish | Scope purpose, limitations, target account, confirmation, result/recovery |
 | Disconnect/Delete | Exact target/scope, third-party distinction, progress, retry/support |
+| Instagram R4.5 | Exact permission names, Professional account/Reels-only boundary, manual-removal path, pending/confirmed distinction and hosted-copy truth |
 
 Release evidence includes catalog completeness, duplicate/conflicting translation checks, visual regression, corresponding-route switching, preference persistence, task-state preservation, safe fallback, semantic parity review and confirmation that locale switching never triggers an external command.

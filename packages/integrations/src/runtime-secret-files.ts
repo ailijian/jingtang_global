@@ -14,6 +14,9 @@ const fileKeys = {
     "YOUTUBE_OAUTH_STATE_SECRET",
     "FACEBOOK_APP_SECRET",
     "FACEBOOK_OAUTH_STATE_SECRET",
+    "TIKTOK_CLIENT_SECRET",
+    "TIKTOK_OAUTH_STATE_SECRET",
+    "TIKTOK_MEDIA_URL_SIGNING_SECRET",
   ],
   worker: [
     "DATABASE_WORKER_URL",
@@ -23,6 +26,8 @@ const fileKeys = {
     "OAUTH_TOKEN_ENCRYPTION_KEY",
     "YOUTUBE_OAUTH_CLIENT_SECRET",
     "FACEBOOK_APP_SECRET",
+    "TIKTOK_CLIENT_SECRET",
+    "TIKTOK_MEDIA_URL_SIGNING_SECRET",
   ],
 } as const satisfies Record<RuntimeSecretFileRole, readonly string[]>;
 

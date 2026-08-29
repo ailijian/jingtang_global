@@ -206,8 +206,8 @@ function EditorialPage({ locale, pageId, t }: PageProps & { readonly t: Translat
             <div>
               <h2>{t(section.title)}</h2>
               <p>{t(section.body, { legalEntity })}</p>
-              {pageId === "privacy" && index === 4 ? <GooglePolicyLinks t={t} /> : null}
-              {pageId === "terms" && index === 5 ? <YouTubeTermsLink t={t} /> : null}
+              {pageId === "privacy" && index === 4 ? <PlatformPolicyLinks t={t} /> : null}
+              {pageId === "terms" && index === 5 ? <PlatformTermsLinks t={t} /> : null}
               {pageId === "dataDeletion" && index === 1 ? <GoogleSecurityLink t={t} /> : null}
               {pageId === "dataDeletion" && index === 4 ? (
                 <a className="site-inline-action" href={`mailto:${config.identity.support_email}`}>
@@ -243,7 +243,7 @@ function PolicyMeta({ t }: { readonly t: Translator }) {
   );
 }
 
-function GooglePolicyLinks({ t }: { readonly t: Translator }) {
+function PlatformPolicyLinks({ t }: { readonly t: Translator }) {
   return (
     <p className="site-related-links">
       <a href="https://www.youtube.com/t/terms" rel="noreferrer">
@@ -255,15 +255,33 @@ function GooglePolicyLinks({ t }: { readonly t: Translator }) {
       <a href="https://security.google.com/settings/security/permissions" rel="noreferrer">
         {t("site.external.googleSecurity")}
       </a>
+      <a href="https://www.tiktok.com/legal/terms-of-service" rel="noreferrer">
+        {t("site.external.tiktokTerms")}
+      </a>
+      <a href="https://www.tiktok.com/legal/privacy-policy" rel="noreferrer">
+        {t("site.external.tiktokPrivacy")}
+      </a>
+      <a href="https://help.instagram.com/581066165581870" rel="noreferrer">
+        {t("site.external.instagramTerms")}
+      </a>
+      <a href="https://privacycenter.instagram.com/policy/" rel="noreferrer">
+        {t("site.external.instagramPrivacy")}
+      </a>
     </p>
   );
 }
 
-function YouTubeTermsLink({ t }: { readonly t: Translator }) {
+function PlatformTermsLinks({ t }: { readonly t: Translator }) {
   return (
     <p className="site-related-links">
       <a href="https://www.youtube.com/t/terms" rel="noreferrer">
         {t("site.external.readYouTubeTerms")}
+      </a>
+      <a href="https://www.tiktok.com/legal/terms-of-service" rel="noreferrer">
+        {t("site.external.readTikTokTerms")}
+      </a>
+      <a href="https://help.instagram.com/581066165581870" rel="noreferrer">
+        {t("site.external.readInstagramTerms")}
       </a>
     </p>
   );

@@ -13,6 +13,8 @@ import { ApplicationError } from "./errors.js";
 const algorithm = "aes-256-gcm";
 const aad = Buffer.from("jingtang.youtube-oauth-state.v1", "utf8");
 const facebookAad = Buffer.from("jingtang.facebook-oauth-state.v1", "utf8");
+const instagramAad = Buffer.from("jingtang.instagram-oauth-state.v1", "utf8");
+const tikTokAad = Buffer.from("jingtang.tiktok-oauth-state.v1", "utf8");
 
 export interface YouTubeOAuthFlowContext {
   readonly state: string;
@@ -36,6 +38,9 @@ export interface FacebookOAuthFlowContext {
   readonly locale: Locale;
   readonly expiresAt: number;
 }
+
+export type TikTokOAuthFlowContext = FacebookOAuthFlowContext;
+export type InstagramOAuthFlowContext = FacebookOAuthFlowContext;
 
 function invalidState(): ApplicationError {
   return new ApplicationError(
@@ -91,6 +96,22 @@ function isFacebookContext(value: unknown): value is FacebookOAuthFlowContext {
     (candidate.locale === "en" || candidate.locale === "zh-CN") &&
     typeof candidate.expiresAt === "number" &&
     Number.isSafeInteger(candidate.expiresAt)
+  );
+}
+
+function invalidTikTokState(): ApplicationError {
+  return new ApplicationError(
+    "invalid_input",
+    "TikTok authorization state is invalid or expired",
+    400,
+  );
+}
+
+function invalidInstagramState(): ApplicationError {
+  return new ApplicationError(
+    "invalid_input",
+    "Instagram authorization state is invalid or expired",
+    400,
   );
 }
 
@@ -220,8 +241,136 @@ export class FacebookOAuthFlowStateCodec {
   }
 }
 
+export class TikTokOAuthFlowStateCodec {
+  readonly #key: Buffer;
+
+  public constructor(secret: string) {
+    if (secret.length < 32) {
+      throw new ApplicationError("invalid_input", "OAuth state key is invalid", 500);
+    }
+    this.#key = createHash("sha256").update(secret, "utf8").digest();
+  }
+
+  public seal(context: TikTokOAuthFlowContext): string {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv(algorithm, this.#key, iv);
+    cipher.setAAD(tikTokAad);
+    const ciphertext = Buffer.concat([
+      cipher.update(JSON.stringify(context), "utf8"),
+      cipher.final(),
+    ]);
+    return [
+      "v1",
+      iv.toString("base64url"),
+      ciphertext.toString("base64url"),
+      cipher.getAuthTag().toString("base64url"),
+    ].join(".");
+  }
+
+  public open(
+    serialized: string,
+    returnedState: string,
+    now: number = Date.now(),
+  ): TikTokOAuthFlowContext {
+    try {
+      const [version, iv, ciphertext, tag, ...rest] = serialized.split(".");
+      if (version !== "v1" || !iv || !ciphertext || !tag || rest.length > 0) {
+        throw invalidTikTokState();
+      }
+      const decipher = createDecipheriv(algorithm, this.#key, Buffer.from(iv, "base64url"));
+      decipher.setAAD(tikTokAad);
+      decipher.setAuthTag(Buffer.from(tag, "base64url"));
+      const context = JSON.parse(
+        Buffer.concat([
+          decipher.update(Buffer.from(ciphertext, "base64url")),
+          decipher.final(),
+        ]).toString("utf8"),
+      ) as unknown;
+      if (
+        !isFacebookContext(context) ||
+        context.expiresAt <= now ||
+        !sameOpaqueValue(context.state, returnedState)
+      ) {
+        throw invalidTikTokState();
+      }
+      return context;
+    } catch (error) {
+      if (error instanceof ApplicationError) throw error;
+      throw invalidTikTokState();
+    }
+  }
+}
+
+export class InstagramOAuthFlowStateCodec {
+  readonly #key: Buffer;
+
+  public constructor(secret: string) {
+    if (secret.length < 32) {
+      throw new ApplicationError("invalid_input", "OAuth state key is invalid", 500);
+    }
+    this.#key = createHash("sha256").update(secret, "utf8").digest();
+  }
+
+  public seal(context: InstagramOAuthFlowContext): string {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv(algorithm, this.#key, iv);
+    cipher.setAAD(instagramAad);
+    const ciphertext = Buffer.concat([
+      cipher.update(JSON.stringify(context), "utf8"),
+      cipher.final(),
+    ]);
+    return [
+      "v1",
+      iv.toString("base64url"),
+      ciphertext.toString("base64url"),
+      cipher.getAuthTag().toString("base64url"),
+    ].join(".");
+  }
+
+  public open(
+    serialized: string,
+    returnedState: string,
+    now: number = Date.now(),
+  ): InstagramOAuthFlowContext {
+    try {
+      const [version, iv, ciphertext, tag, ...rest] = serialized.split(".");
+      if (version !== "v1" || !iv || !ciphertext || !tag || rest.length > 0) {
+        throw invalidInstagramState();
+      }
+      const decipher = createDecipheriv(algorithm, this.#key, Buffer.from(iv, "base64url"));
+      decipher.setAAD(instagramAad);
+      decipher.setAuthTag(Buffer.from(tag, "base64url"));
+      const context = JSON.parse(
+        Buffer.concat([
+          decipher.update(Buffer.from(ciphertext, "base64url")),
+          decipher.final(),
+        ]).toString("utf8"),
+      ) as unknown;
+      if (
+        !isFacebookContext(context) ||
+        context.expiresAt <= now ||
+        !sameOpaqueValue(context.state, returnedState)
+      ) {
+        throw invalidInstagramState();
+      }
+      return context;
+    } catch (error) {
+      if (error instanceof ApplicationError) throw error;
+      throw invalidInstagramState();
+    }
+  }
+}
+
 export function facebookOAuthStateDigest(state: string): string {
   return createHash("sha256").update(`facebook:${state}`, "utf8").digest("hex");
+}
+
+export function tikTokOAuthStateDigest(state: string): string {
+  return createHash("sha256").update(`tiktok:${state}`, "utf8").digest("hex");
+}
+
+export function instagramOAuthStateDigest(state: string): string {
+  return createHash("sha256").update(`instagram:${state}`, "utf8").digest("hex");
 }
 
 export function assertYouTubeOAuthFlowBinding(
@@ -265,6 +414,52 @@ export function assertFacebookOAuthFlowBinding(
     throw new ApplicationError(
       "permission_denied",
       "Facebook authorization no longer matches the active session and Workspace",
+      403,
+    );
+  }
+}
+
+export function assertTikTokOAuthFlowBinding(
+  context: Pick<TikTokOAuthFlowContext, "sessionId" | "userId" | "workspaceId" | "locale">,
+  current: {
+    readonly sessionId: string;
+    readonly userId: string;
+    readonly workspaceId: string | null;
+    readonly locale: Locale;
+  },
+): void {
+  if (
+    context.sessionId !== current.sessionId ||
+    context.userId !== current.userId ||
+    context.workspaceId !== current.workspaceId ||
+    context.locale !== current.locale
+  ) {
+    throw new ApplicationError(
+      "permission_denied",
+      "TikTok authorization no longer matches the active session and Workspace",
+      403,
+    );
+  }
+}
+
+export function assertInstagramOAuthFlowBinding(
+  context: Pick<InstagramOAuthFlowContext, "sessionId" | "userId" | "workspaceId" | "locale">,
+  current: {
+    readonly sessionId: string;
+    readonly userId: string;
+    readonly workspaceId: string | null;
+    readonly locale: Locale;
+  },
+): void {
+  if (
+    context.sessionId !== current.sessionId ||
+    context.userId !== current.userId ||
+    context.workspaceId !== current.workspaceId ||
+    context.locale !== current.locale
+  ) {
+    throw new ApplicationError(
+      "permission_denied",
+      "Instagram authorization no longer matches the active session and Workspace",
       403,
     );
   }

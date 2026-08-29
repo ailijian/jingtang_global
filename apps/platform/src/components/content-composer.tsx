@@ -8,19 +8,20 @@ import { useEffect, useState } from "react";
 
 interface DraftState {
   readonly step: number;
-  readonly platform: "youtube" | "facebook";
+  readonly platform: "youtube" | "facebook" | "instagram" | "tiktok";
   readonly asset: {
     readonly id: string;
     readonly filename: string;
     readonly byteSize: number;
     readonly mediaType: string;
+    readonly durationSeconds: number | null;
   } | null;
   readonly accountReference: string;
   readonly accountDisplayName: string;
   readonly internalTitle: string;
   readonly platformTitle: string;
   readonly description: string;
-  readonly privacyStatus: "private" | "unlisted" | "public";
+  readonly privacyStatus: "unselected" | "private" | "unlisted" | "public";
   readonly madeForKids: boolean;
 }
 
@@ -39,7 +40,7 @@ const emptyDraft: DraftState = {
 
 function draftForChannels(
   channels: readonly {
-    readonly platform: "youtube" | "facebook";
+    readonly platform: "youtube" | "facebook" | "instagram" | "tiktok";
     readonly externalAccountId: string;
     readonly displayName: string;
   }[],
@@ -62,7 +63,7 @@ export function ContentComposer({
   readonly workspaceId: string;
   readonly channels: readonly {
     readonly id: string;
-    readonly platform: "youtube" | "facebook";
+    readonly platform: "youtube" | "facebook" | "instagram" | "tiktok";
     readonly externalAccountId: string;
     readonly displayName: string;
   }[];
@@ -93,7 +94,12 @@ export function ContentComposer({
             ...restored,
             accountReference: connected?.externalAccountId ?? initial.accountReference,
             accountDisplayName: connected?.displayName ?? initial.accountDisplayName,
-            privacyStatus: restored.platform === "facebook" ? "public" : "private",
+            privacyStatus:
+              restored.platform === "facebook"
+                ? "public"
+                : restored.platform === "instagram" || restored.platform === "tiktok"
+                  ? "unselected"
+                  : "private",
             madeForKids: restored.platform === "youtube" ? restored.madeForKids : false,
           });
         } catch {
@@ -119,6 +125,21 @@ export function ContentComposer({
     setBusy(true);
     setMessage(null);
     try {
+      const durationSeconds = await new Promise<number | null>((resolve) => {
+        const video = document.createElement("video");
+        const objectUrl = URL.createObjectURL(file);
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          URL.revokeObjectURL(objectUrl);
+          const duration = Math.ceil(video.duration);
+          resolve(Number.isSafeInteger(duration) && duration > 0 ? duration : null);
+        };
+        video.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(null);
+        };
+        video.src = objectUrl;
+      });
       const digest = new Uint8Array(
         await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
       );
@@ -131,6 +152,7 @@ export function ContentComposer({
           filename: file.name,
           mediaType: file.type,
           byteSize: file.size,
+          ...(durationSeconds ? { durationSeconds } : {}),
           sha256,
           sha256Base64,
           ownershipConfirmed: true,
@@ -174,6 +196,7 @@ export function ContentComposer({
           filename: payload.filename,
           byteSize: payload.byte_size,
           mediaType: payload.media_type,
+          durationSeconds,
         },
         step: 2,
       }));
@@ -188,7 +211,11 @@ export function ContentComposer({
   const platformsReady = Boolean(
     draft.accountReference.trim() &&
     draft.accountDisplayName.trim() &&
-    (draft.platform !== "facebook" || draft.asset?.mediaType === "video/mp4"),
+    ((draft.platform !== "facebook" &&
+      draft.platform !== "instagram" &&
+      draft.platform !== "tiktok") ||
+      draft.asset?.mediaType === "video/mp4") &&
+    (draft.platform !== "tiktok" || Boolean(draft.asset?.durationSeconds)),
   );
   const customizeReady = draft.internalTitle.trim() && draft.platformTitle.trim();
 
@@ -291,7 +318,7 @@ export function ContentComposer({
             <section className="composer-section">
               <h2>{t("composer.platform.title")}</h2>
               <div className="field-grid">
-                {(["youtube", "facebook"] as const).map((platform) => (
+                {(["youtube", "facebook", "instagram", "tiktok"] as const).map((platform) => (
                   <label
                     className={`platform-choice ${draft.platform === platform ? "platform-choice--active" : ""}`}
                     key={platform}
@@ -308,18 +335,40 @@ export function ContentComposer({
                           platform,
                           accountReference: first?.externalAccountId ?? "",
                           accountDisplayName: first?.displayName ?? "",
-                          privacyStatus: platform === "facebook" ? "public" : "private",
+                          privacyStatus:
+                            platform === "facebook"
+                              ? "public"
+                              : platform === "instagram" || platform === "tiktok"
+                                ? "unselected"
+                                : "private",
                           madeForKids: platform === "youtube" ? current.madeForKids : false,
+                          description: platform === "instagram" ? "" : current.description,
                         }));
                       }}
                     />
-                    <strong>{platform === "youtube" ? "YouTube" : "Facebook Page"}</strong>
+                    <strong>
+                      {platform === "youtube"
+                        ? "YouTube"
+                        : platform === "facebook"
+                          ? "Facebook Page"
+                          : platform === "instagram"
+                            ? "Instagram"
+                            : "TikTok"}
+                    </strong>
                     <p>
                       {platform === "youtube"
                         ? t("composer.platform.youtube.help")
-                        : locale === "zh-CN"
-                          ? "为已连接 Page 准备原生 MP4 视频；审批后仍需单独确认才会立即发布。"
-                          : "Prepare a native MP4 video for the connected Page; approval is followed by a separate Publish Now confirmation."}
+                        : platform === "facebook"
+                          ? locale === "zh-CN"
+                            ? "为已连接 Page 准备原生 MP4 视频；审批后仍需单独确认才会立即发布。"
+                            : "Prepare a native MP4 video for the connected Page; approval is followed by a separate Publish Now confirmation."
+                          : platform === "instagram"
+                            ? locale === "zh-CN"
+                              ? "为已连接 Professional 账号准备一个 MP4 Reel；caption、REELS、share_to_feed=false 与立即发布会在最终步骤再次确认。"
+                              : "Prepare one MP4 Reel for the connected Professional account; caption, REELS, share_to_feed=false, and Publish Now are reconfirmed at the final step."
+                            : locale === "zh-CN"
+                              ? "为已连接私密 TikTok 账号准备 MP4；审批后必须手动确认 SELF_ONLY 私密发布。"
+                              : "Prepare an MP4 for the connected private TikTok account; approval is followed by a manual SELF_ONLY confirmation."}
                     </p>
                   </label>
                 ))}
@@ -344,9 +393,17 @@ export function ContentComposer({
                     <option value="">
                       {draft.platform === "youtube"
                         ? t("composer.platform.noConnectedChannel")
-                        : locale === "zh-CN"
+                        : draft.platform === "facebook" && locale === "zh-CN"
                           ? "请先连接 Facebook Page"
-                          : "Connect a Facebook Page before continuing"}
+                          : draft.platform === "facebook"
+                            ? "Connect a Facebook Page before continuing"
+                            : draft.platform === "instagram" && locale === "zh-CN"
+                              ? "请先连接 Instagram Professional 账号"
+                              : draft.platform === "instagram"
+                                ? "Connect an Instagram Professional account before continuing"
+                                : locale === "zh-CN"
+                                  ? "请先连接 TikTok 私密账号"
+                                  : "Connect a private TikTok account before continuing"}
                     </option>
                   ) : null}
                   {channels
@@ -358,15 +415,32 @@ export function ContentComposer({
                     ))}
                 </select>
               </label>
-              <div className="platform-coming-soon">
-                <span>Instagram · {t("composer.platform.comingSoon")}</span>
-                <small>{t("composer.platform.noAction")}</small>
-              </div>
               {draft.platform === "facebook" && draft.asset?.mediaType !== "video/mp4" ? (
                 <StatusMessage tone="danger">
                   {locale === "zh-CN"
                     ? "Facebook Page 发布只接受 MP4；请返回并上传 MP4 源素材。"
                     : "Facebook Page publishing accepts MP4 only. Go back and upload an MP4 Source Asset."}
+                </StatusMessage>
+              ) : null}
+              {draft.platform === "tiktok" && draft.asset?.mediaType !== "video/mp4" ? (
+                <StatusMessage tone="danger">
+                  {locale === "zh-CN"
+                    ? "TikTok 当前仅接受由平台安全拉取的 MP4；请返回并上传 MP4 源素材。"
+                    : "TikTok currently accepts only an MP4 retrieved through the secure provider-only flow. Go back and upload an MP4 Source Asset."}
+                </StatusMessage>
+              ) : null}
+              {draft.platform === "instagram" && draft.asset?.mediaType !== "video/mp4" ? (
+                <StatusMessage tone="danger">
+                  {locale === "zh-CN"
+                    ? "Instagram Reel 当前只接受准确的 MP4 源素材。"
+                    : "The Instagram Reel flow currently accepts the exact MP4 Source Asset only."}
+                </StatusMessage>
+              ) : null}
+              {draft.platform === "tiktok" && !draft.asset?.durationSeconds ? (
+                <StatusMessage tone="danger">
+                  {locale === "zh-CN"
+                    ? "无法读取视频时长；TikTok 发布前必须上传包含有效视频元数据的 MP4。"
+                    : "Video duration could not be read; TikTok requires an MP4 with valid video metadata."}
                 </StatusMessage>
               ) : null}
             </section>
@@ -377,9 +451,17 @@ export function ContentComposer({
               <h2>
                 {draft.platform === "youtube"
                   ? t("composer.customize.title")
-                  : locale === "zh-CN"
+                  : draft.platform === "facebook" && locale === "zh-CN"
                     ? "定制 Facebook Page 版本"
-                    : "Customize Facebook Page version"}
+                    : draft.platform === "facebook"
+                      ? "Customize Facebook Page version"
+                      : draft.platform === "instagram"
+                        ? locale === "zh-CN"
+                          ? "定制 Instagram Reel"
+                          : "Customize Instagram Reel"
+                        : locale === "zh-CN"
+                          ? "定制 TikTok 版本"
+                          : "Customize TikTok version"}
               </h2>
               <label className="content-field">
                 <span>{t("composer.internalTitle")}</span>
@@ -395,43 +477,73 @@ export function ContentComposer({
                 <span>
                   {draft.platform === "youtube"
                     ? t("composer.youtubeTitle")
-                    : locale === "zh-CN"
+                    : draft.platform === "facebook" && locale === "zh-CN"
                       ? "Facebook 视频标题"
-                      : "Facebook video title"}
+                      : draft.platform === "facebook"
+                        ? "Facebook video title"
+                        : draft.platform === "instagram"
+                          ? locale === "zh-CN"
+                            ? "Instagram caption"
+                            : "Instagram caption"
+                          : locale === "zh-CN"
+                            ? "TikTok 标题/说明"
+                            : "TikTok title/caption"}
                 </span>
                 <input
                   name="platformTitle"
                   value={draft.platformTitle}
-                  maxLength={100}
+                  maxLength={
+                    draft.platform === "instagram" || draft.platform === "tiktok" ? 2200 : 100
+                  }
                   onChange={(event) => update("platformTitle", event.target.value)}
                 />
                 <small>
                   {draft.platform === "youtube"
                     ? t("composer.youtubeTitle.help")
-                    : locale === "zh-CN"
+                    : draft.platform === "facebook" && locale === "zh-CN"
                       ? "作为原生 Page 视频的标题发送给 Facebook。"
-                      : "Sent to Facebook as the native Page video's title."}
+                      : draft.platform === "facebook"
+                        ? "Sent to Facebook as the native Page video's title."
+                        : draft.platform === "instagram"
+                          ? locale === "zh-CN"
+                            ? "唯一发送给 Instagram 的文本字段；不读取动态、媒体库或其他资料。"
+                            : "The only text field sent to Instagram; no feed, media library, or unrelated profile data is read."
+                          : locale === "zh-CN"
+                            ? "将作为 TikTok Direct Post 的标题/说明发送；当前只允许 SELF_ONLY。"
+                            : "Sent as the TikTok Direct Post title/caption; current access allows SELF_ONLY only."}
                 </small>
               </label>
-              <label className="content-field">
-                <span>{t("composer.descriptionField")}</span>
-                <textarea
-                  name="description"
-                  value={draft.description}
-                  maxLength={5000}
-                  rows={7}
-                  onChange={(event) => update("description", event.target.value)}
-                />
-              </label>
+              {draft.platform !== "instagram" ? (
+                <label className="content-field">
+                  <span>{t("composer.descriptionField")}</span>
+                  <textarea
+                    name="description"
+                    value={draft.description}
+                    maxLength={5000}
+                    rows={7}
+                    onChange={(event) => update("description", event.target.value)}
+                  />
+                </label>
+              ) : null}
               <div className="field-grid">
                 <label className="content-field">
                   <span>{t("composer.privacy")}</span>
                   <select name="privacyStatus" value={draft.privacyStatus} disabled>
-                    <option value={draft.platform === "facebook" ? "public" : "private"}>
+                    <option
+                      value={
+                        draft.platform === "facebook"
+                          ? "public"
+                          : draft.platform === "instagram" || draft.platform === "tiktok"
+                            ? "unselected"
+                            : "private"
+                      }
+                    >
                       {t(
                         draft.platform === "facebook"
                           ? "composer.privacy.public"
-                          : "composer.privacy.private",
+                          : draft.platform === "instagram" || draft.platform === "tiktok"
+                            ? "composer.privacy.unselected"
+                            : "composer.privacy.private",
                       )}
                     </option>
                   </select>
@@ -440,7 +552,15 @@ export function ContentComposer({
                       ? locale === "zh-CN"
                         ? "视频将作为所选公司 Page 的原生帖子发布。"
                         : "The video is published as a native post on the selected company Page."
-                      : t("composer.privacy.testOnly")}
+                      : draft.platform === "instagram"
+                        ? locale === "zh-CN"
+                          ? "分发固定为 Reels 标签页，media_type=REELS、share_to_feed=false；不提供隐私或 Feed 开关。"
+                          : "Distribution is fixed to the Reels tab with media_type=REELS and share_to_feed=false; no privacy or Feed control is exposed."
+                        : draft.platform === "tiktok"
+                          ? locale === "zh-CN"
+                            ? "此处不预设隐私；最终发布时必须重新读取 TikTok Creator Info 并手动选择 SELF_ONLY。"
+                            : "Privacy is not preselected here; final publish requires fresh Creator Info and manual SELF_ONLY selection."
+                          : t("composer.privacy.testOnly")}
                   </small>
                 </label>
                 {draft.platform === "youtube" ? (
@@ -537,15 +657,29 @@ export function ContentComposer({
               {draft.platformTitle ||
                 (draft.platform === "youtube"
                   ? t("composer.youtubeTitle")
-                  : locale === "zh-CN"
-                    ? "Facebook 视频标题"
-                    : "Facebook video title")}
+                  : draft.platform === "facebook"
+                    ? locale === "zh-CN"
+                      ? "Facebook 视频标题"
+                      : "Facebook video title"
+                    : draft.platform === "instagram"
+                      ? "Instagram caption"
+                      : locale === "zh-CN"
+                        ? "TikTok 标题/说明"
+                        : "TikTok title/caption")}
             </strong>
             <small>
               {draft.accountDisplayName ||
-                (draft.platform === "youtube" ? t("composer.platform.youtube") : "Facebook Page")}
+                (draft.platform === "youtube"
+                  ? t("composer.platform.youtube")
+                  : draft.platform === "facebook"
+                    ? "Facebook Page"
+                    : draft.platform === "instagram"
+                      ? "Instagram Professional"
+                      : "TikTok")}
             </small>
-            <p>{draft.description || t("composer.preview.noDescription")}</p>
+            {draft.platform !== "instagram" ? (
+              <p>{draft.description || t("composer.preview.noDescription")}</p>
+            ) : null}
           </aside>
         ) : null}
       </div>

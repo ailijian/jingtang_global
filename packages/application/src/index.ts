@@ -3,6 +3,8 @@ export * from "./content.js";
 export * from "./errors.js";
 export * from "./facebook.js";
 export * from "./identity.js";
+export * from "./instagram.js";
 export * from "./oauth-flow-state.js";
 export * from "./resilient-loop.js";
+export * from "./tiktok.js";
 export * from "./youtube.js";

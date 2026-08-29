@@ -2,16 +2,20 @@
 
 - Status: Approved — Human UI Final Approval and Stage Acceptance recorded 2026-08-20
 - Package Version: D1-UI-R2
+- R4.5 Amendment: Approved material semantics on 2026-08-28; implementation/rendered verification pending
 - Effective Delivery: JINGTANG 海外官网与 SaaS 第一版上线
 - Upstream Product Authority: [`BASELINE.md`](../../docs/deliveries/jingtang-overseas-website-saas-v1-launch/BASELINE.md), Approved Revision 2
-- Upstream Design Authority: [`DESIGN_AUTHORITY.md`](../../docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md), Approved Revision 1
-- Architecture Constraint: [`docs/architecture/README.md`](../../docs/architecture/README.md), Approved Revision 2
+- Upstream Design Authority: [`DESIGN_AUTHORITY.md`](../../docs/deliveries/jingtang-overseas-website-saas-v1-launch/DESIGN_AUTHORITY.md), Approved Revision 2
+- R4.5 Product Authority: [`BASELINE.md`](../../docs/deliveries/social-platform-review-enablement/BASELINE.md), Approved Revision 8
+- Architecture Constraint: [`docs/architecture/README.md`](../../docs/architecture/README.md), Approved Revision 15
 - UI Package Owner: JINGTANG Design Owner
 - Approval Owner: JINGTANG Human Owner
 
 ## Purpose and Authority Boundary
 
 This is the single D1 implementation-ready derived UI package. It converts the Approved Baseline and D-01 through D-12 into visual language, high-fidelity review screens, component and token specifications, full states, responsive/accessibility rules, and annotated implementation handoff.
+
+The 2026-08-28 R4.5 amendment adds only the approved Instagram-specific implementation semantics to the handoff and state/localization matrices: two-permission consent, Reels-tab-only confirmation, asynchronous duplicate-safe result states, immediate local disconnect, prominent manual-removal guidance and callback-confirmed provider revocation. The existing prototype remains the approved D1-UI-R2 visual source; it is not evidence that Instagram screens have been implemented or visually accepted.
 
 It does not add product scope, platform availability, Schedule, AI automation, external approval, or production evidence. Mock accounts and content in the review source are design fixtures only. Public capability truth remains owned by [`config/integrations.yaml`](../../config/integrations.yaml).
 

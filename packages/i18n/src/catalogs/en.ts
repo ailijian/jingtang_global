@@ -224,8 +224,6 @@ export const en = {
   "composer.platform.connectedChannel": "Connected channel",
   "composer.platform.noConnectedChannel": "Connect a YouTube channel before continuing",
   "composer.platform.accountName": "Account display name",
-  "composer.platform.comingSoon": "Coming Soon",
-  "composer.platform.noAction": "Connection is not available for these platforms.",
   "composer.customize.title": "Customize YouTube version",
   "composer.internalTitle": "Internal content title",
   "composer.internalTitle.help":
@@ -237,6 +235,7 @@ export const en = {
   "composer.privacy.private": "Private",
   "composer.privacy.unlisted": "Unlisted",
   "composer.privacy.public": "Public",
+  "composer.privacy.unselected": "Not selected until final confirmation",
   "composer.privacy.testOnly": "Uploads are currently restricted to Private.",
   "composer.audience": "Audience",
   "composer.madeForKids": "Made for kids",
@@ -295,9 +294,29 @@ export const en = {
   "detail.publish.facebook.failed":
     "The Page publish could not be queued. No duplicate publish was created; it is safe to retry.",
   "detail.publish.facebook.openVideo": "Open Facebook Page video",
+  "detail.publish.instagram.queued":
+    "The Instagram Reel intent is queued for the provider-independent local candidate.",
+  "detail.publish.instagram.failed":
+    "The Instagram Reel intent could not be queued; no provider write was made.",
+  "detail.publish.instagram.openReel": "Open Instagram Reel",
+  "detail.publish.tiktok.action": "Confirm SELF_ONLY publish",
+  "detail.publish.tiktok.working": "Queueing private TikTok publish…",
+  "detail.publish.tiktok.queued":
+    "The private TikTok publish is queued. Status will update automatically.",
+  "detail.publish.tiktok.failed":
+    "The TikTok publish could not be queued. No duplicate publish was created; it is safe to retry.",
+  "detail.publish.tiktok.openVideo": "Open private TikTok video",
+  "detail.publish.tiktok.providerLinkCleared":
+    "The TikTok link was removed under the revocation and data-cleanup policy.",
+  "detail.publish.tiktok.connectBeforeRevision":
+    "Connect a TikTok account before creating a publishable revision.",
   "detail.publish.queued": "The upload was queued. Status will update automatically.",
   "detail.publish.failed":
     "The upload could not be queued. No duplicate upload was created; retry safely.",
+  "detail.publish.retryAvailable":
+    "The previous attempt ended before any external post was created. Review the current channel and publishing settings, then reconfirm to retry safely.",
+  "detail.publish.retryAction": "Reconfirm and retry",
+  "detail.publish.retryWorking": "Queueing a safe retry…",
   "detail.publish.notAllowed": "Your role or the current revision does not allow publishing.",
   "detail.publish.openVideo": "Open private YouTube video",
   "detail.publish.reviewChannel": "Review channel connection",
@@ -313,6 +332,14 @@ export const en = {
   "detail.execution.facebook.processing": "Facebook is processing the video",
   "detail.execution.facebook.published": "Published publicly",
   "detail.execution.facebook.failed": "Facebook publish failed",
+  "detail.execution.instagram.publishing": "Preparing the confirmed Instagram Reel",
+  "detail.execution.instagram.processing": "Instagram is processing the Reel",
+  "detail.execution.instagram.published": "Published to the Instagram Reels tab",
+  "detail.execution.instagram.failed": "Instagram Reel publish failed",
+  "detail.execution.tiktok.publishing": "TikTok is securely retrieving the video",
+  "detail.execution.tiktok.processing": "TikTok is processing the video",
+  "detail.execution.tiktok.published": "Published privately on TikTok",
+  "detail.execution.tiktok.failed": "TikTok publish failed",
   "detail.execution.needsAttention": "Needs attention",
   "detail.execution.cancelled": "Cancelled",
   "detail.edit": "Edit as new draft revision",
@@ -373,7 +400,8 @@ export const en = {
   "activity.action.content.rejected": "Content rejected",
   "activity.action.publishing.confirmed": "Publishing confirmed",
   "activity.action.platform.publish_started": "Platform publishing started",
-  "activity.action.platform.uploaded": "Platform upload accepted",
+  "activity.action.platform.uploaded": "Platform media transfer accepted",
+  "activity.action.platform.publish_initialized": "Platform publish initialized",
   "activity.action.platform.published": "Platform publishing completed",
   "activity.action.platform.publish_failed": "Platform publishing failed",
   "activity.action.platform.publish_cancelled": "Platform publishing cancelled",
@@ -416,7 +444,13 @@ export const en = {
   "site.external.youtubeTerms": "YouTube Terms of Service",
   "site.external.googlePrivacy": "Google Privacy Policy",
   "site.external.googleSecurity": "Google Security Settings",
+  "site.external.tiktokTerms": "TikTok Terms of Service",
+  "site.external.tiktokPrivacy": "TikTok Privacy Policy",
+  "site.external.instagramTerms": "Instagram Terms of Use",
+  "site.external.instagramPrivacy": "Meta Privacy Policy for Instagram",
   "site.external.readYouTubeTerms": "Read the YouTube Terms of Service",
+  "site.external.readTikTokTerms": "Read the TikTok Terms of Service",
+  "site.external.readInstagramTerms": "Read the Instagram Terms of Use",
   "site.external.openGoogleSecurity": "Open Google Security Settings",
   "site.menu.open": "Menu",
   "site.menu.label": "Public navigation",
@@ -685,13 +719,13 @@ export const en = {
     "We use data to provide requested identity, Workspace, approval, publishing, tracking, support, security, audit, revocation, and deletion functions; to preserve user choices; and to meet applicable platform and legal obligations. We do not silently repurpose authorized platform data for unrelated advertising or AI training.",
   "site.privacy.processors.title": "4. Processors, region, and transfers",
   "site.privacy.processors.body":
-    "The public website and account-controlled Workspace are hosted on JINGTANG-controlled Tencent Cloud resources in Seoul, South Korea. The website and authenticated service use separated application, database, private object-storage, configuration, and log boundaries. GitHub handles source and synthetic CI data. Google/YouTube and Meta/Facebook handle data only after an explicit authorized platform action. Email providers handle messages sent by users.",
-  "site.privacy.youtube.title": "5. Google, YouTube, Meta, and Facebook data",
+    "The public website and account-controlled Workspace are hosted on JINGTANG-controlled Tencent Cloud resources in Seoul, South Korea. The website and authenticated service use separated application, database, private object-storage, configuration, and log boundaries. GitHub handles source and synthetic CI data. Google/YouTube, Meta/Facebook/Instagram, and TikTok handle data under their own global platform infrastructure only after an explicit authorized platform action. Email providers handle messages sent by users.",
+  "site.privacy.youtube.title": "5. Google, YouTube, Meta, Facebook, Instagram, and TikTok data",
   "site.privacy.youtube.body":
-    "When enabled for an account, JINGTANG uses YouTube API Services or the Meta Graph API through official OAuth only for functions explicitly shown to the user. Facebook access is limited to the Meta user ID and name, eligible Page ID/name/tasks, encrypted user and selected-Page tokens, and the exact video result created after confirmation; JINGTANG does not request Facebook email or read fans, comments, insights, messages, or unrelated Page content. The confirmed MP4, title, and description are sent to Meta for the selected Page, and the published copy remains under that Page's control. Users can disconnect in JINGTANG or revoke access in Google or Facebook settings. Each platform also processes data under its own terms and privacy policy.",
+    "When enabled for an account, JINGTANG uses YouTube API Services, the Meta Graph API, Instagram API with Instagram Login, or TikTok Login Kit and Content Posting API through official OAuth only for functions explicitly shown to the user. Facebook access is limited to the Meta user ID and name, eligible Page ID/name/tasks, encrypted user and selected-Page tokens, and the exact confirmed video result. Instagram access is limited to instagram_business_basic and instagram_business_content_publish for one authorized Professional account: user_id, username, encrypted tokens, the exact confirmed MP4 and caption, a REELS container with share_to_feed=false, and its returned publish status. JINGTANG does not read an Instagram feed or media library, metrics, comments, messages, Ads, tags, or unrelated profile data. TikTok access is limited to user.info.basic and video.publish: the TikTok open_id and minimum creator display data, encrypted tokens, the exact confirmed MP4, caption, privacy and disclosure choices, publish_id, and resulting status. JINGTANG does not request TikTok email, feed, prior-video list, followers, comments, messages, or unrelated profile data. Confirmed media and fields are sent only to the selected platform account, whose provider controls the hosted copy. Users can disconnect in JINGTANG and use the relevant platform settings to remove access. Each platform also processes data under its own terms and privacy policy.",
   "site.privacy.retention.title": "6. Retention and deletion",
   "site.privacy.retention.body":
-    "Active Workspace data is kept while needed for the service. Authorized deletion deny-marks access immediately and targets live data deletion within 7 days; encrypted backups expire within 35 days and replay the deletion ledger on restore. Website inquiries are removed after 180 days without an active relationship. Ordinary YouTube Authorized Data and active Facebook authorization linkage are periodically validated or removed; applicable disconnect, deauthorization, or deletion-request data is removed as soon as possible and within 7 days. Minimized deletion and security evidence is kept for up to 365 days.",
+    "Active Workspace data is kept while needed for the service. Authorized deletion deny-marks access immediately and targets live data deletion within 7 days; encrypted backups expire within 35 days and replay the deletion ledger on restore. Website inquiries are removed after 180 days without an active relationship. Ordinary YouTube Authorized Data and active Facebook, Instagram, or TikTok authorization linkage are periodically validated or removed; applicable disconnect, deauthorization, invalid-authorization, or deletion-request data is removed as soon as possible and within 7 days. Instagram disconnect immediately stops new operations, erases JINGTANG-held tokens and account authorization data, and stops refresh; only minimized one-way callback-correlation and lifecycle evidence may remain. Minimized deletion and security evidence is kept for up to 365 days.",
   "site.privacy.cookies.title": "7. Cookies and website measurement",
   "site.privacy.cookies.body":
     "The public website does not use advertising trackers or analytics processors. A first-party locale preference may be stored when a visitor explicitly changes language. The Workspace uses secure session technology needed to provide the requested authenticated service.",
@@ -726,9 +760,9 @@ export const en = {
   "site.terms.control.title": "5. Publishing control",
   "site.terms.control.body":
     "Only an authorized user may select accounts, approve content, confirm publishing, schedule where verified, revoke authorization, or request deletion. Approval and publish are separate actions. Platform processing, moderation, quotas, and availability remain controlled by the relevant platform.",
-  "site.terms.youtube.title": "6. YouTube, Facebook, and external services",
+  "site.terms.youtube.title": "6. YouTube, Facebook, Instagram, TikTok, and external services",
   "site.terms.youtube.body":
-    "When YouTube or Facebook functionality is enabled for an account, use is also governed by the applicable platform terms and privacy policy. Facebook Page publishing sends only the exact user-confirmed MP4, title, and description to the selected Page; Facebook controls processing, visibility, distribution, moderation, and the published copy. Disconnecting JINGTANG does not remove that copy. Other integrations remain unavailable unless JINGTANG marks them otherwise from verified capability.",
+    "When YouTube, Facebook, Instagram, or TikTok functionality is enabled for an account, use is also governed by the applicable platform terms and privacy policy. Facebook Page publishing sends only the exact user-confirmed MP4, title, and description to the selected Page. Instagram publishing sends only the exact confirmed MP4 and caption to the selected Professional account as a Reel with share_to_feed=false. TikTok Direct Post sends only the exact user-confirmed MP4, caption, privacy, interaction, commercial-content, and AI-content choices to the selected TikTok account; current controlled access requires manual SELF_ONLY. The platform controls processing, visibility, distribution, moderation, and the hosted copy. Disconnecting JINGTANG does not remove that copy. Other integrations remain unavailable unless JINGTANG marks them otherwise from verified capability.",
   "site.terms.prohibited.title": "7. Prohibited use",
   "site.terms.prohibited.body":
     "Do not use JINGTANG to violate law, platform rules, intellectual-property or privacy rights; bypass authorization or role boundaries; upload malware; probe another tenant; misrepresent identity; scrape credentials; or publish content you are not authorized to use.",
@@ -753,10 +787,11 @@ export const en = {
     "Account and Workspace deletion are separate in-product requests with explicit confirmation and durable references. Account deletion immediately disables access, removes the user's profile and memberships, and disconnects platform authorizations created by that account; shared Workspaces and their content remain available to eligible remaining members. Workspace deletion removes that Workspace, its memberships, source assets, content, publishing records, and applicable authorization data. Neither action deletes content already held by a third-party platform. For help, send a request from your account email to the support address below without including passwords, OAuth tokens, or unnecessary content. JINGTANG verifies authority, deny-marks affected access, and targets applicable live-data deletion within 7 days.",
   "site.deletion.disconnect.title": "Disconnect and revoke platform access",
   "site.deletion.disconnect.body":
-    "In-product disconnect stops new API operations, attempts immediate programmatic token revocation, erases stored tokens, and cleans applicable Authorized Data. Users may also revoke access through Google Security Settings or Facebook Settings. Meta deauthorization and signed data-deletion requests enter the same deny-first durable cleanup path and return an opaque status reference where required.",
-  "site.deletion.thirdParty.title": "Delete content held by YouTube, Facebook, or another platform",
+    "In-product disconnect stops new API operations, erases stored tokens, stops refresh, and cleans applicable Authorized Data. JINGTANG uses programmatic provider revocation only where the relevant integration supports and approves it. For Instagram, JINGTANG immediately completes its local disconnect but does not claim Meta-side revocation: the user must open Instagram, go to Website permissions → Apps and websites → Active, and remove JINGTANG. The product shows removal pending until a verified deauthorization callback confirms provider revocation; token expiry is not confirmation. Users may also remove access through Google Security Settings, Facebook Settings, or TikTok app-permission controls. Signed platform data-deletion requests enter the same deny-first durable cleanup path and return an opaque status reference where required.",
+  "site.deletion.thirdParty.title":
+    "Delete content held by YouTube, Facebook, Instagram, TikTok, or another platform",
   "site.deletion.thirdParty.body":
-    "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube, Facebook, or another platform. Delete a published Facebook Page video in Facebook and use the relevant platform's own controls for other hosted content. JINGTANG does not currently claim third-party content deletion capability.",
+    "Deleting JINGTANG data or disconnecting authorization does not delete content stored by YouTube, Facebook, Instagram, TikTok, or another platform. Delete a published Facebook Page video in Facebook, an Instagram Reel in Instagram, and a TikTok post through TikTok's own account controls. Use the relevant platform's controls for other hosted content. JINGTANG does not currently claim third-party content deletion capability.",
   "site.deletion.timeline.title": "Timing and backups",
   "site.deletion.timeline.body":
     "Applicable live user and Authorized Data is removed as soon as possible and within 7 days after an authorized request or in-product revocation. External revocation detected through validity checks is cleaned within the applicable 30-day maximum. Isolated encrypted backups expire within 35 days and replay deletion records before restored data can serve traffic.",

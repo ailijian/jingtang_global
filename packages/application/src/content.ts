@@ -22,10 +22,14 @@ export interface AssetStorage {
     readonly contentType: string;
     readonly sha256Base64: string;
   }): Promise<void>;
-  open(key: string): Promise<{
+  open(
+    key: string,
+    range?: { readonly start: number; readonly end: number },
+  ): Promise<{
     readonly body: ReadableStream<Uint8Array>;
     readonly contentType?: string;
     readonly contentLength?: number;
+    readonly contentRange?: string;
   }>;
   delete(key: string): Promise<void>;
 }

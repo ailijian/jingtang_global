@@ -37,7 +37,7 @@ Every website row has corresponding stable `en` and `zh-CN` routes, matching lan
 | Content Detail | Overview, Platform Versions, Approval, Publishing, Activity | Contextual by role | Current/older revision, rejection, approved, execution results/recovery |
 | Approvals | Pending, Approved, Rejected queues and review | Approver/Publisher | Empty queue, loading, stale revision, approve/reject working/error |
 | Calendar | Scheduled/Upcoming/Published views only | Read; schedule action only if Registry allows | Empty, Schedule Not Available, loading, timezone, cancelled/failed |
-| Channels | Channel index, connect explanation, OAuth return, detail | Owner/Admin connect/reauthorize/disconnect | Not connected, connecting, connected, reauth, disconnecting, disconnected, unavailable |
+| Channels | Channel index, connect explanation, OAuth return, detail | Owner/Admin connect/reauthorize/disconnect | Not connected, connecting, connected, reauth, disconnecting, disconnected, unavailable; Instagram additionally separates local disconnected/manual removal required from provider revocation confirmed |
 | Activity | Workspace audit presentation and content-scoped activity | Viewer and above read | Empty, loading, pagination, redacted target, error |
 | Settings/Workspace | Workspace name/configuration | Owner/Admin manage | Read, edit, validation, save working/success/error |
 | Settings/Members & Roles | Invite, remove, role change | Owner/Admin manage | Empty, pending invite, permission denied, last-owner protection, partial error |
@@ -60,6 +60,9 @@ Every website row has corresponding stable `en` and `zh-CN` routes, matching lan
 | Partial failure | Every execution remains visible; no aggregate Published claim | Content Detail Publishing section |
 | Needs Attention | User-correctable reason and Resolve action | Home/Content/Channels |
 | Disconnecting | New external operations stopped; revocation/cleanup in progress | Channel detail + Activity |
+| Instagram local disconnected | New provider work/refresh stopped and local token/key/account authorization erased; user removal still required | Prominent Channel card instruction + automatic state refresh |
+| Instagram provider revocation confirmed | Verified deauthorization callback only; never token expiry/local cleanup/time-based inference | Channel detail + Activity |
+| Instagram unknown publish | Existing container/result reconciliation blocks any second publish | Content Detail execution + Needs Attention |
 | Deletion in progress | Target/scope/timeline and request reference | Data & Account status |
 | Permission denied | Explain role requirement without exposing hidden tenant data | Page/action boundary |
 | Disabled with reason | Readable reason adjacent to action; not opacity-only | Button/help text |
@@ -99,6 +102,7 @@ Owner/Admin’s super-role never merges Approval and Publish into one machine/us
 | Publish → Track/Recover | Approval result plus Trust States publishing/processing/failed/needs-attention variants | D-03, D-04 |
 | Connect/Consent/Reauthorize | Trust States selectors and annotated Channels flow | D-05, D-12 |
 | Disconnect/Revoke/Delete | Distinct Trust States confirmations and progress semantics | D-06 |
+| Instagram Connect → Reel → Disconnect/Remove | Exact permission/account/Reels-only confirmation, async duplicate-safe result, local disconnect/manual removal and verified callback state | R4.5 Design Revision 2 |
 
 ## Responsive and Accessibility Coverage
 

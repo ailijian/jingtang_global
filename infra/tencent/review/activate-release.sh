@@ -7,6 +7,7 @@ readonly site_root=/srv/jingtang/public-site
 readonly release_id="${1:-}"
 readonly images_sha256="${2:-}"
 readonly change_reference="${3:-}"
+readonly worker_mode="${4:-}"
 readonly release_dir="$review_root/releases/$release_id"
 readonly images_archive="$release_dir/jingtang-review-images.tar"
 readonly candidate_compose="$release_dir/compose.yaml"
@@ -27,6 +28,10 @@ if [[ ! "$release_id" =~ ^[0-9a-f]{40}$ ]] \
 fi
 if [[ ! "$change_reference" =~ ^[A-Za-z0-9._:/-]{3,128}$ ]]; then
   echo "A safe review change reference is required." >&2
+  exit 2
+fi
+if [[ "$worker_mode" != "hold-worker" && "$worker_mode" != "start-worker" ]]; then
+  echo "Worker mode must be hold-worker or start-worker." >&2
   exit 2
 fi
 echo "$images_sha256  $images_archive" | sha256sum --check --status || {
@@ -52,6 +57,17 @@ if [[ "$(stat -c '%a' "$review_root/runtime.env")" != "600" ]]; then
 fi
 if grep -Eq '(SECRET|PASSWORD|DATABASE_URL)=' "$review_root/runtime.env"; then
   echo "Plaintext secrets are forbidden in review runtime.env." >&2
+  exit 5
+fi
+readonly tiktok_media_secret="$review_root/secrets/tiktok-media-url-signing-secret"
+if [[ ! -f "$tiktok_media_secret" || -L "$tiktok_media_secret" ]]; then
+  echo "The TikTok media signing secret is missing or is not a regular file." >&2
+  exit 5
+fi
+secret_metadata="$(stat -c '%a %u %g' "$tiktok_media_secret")"
+secret_bytes="$(wc -c < "$tiktok_media_secret")"
+if [[ "$secret_metadata" != "400 65532 65532" ]] || ((secret_bytes < 32)); then
+  echo "The TikTok media signing secret has invalid ownership, mode, or length." >&2
   exit 5
 fi
 
@@ -92,6 +108,10 @@ docker run --rm --network none \
 previous_review_running=false
 if [[ "$(docker inspect --format '{{.State.Running}}' jingtang-review-platform-1 2>/dev/null || true)" == true ]]; then
   previous_review_running=true
+fi
+previous_worker_running=false
+if [[ "$(docker inspect --format '{{.State.Running}}' jingtang-review-worker-1 2>/dev/null || true)" == true ]]; then
+  previous_worker_running=true
 fi
 
 previous_release_id=""
@@ -193,7 +213,11 @@ rollback() {
   done
   if [[ "$previous_review_running" == true ]] \
     && [[ -f "$review_root/compose.yaml" && -f "$review_root/release.env" ]]; then
-    compose_live up -d postgres platform worker >/dev/null 2>&1 || \
+    local -a restore_services=(postgres platform)
+    if [[ "$worker_mode" == "start-worker" && "$previous_worker_running" == true ]]; then
+      restore_services+=(worker)
+    fi
+    compose_live up -d "${restore_services[@]}" >/dev/null 2>&1 || \
       echo "Warning: the prior review release could not be restarted automatically." >&2
   fi
   set -e
@@ -206,6 +230,12 @@ on_error() {
   exit "$status"
 }
 trap on_error ERR
+
+# Stop the previous worker before changing schema or runtime files. It is resumed
+# only when the caller explicitly authorizes start-worker for this activation.
+if [[ "$previous_worker_running" == true ]]; then
+  compose_live stop worker
+fi
 
 install -m 0644 "$candidate_compose" "$review_root/compose.yaml.next"
 install -m 0600 "$candidate_release_env" "$review_root/release.env.next"
@@ -220,14 +250,26 @@ mv "$review_root/init/001-create-roles.sh.next" "$review_root/init/001-create-ro
 
 compose_live up -d postgres
 compose_live --profile tools run --rm migrate
-compose_live up -d platform worker
+compose_live up -d platform
+if [[ "$worker_mode" == "start-worker" ]]; then
+  compose_live up -d worker
+else
+  compose_live stop worker >/dev/null 2>&1 || true
+fi
 site_live up -d --force-recreate
 
 for _ in {1..30}; do
   platform_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' jingtang-review-platform-1 2>/dev/null || true)"
   worker_state="$(docker inspect --format '{{.State.Status}}' jingtang-review-worker-1 2>/dev/null || true)"
   site_state="$(docker inspect --format '{{.State.Status}}' jingtang-public-site 2>/dev/null || true)"
-  if [[ "$platform_state" == healthy && "$worker_state" == running && "$site_state" == running ]]; then
+  worker_ready=false
+  if [[ "$worker_mode" == "start-worker" && "$worker_state" == running ]]; then
+    worker_ready=true
+  elif [[ "$worker_mode" == "hold-worker" ]] \
+    && [[ -z "$worker_state" || "$worker_state" == exited || "$worker_state" == created ]]; then
+    worker_ready=true
+  fi
+  if [[ "$platform_state" == healthy && "$worker_ready" == true && "$site_state" == running ]]; then
     smoke_ready=false
     for _ in {1..24}; do
       if curl --noproxy '*' --fail --silent --show-error --location \
@@ -254,7 +296,7 @@ for _ in {1..30}; do
     fi
     printf '%s\n' "$release_id" > "$review_root/current-release.next"
     mv "$review_root/current-release.next" "$review_root/current-release"
-    printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$release_id" "$change_reference" >> "$review_root/change-record.log"
+    printf '%s %s %s %s\n' "$(date -u +%FT%TZ)" "$release_id" "$change_reference" "$worker_mode" >> "$review_root/change-record.log"
     trap - ERR
     prune_superseded_review_artifacts
     compose_live ps
@@ -264,7 +306,7 @@ for _ in {1..30}; do
   sleep 5
 done
 
-echo "Review release did not become ready (platform=$platform_state worker=$worker_state site=$site_state)." >&2
+echo "Review release did not become ready (platform=$platform_state worker=$worker_state worker_mode=$worker_mode site=$site_state)." >&2
 docker logs --tail 100 jingtang-review-platform-1 >&2 2>/dev/null || true
 docker logs --tail 100 jingtang-review-worker-1 >&2 2>/dev/null || true
 false

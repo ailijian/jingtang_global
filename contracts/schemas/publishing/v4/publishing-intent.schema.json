@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jingtang:contract:publishing:publishing-intent:v4",
+  "title": "PublishingIntent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "publishing_intent_id",
+    "workspace_id",
+    "content_id",
+    "revision_id",
+    "platform_version_ids",
+    "account_references",
+    "payload_snapshot",
+    "permission_decision",
+    "state",
+    "mode",
+    "confirmed_by_user_id",
+    "consent_version",
+    "payload_hash",
+    "idempotency_key",
+    "confirmed_at"
+  ],
+  "properties": {
+    "publishing_intent_id": { "type": "string", "format": "uuid" },
+    "workspace_id": { "type": "string", "format": "uuid" },
+    "content_id": { "type": "string", "format": "uuid" },
+    "revision_id": { "type": "string", "format": "uuid" },
+    "platform_version_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "format": "uuid" }
+    },
+    "account_references": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 255 }
+    },
+    "payload_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_id", "versions"],
+      "properties": {
+        "revision_id": { "type": "string", "format": "uuid" },
+        "versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "platform_version_id",
+              "platform",
+              "account_reference",
+              "title",
+              "description",
+              "privacy_status",
+              "made_for_kids"
+            ],
+            "properties": {
+              "platform_version_id": { "type": "string", "format": "uuid" },
+              "platform": {
+                "type": "string",
+                "enum": ["youtube", "facebook", "instagram", "tiktok"]
+              },
+              "account_reference": { "type": "string", "minLength": 1, "maxLength": 255 },
+              "title": { "type": "string", "minLength": 1, "maxLength": 2200 },
+              "description": { "type": "string", "maxLength": 5000 },
+              "privacy_status": {
+                "type": "string",
+                "enum": ["private", "unlisted", "public", "unselected"]
+              },
+              "made_for_kids": { "type": "boolean" },
+              "instagram_settings": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["mediaType", "shareToFeed", "publishMode"],
+                "properties": {
+                  "mediaType": { "const": "REELS" },
+                  "shareToFeed": { "const": false },
+                  "publishMode": { "const": "IMMEDIATE" }
+                }
+              },
+              "tiktok_settings": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "privacyLevel",
+                  "disableComment",
+                  "disableDuet",
+                  "disableStitch",
+                  "brandContentToggle",
+                  "brandOrganicToggle",
+                  "isAigc",
+                  "musicUsageConfirmed",
+                  "creatorInfoConfirmed",
+                  "creatorUsername",
+                  "creatorNickname",
+                  "maximumVideoDurationSeconds",
+                  "source"
+                ],
+                "properties": {
+                  "privacyLevel": { "const": "SELF_ONLY" },
+                  "disableComment": { "type": "boolean" },
+                  "disableDuet": { "type": "boolean" },
+                  "disableStitch": { "type": "boolean" },
+                  "brandContentToggle": { "const": false },
+                  "brandOrganicToggle": { "type": "boolean" },
+                  "isAigc": { "type": "boolean" },
+                  "musicUsageConfirmed": { "const": true },
+                  "creatorInfoConfirmed": { "const": true },
+                  "creatorUsername": { "type": "string", "minLength": 1 },
+                  "creatorNickname": { "type": "string", "minLength": 1 },
+                  "maximumVideoDurationSeconds": { "type": "integer", "minimum": 1 },
+                  "source": { "const": "FILE_UPLOAD" }
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "platform": { "const": "instagram" } },
+                  "required": ["platform"]
+                },
+                "then": {
+                  "required": ["instagram_settings"],
+                  "properties": {
+                    "privacy_status": { "const": "unselected" },
+                    "made_for_kids": { "const": false },
+                    "description": { "type": "string", "const": "" },
+                    "instagram_settings": {}
+                  }
+                },
+                "else": {
+                  "allOf": [
+                    { "not": { "required": ["instagram_settings"] } },
+                    {
+                      "if": {
+                        "properties": { "platform": { "const": "tiktok" } },
+                        "required": ["platform"]
+                      },
+                      "then": {
+                        "required": ["tiktok_settings"],
+                        "properties": {
+                          "privacy_status": { "const": "unselected" },
+                          "made_for_kids": { "const": false },
+                          "tiktok_settings": {}
+                        }
+                      },
+                      "else": {
+                        "allOf": [
+                          { "not": { "required": ["tiktok_settings"] } },
+                          {
+                            "if": {
+                              "properties": { "platform": { "const": "facebook" } },
+                              "required": ["platform"]
+                            },
+                            "then": {
+                              "properties": {
+                                "title": { "type": "string", "maxLength": 100 },
+                                "privacy_status": { "const": "public" },
+                                "made_for_kids": { "const": false }
+                              }
+                            },
+                            "else": {
+                              "properties": { "title": { "type": "string", "maxLength": 100 } }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "permission_decision": { "type": "string", "enum": ["allowed"] },
+    "state": { "type": "string", "enum": ["none", "ready", "scheduled", "cancelled"] },
+    "mode": { "type": "string", "enum": ["immediate", "scheduled"] },
+    "confirmed_by_user_id": { "type": "string", "format": "uuid" },
+    "consent_version": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "payload_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "confirmed_at": { "type": "string", "format": "date-time" }
+  }
+}

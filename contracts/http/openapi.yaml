@@ -173,6 +173,53 @@ paths:
       responses:
         "200": { description: Opaque deletion status. }
         "404": { description: Confirmation code is absent. }
+  /channels/tiktok/oauth:
+    post:
+      operationId: beginTikTokConnection
+      description: Records explicit consent, creates a tenant-bound connecting channel, and redirects to TikTok Login Kit Web for exactly user.info.basic and video.publish.
+      responses:
+        "303": { description: Redirect to TikTok OAuth. }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "503": { description: TikTok connection is not enabled in this environment. }
+  /channels/tiktok/oauth/callback:
+    get:
+      operationId: completeTikTokOAuthCallback
+      description: Validates sealed session-bound state, exchanges the code, verifies the TikTok open_id, and stores the encrypted authorization.
+      responses:
+        "303": { description: Redirect to a safe connection result. }
+  /channels/tiktok/creator-info:
+    get:
+      operationId: readTikTokCreatorInfo
+      description: Reads fresh Creator Info immediately before manual confirmation; R4 requires SELF_ONLY to be available.
+      parameters:
+        - name: channel_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          {
+            description: Fresh creator identity,
+            privacy options,
+            interaction controls,
+            and maximum video duration.,
+          }
+        "403": { $ref: "#/components/responses/PermissionDenied" }
+        "409":
+          { description: The connected creator no longer permits the controlled SELF_ONLY flow. }
+  /channels/tiktok/disconnect:
+    post:
+      operationId: disconnectTikTok
+      description: Blocks new work and durably schedules TikTok revocation plus local OAuth and Authorized Data deletion.
+      responses:
+        "303": { description: Redirect to the asynchronous disconnect result. }
+  /channels/instagram/disconnect:
+    post:
+      operationId: disconnectInstagramLocally
+      description: Immediately fences and cancels new Instagram work, erases local token and account authorization data, and enters manual-removal pending without calling a Meta revocation endpoint.
+      responses:
+        "303":
+          { description: Redirect to the distinct local-disconnected/manual-removal-pending state. }
   /content/assets:
     post:
       operationId: uploadSourceAsset
@@ -187,6 +234,7 @@ paths:
               properties:
                 asset: { type: string, format: binary }
                 ownershipConfirmed: { type: string, const: "true" }
+                durationSeconds: { type: integer, minimum: 1 }
       responses:
         "201":
           description: User-owned Source Asset stored privately.
@@ -283,9 +331,42 @@ paths:
                 revisionId: { type: string, format: uuid }
                 idempotencyKey: { type: string, format: uuid }
                 confirmed: { type: boolean, const: true }
+                instagram:
+                  type: object
+                  additionalProperties: false
+                  required: [mediaType, shareToFeed, publishMode]
+                  properties:
+                    mediaType: { const: REELS }
+                    shareToFeed: { const: false }
+                    publishMode: { const: IMMEDIATE }
+                tiktok:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - channelId
+                    - privacyLevel
+                    - disableComment
+                    - disableDuet
+                    - disableStitch
+                    - brandContentToggle
+                    - brandOrganicToggle
+                    - isAigc
+                    - musicUsageConfirmed
+                    - creatorInfoConfirmed
+                  properties:
+                    channelId: { type: string, format: uuid }
+                    privacyLevel: { const: SELF_ONLY }
+                    disableComment: { type: boolean }
+                    disableDuet: { type: boolean }
+                    disableStitch: { type: boolean }
+                    brandContentToggle: { const: false }
+                    brandOrganicToggle: { type: boolean }
+                    isAigc: { type: boolean }
+                    musicUsageConfirmed: { const: true }
+                    creatorInfoConfirmed: { const: true }
       responses:
         "202":
-          description: Exact approved private YouTube upload or native Facebook Page MP4 publication accepted for asynchronous execution.
+          description: Exact approved private YouTube upload, native Facebook Page MP4 publication, provider-independent Instagram REELS/share_to_feed=false intent, or manually confirmed TikTok SELF_ONLY PULL_FROM_URL accepted for asynchronous execution. Instagram provider writes remain blocked until the evidence-dependent adapter is implemented and enabled.
           content:
             application/json:
               schema:
@@ -306,6 +387,48 @@ paths:
           {
             description: The exact revision is no longer publishable or conflicts with the idempotency key.,
           }
+  /media/tiktok:
+    get:
+      operationId: readTikTokProviderMedia
+      summary: Serve one final-confirmed private MP4 to TikTok
+      description: Provider-only endpoint. The secret-equivalent token is bound to the exact private object key, SHA-256, byte size, GET method and 65-minute lifetime and must never enter a browser, database, task payload, audit event, log, metric, screenshot or review video.
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 4096 }
+      responses:
+        "200":
+          description: Complete MP4 body.
+          headers:
+            Accept-Ranges: { schema: { type: string, const: bytes } }
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        "206":
+          description: Single requested byte range.
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        "404": { description: Missing, invalid, expired, or object-integrity-mismatched grant. }
+        "416": { description: Unsatisfiable or unsupported range. }
+        "503": { description: Private object storage is temporarily unavailable. }
+    head:
+      operationId: inspectTikTokProviderMedia
+      summary: Inspect one final-confirmed private MP4 grant
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 4096 }
+      responses:
+        "200": { description: Complete-object metadata without a response body. }
+        "206": { description: Requested-range metadata without a response body. }
+        "404": { description: Missing, invalid, expired, or object-integrity-mismatched grant. }
+        "416": { description: Unsatisfiable or unsupported range. }
+        "503": { description: Private object storage is temporarily unavailable. }
   /activity:
     get:
       operationId: listActivity
