@@ -1,11 +1,11 @@
 schema_version: 1
-revision: 32
+revision: 33
 status: approved
 effective_date: "2026-08-29"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-29"
 revision_note: >-
-  Revision 9 replaces TikTok R4 FILE_UPLOAD with a local PULL_FROM_URL implementation for server-stored media. COS remains private; only the final-confirmed object is exposed to TikTok through a 65-minute provider-only HTTPS grant bound to object key, hash, size and GET. TikTok Dashboard reports review.jingtangai.com as a verified Domain property; deployment, credentials, API calls and publishing remain external and unperformed. R4.5 Instagram remains paused. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false.
+  Revision 9 replaces TikTok R4 FILE_UPLOAD with PULL_FROM_URL for server-stored media. Exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 is deployed to Review with hold-worker after blocking CI; COS remains private and only the final-confirmed object may be exposed to TikTok through a 65-minute provider-only HTTPS grant bound to object key, hash, size and GET. TikTok Dashboard reports review.jingtangai.com as a verified Domain property. Fresh Human E2E, Acceptance, provider credentials/API calls, publishing and external submission remain unperformed. R4.5 Instagram remains paused. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false.
 
 authority:
   owns:
@@ -456,11 +456,11 @@ integrations:
       - commercial-content and AI disclosures plus applicable Music and Branded Content policy consent are part of the immutable final confirmation
       - media transfer is PULL_FROM_URL only; COS remains private and the final-confirmed object is exposed through a provider-only HTTPS URL bound to object key, SHA-256, byte size, GET and a fixed 65-minute lifetime
       - the provider-only media URL is secret-equivalent and must not enter browsers, databases, task payloads, audit events, logs, metrics, errors, screenshots or review videos; the ingress access log skips the exact media route
-      - TikTok Dashboard reports review.jingtangai.com as a verified Domain property for the provider-only media route; deployment and provider-use evidence remain separate gates
+      - TikTok Dashboard reports review.jingtangai.com as a verified Domain property for the provider-only media route; the exact Revision 9 candidate is deployed under hold-worker while fresh provider-use evidence remains a separate gate
       - a private unaudited post may complete without a public post ID or external link; the UI must not fabricate one
       - disconnect denies first, invokes the TikTok revoke endpoint, retires the token key and removes local authorization data without claiming to delete a TikTok-hosted post
       - company TikTok Organization owns the durable App identity; Review secrets, tokens, redirect URLs, Sandbox users, data and runtime configuration are retired before future production cutover
-      - Revision 9 approved PULL_FROM_URL remediation locally on 2026-08-29 and the exact Review Domain property was subsequently verified; submission readiness still requires separately authorized deployment and fresh Human E2E evidence
+      - Revision 9 approved PULL_FROM_URL remediation locally on 2026-08-29, the exact Review Domain property was verified, and exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 was deployed with hold-worker; submission readiness still requires a separately authorized fresh Human E2E and Acceptance evidence
     r4_entry_gates:
       scope_approval_package: prepared_2026_08_27
       scope_approval: passed_2026_08_27
@@ -472,7 +472,8 @@ integrations:
       external_review_submission: unified_r5_separately_gated
       revision_9_local_implementation: passed_verification_and_code_review_2026_08_29
       revision_9_url_property: review_domain_verified_2026_08_29
-      r5_policy_revalidation: revision_9_pull_from_url_local_and_domain_verification_complete_deployment_evidence_pending_2026_08_29
+      revision_9_deployment: exact_candidate_8d35648aac362d2722671fdd8ae7d418368aa235_hold_worker_deployed_verified_2026_08_29
+      r5_policy_revalidation: revision_9_pull_from_url_local_domain_and_deployment_complete_fresh_human_e2e_pending_2026_08_29
 
   linkedin:
     display_name: LinkedIn

@@ -9,12 +9,14 @@
 - Authorized local scope: common regression/closure plus Facebook and TikTok reviewer-material preparation.
 - Not authorized by the R5 start: deployment, credential rotation, Business/Domain Verification writes, Advanced Access/Audit requests, demo-video upload, external App Review submission, public availability, checkpoint, commit or push.
 - Subsequent candidate authorization: after Revision 9 local review and Domain-property verification passed, the Human Owner authorized one candidate branch/commit/push containing the reviewed R4.5 provider-independent implementation held disabled plus Revision 9, solely to run blocking CI and stop at its result. This does not authorize deployment, provider credentials/API calls, publishing, App Review submission or public-status changes.
+- Subsequent deployment authorization and evidence: after Deployment Readiness remediation, the Human Owner separately authorized the repaired exact candidate and legal version rollout with create-only TikTok media-signing Secret provisioning and `hold-worker` activation. Candidate `8d35648aac362d2722671fdd8ae7d418368aa235` passed blocking CI run `33256764818`, deployed with both release pointers matching, and passed read-only health/legal/security verification while the worker remained exited. Evidence-only commit `a41c6f0d8545cf696deed9b933040352620d3a5b` passed blocking CI run `33257650077`. No provider credential/API call, signed media URL or publish was used; fresh Human E2E and Acceptance remain pending.
+- Subsequent reconciliation authorization: the Human Owner authorized this secret-free PLAN/Registry/R5 deployment-evidence reconciliation, focused local validation, Code Review, one independent commit/push and blocking CI. It does not authorize worker start, provider credentials/API calls, publishing, merge, App Review submission or public-status changes.
 - Support contact: `developer@jingtangai.com`.
 
 | Platform | Technical slice | R5 material state | Submission state | Blocking facts |
 | --- | --- | --- | --- | --- |
 | Facebook | R3 accepted and deployed for controlled access | Draft instructions, permission trace, data lifecycle and demo script assembled below | `not_ready` | Fresh official-policy/Dashboard verification, protected reviewer account, current screencast, Business Verification/Advanced Access and explicit submission authorization remain pending |
-| TikTok | Historical R4 controlled private `SELF_ONLY` slice deployed; Revision 9 local transport candidate reviewed and Domain property verified | Draft instructions, Scope trace, data lifecycle and demo script assembled below | `url_property_verified_deployment_pending` | Private COS → provider-only `PULL_FROM_URL` implementation, local review and `review.jingtangai.com` verification pass; submission still waits for separately authorized deployment and fresh Human E2E |
+| TikTok | Historical R4 controlled private `SELF_ONLY` slice deployed; Revision 9 exact candidate deployed with `hold-worker` after local review and Domain-property verification | Draft instructions, Scope trace, data lifecycle and demo script assembled below | `deployment_verified_human_e2e_pending` | Private COS → provider-only `PULL_FROM_URL` implementation, local review, `review.jingtangai.com` verification and controlled deployment pass; submission still waits for a separately authorized fresh Human E2E and Acceptance evidence |
 | Instagram | I1～I3 provider-independent candidate reviewed; E1 partial | Blocker and partial configuration evidence recorded | `paused_not_ready` | Company-controlled Professional account registration/review did not yield a searchable account; Standard Access, OAuth/callback mapping, COS evidence, deployment and Human E2E are incomplete |
 
 No row above is an external approval or a public availability claim. The Registry remains the machine authority and keeps every platform `Coming Soon` / `production_available: false`.
@@ -33,7 +35,8 @@ No row above is an external approval or a public availability claim. The Registr
 - The App Review Guidelines require a functioning public-facing product, exact products/Scopes, an end-to-end demo from the actual web domain and reviewer-accessible capability. First-time review uses the Sandbox demonstration.
 - Revision 9 closes the authority decision locally: server-stored media must use `PULL_FROM_URL`. The candidate retains private COS and exposes only the final-confirmed object through a provider-only HTTPS URL bound to object key, SHA-256, byte size, GET and a fixed 65-minute lifetime.
 - URL-property evidence: the Human Operator verified `review.jingtangai.com` as a Domain property through TikTok's DNS TXT flow. Both GoDaddy authoritative nameservers and Google/Cloudflare public resolvers returned the record before TikTok reported `Verified`; no signed media URL, credential, API call, deployment or publish was used.
-- Stop condition: do not submit the TikTok App or claim submission readiness. Local verification, Code Review and Dashboard URL-property verification pass; deployment and a fresh Human E2E remain separately authorized external evidence.
+- Deployment evidence: exact candidate `8d35648aac362d2722671fdd8ae7d418368aa235` passed blocking CI and was activated with `hold-worker`; both release pointers, platform/PostgreSQL health, worker-exited state, 19 HTTPS routes, legal version, security, `noindex`, health/login and method rejection passed read-only verification. The create-only signing-Secret helper exposed no value, and no provider credential/API call, signed media URL or publish was used.
+- Stop condition: do not submit the TikTok App or claim submission readiness. Local verification, Code Review, Dashboard URL-property verification and controlled deployment pass; a fresh Human E2E and Acceptance remain separately authorized external evidence.
 
 ### Instagram
 
@@ -149,7 +152,8 @@ Required closure before submission:
 - [x] Implementation, contracts, Registry, Security/Data, Operations and bilingual consent are updated coherently.
 - [x] Full local verification and Code Review pass.
 - [x] TikTok Dashboard verifies `review.jingtangai.com` as the owned Domain property for the provider-only media route.
-- [ ] Controlled deployment and one separately authorized private Human E2E pass.
+- [x] Exact candidate passes controlled `hold-worker` deployment and read-only release/health/legal/security verification without provider use.
+- [ ] One separately authorized private Human E2E passes on the deployed `PULL_FROM_URL` path.
 - [ ] Reviewer instructions and demo are regenerated from the final implementation.
 
 ### Data flow, retention and deletion references
@@ -161,7 +165,7 @@ Required closure before submission:
 
 ### TikTok readiness checklist
 
-- [x] Revision 9 local implementation, Code Review and `review.jingtangai.com` Domain-property verification pass; deployment/Human E2E evidence remains separate.
+- [x] Revision 9 local implementation, Code Review, `review.jingtangai.com` Domain-property verification and controlled `hold-worker` deployment pass; fresh Human E2E evidence remains separate.
 - [ ] Actual Production draft and Sandbox product/Scope/domain/legal fields match the final implementation.
 - [ ] Protected reviewer account/Sandbox user verified without storing credentials here.
 - [ ] Fresh end-to-end video recorded from the exact final web candidate and kept within current portal limits.
@@ -224,6 +228,6 @@ R5 may continue local regression and material preparation, but it must stop befo
 - changing external App settings beyond separately authorized evidence;
 - recording or uploading a demo that performs an unapproved external write;
 - Business/Domain Verification, Advanced Access/Audit or App Review submission;
-- deployment, public `Available`, Stage Acceptance, checkpoint, commit or push.
+- any further deployment, public `Available`, Stage Acceptance, checkpoint, commit or push beyond the explicit evidence-reconciliation authorization recorded above.
 
-R5 cannot be marked complete while Instagram remains paused under the current Baseline, TikTok deployment/fresh Human E2E evidence remains absent, required current demo videos/reviewer accounts are absent, or Final Acceptance/Human E2E/Stage Acceptance have not been explicitly completed.
+R5 cannot be marked complete while Instagram remains paused under the current Baseline, TikTok fresh Human E2E/Acceptance evidence remains absent, required current demo videos/reviewer accounts are absent, or Final Acceptance/Human E2E/Stage Acceptance have not been explicitly completed.
