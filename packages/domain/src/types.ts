@@ -76,7 +76,7 @@ export type ContentStatus = (typeof contentStatuses)[number];
 export const sourceAssetStatuses = ["pending_upload", "complete", "failed"] as const;
 export type SourceAssetStatus = (typeof sourceAssetStatuses)[number];
 
-export const platforms = ["youtube", "facebook", "tiktok"] as const;
+export const platforms = ["youtube", "facebook", "instagram", "tiktok"] as const;
 export type Platform = (typeof platforms)[number];
 
 export const privacyStatuses = ["unselected", "private", "unlisted", "public"] as const;

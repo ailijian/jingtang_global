@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const platformVersionInput = z
   .object({
-    platform: z.enum(["youtube", "facebook", "tiktok"]),
+    platform: z.enum(["youtube", "facebook", "instagram", "tiktok"]),
     accountReference: z.string().trim().min(1).max(255),
     accountDisplayName: z.string().trim().min(1).max(255),
     title: z.string().trim().min(1).max(2200),
@@ -39,7 +39,28 @@ export const platformVersionInput = z
         message: "YouTube audience settings do not apply to TikTok",
       });
     }
-    if (value.platform !== "tiktok" && value.title.length > 100) {
+    if (value.platform === "instagram" && value.privacyStatus !== "unselected") {
+      context.addIssue({
+        code: "custom",
+        path: ["privacyStatus"],
+        message: "Instagram Reel distribution is fixed and does not expose a privacy selector",
+      });
+    }
+    if (value.platform === "instagram" && value.madeForKids) {
+      context.addIssue({
+        code: "custom",
+        path: ["madeForKids"],
+        message: "YouTube audience settings do not apply to Instagram",
+      });
+    }
+    if (value.platform === "instagram" && value.description.length > 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["description"],
+        message: "Instagram exposes one caption field only",
+      });
+    }
+    if (value.platform !== "instagram" && value.platform !== "tiktok" && value.title.length > 100) {
       context.addIssue({
         code: "custom",
         path: ["title"],

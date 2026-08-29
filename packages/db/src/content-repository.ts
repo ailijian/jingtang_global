@@ -37,11 +37,13 @@ const assetStatusToDomain: Readonly<Record<DbSourceAssetStatus, SourceAssetStatu
 const platformToDb: Readonly<Record<Platform, DbPlatform>> = {
   youtube: DbPlatform.YOUTUBE,
   facebook: DbPlatform.FACEBOOK,
+  instagram: DbPlatform.INSTAGRAM,
   tiktok: DbPlatform.TIKTOK,
 };
 const platformToDomain: Readonly<Record<DbPlatform, Platform>> = {
   YOUTUBE: "youtube",
   FACEBOOK: "facebook",
+  INSTAGRAM: "instagram",
   TIKTOK: "tiktok",
 };
 const privacyToDb: Readonly<Record<PrivacyStatus, DbPrivacyStatus>> = {
@@ -472,6 +474,10 @@ export async function getContentDetail(
         failureCategory: true,
         providerId: true,
         providerUrl: true,
+        providerCreateState: true,
+        providerPublishState: true,
+        providerResourceId: true,
+        providerResultId: true,
         outboxMessage: { select: { state: true } },
         updatedAt: true,
       },

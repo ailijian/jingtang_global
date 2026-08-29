@@ -10,6 +10,7 @@ import {
   OutboxState,
   Platform,
   PlatformExecutionState,
+  ProviderRemovalState,
   WorkspaceLifecycleState,
   type Prisma,
   type PrismaClient,
@@ -35,10 +36,12 @@ const lifecycleKindDatabaseValue: Readonly<Record<LifecycleOperationKind, string
 
 const lifecycleRetentionMs = 365 * 24 * 60 * 60 * 1000;
 
-type AuthorizedPlatform = "youtube" | "facebook" | "tiktok";
+type AuthorizedPlatform = "youtube" | "facebook" | "instagram" | "tiktok";
 
 function authorizedPlatform(value: string): AuthorizedPlatform {
-  if (value === "youtube" || value === "facebook" || value === "tiktok") return value;
+  if (value === "youtube" || value === "facebook" || value === "instagram" || value === "tiktok") {
+    return value;
+  }
   throw new Error("unsupported_channel_platform");
 }
 
@@ -47,7 +50,9 @@ function authorizedPlatformEnum(platform: AuthorizedPlatform): Platform {
     ? Platform.YOUTUBE
     : platform === "facebook"
       ? Platform.FACEBOOK
-      : Platform.TIKTOK;
+      : platform === "instagram"
+        ? Platform.INSTAGRAM
+        : Platform.TIKTOK;
 }
 
 function disconnectedDisplayName(platform: AuthorizedPlatform): string {
@@ -55,7 +60,9 @@ function disconnectedDisplayName(platform: AuthorizedPlatform): string {
     ? "Disconnected YouTube channel"
     : platform === "facebook"
       ? "Disconnected Facebook Page"
-      : "Disconnected TikTok account";
+      : platform === "instagram"
+        ? "Disconnected Instagram account"
+        : "Disconnected TikTok account";
 }
 
 function expiredDisplayName(platform: AuthorizedPlatform): string {
@@ -63,7 +70,9 @@ function expiredDisplayName(platform: AuthorizedPlatform): string {
     ? "Expired YouTube authorization"
     : platform === "facebook"
       ? "Expired Facebook Page authorization"
-      : "Expired TikTok authorization";
+      : platform === "instagram"
+        ? "Expired Instagram authorization"
+        : "Expired TikTok authorization";
 }
 
 interface LifecycleClock {
@@ -300,18 +309,33 @@ export async function pseudonymizePlatformAuthorizedData(
       })
     : [];
   if (versionIds.length) {
+    if (input.platform === "instagram") {
+      await transaction.$executeRaw`SELECT pseudonymize_instagram_platform_versions(
+        ${input.workspaceId}::uuid,
+        ${input.channelId}::uuid,
+        ${input.accountReference}::text,
+        ${input.replacementAccountReference}::text,
+        ${input.replacementDisplayName}::text
+      )`;
+    } else {
+      await transaction.$executeRaw`SELECT pseudonymize_platform_versions(
+        ${input.workspaceId}::uuid,
+        ${input.channelId}::uuid,
+        ${input.platform}::platform,
+        ${input.accountReference}::text,
+        ${input.replacementAccountReference}::text,
+        ${input.replacementDisplayName}::text
+      )`;
+    }
     await transaction.platformExecution.updateMany({
       where: { workspaceId: input.workspaceId, platformVersionId: { in: versionIds } },
-      data: { providerId: null, providerUrl: null },
+      data: {
+        providerId: null,
+        providerUrl: null,
+        providerResourceId: null,
+        providerResultId: null,
+      },
     });
-    await transaction.$executeRaw`SELECT pseudonymize_platform_versions(
-      ${input.workspaceId}::uuid,
-      ${input.channelId}::uuid,
-      ${input.platform}::platform,
-      ${input.accountReference}::text,
-      ${input.replacementAccountReference}::text,
-      ${input.replacementDisplayName}::text
-    )`;
   }
   const intents = await transaction.publishingIntent.findMany({
     where: {
@@ -375,32 +399,54 @@ async function terminalizeDisconnectedYouTubeExecutions(
     where: {
       workspaceId: input.workspaceId,
       platformVersionId: { in: versions.map((entry) => entry.id) },
-      state: { in: [PlatformExecutionState.PUBLISHING, PlatformExecutionState.PROCESSING] },
+      state: {
+        in: [
+          PlatformExecutionState.NOT_STARTED,
+          PlatformExecutionState.PUBLISHING,
+          PlatformExecutionState.PROCESSING,
+        ],
+      },
     },
-    select: { id: true, state: true },
+    select: {
+      id: true,
+      state: true,
+      providerCreateState: true,
+      providerPublishState: true,
+    },
   });
   if (executions.length === 0) return;
-  const publishingIds = executions
-    .filter((entry) => entry.state === PlatformExecutionState.PUBLISHING)
+  const uncertainIds = executions
+    .filter(
+      (entry) =>
+        entry.state === PlatformExecutionState.PROCESSING ||
+        (input.platform === "instagram" &&
+          (entry.providerCreateState === "STARTED" ||
+            entry.providerCreateState === "AMBIGUOUS" ||
+            entry.providerPublishState === "STARTED" ||
+            entry.providerPublishState === "AMBIGUOUS")),
+    )
     .map((entry) => entry.id);
-  const processingIds = executions
-    .filter((entry) => entry.state === PlatformExecutionState.PROCESSING)
+  const cancellableIds = executions
+    .filter((entry) => !uncertainIds.includes(entry.id))
     .map((entry) => entry.id);
-  if (publishingIds.length) {
+  if (cancellableIds.length) {
     await transaction.platformExecution.updateMany({
-      where: { id: { in: publishingIds } },
+      where: { id: { in: cancellableIds } },
       data: {
         state: PlatformExecutionState.CANCELLED,
         failureCategory: "channel_disconnected",
       },
     });
   }
-  if (processingIds.length) {
+  if (uncertainIds.length) {
     await transaction.platformExecution.updateMany({
-      where: { id: { in: processingIds } },
+      where: { id: { in: uncertainIds } },
       data: {
         state: PlatformExecutionState.NEEDS_ATTENTION,
-        failureCategory: "channel_disconnected_during_processing",
+        failureCategory:
+          input.platform === "instagram"
+            ? "instagram_write_outcome_unknown_after_disconnect"
+            : "channel_disconnected_during_processing",
       },
     });
   }
@@ -419,18 +465,22 @@ async function terminalizeDisconnectedYouTubeExecutions(
     },
   });
   for (const execution of executions) {
-    const processing = execution.state === PlatformExecutionState.PROCESSING;
+    const uncertain = uncertainIds.includes(execution.id);
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
-      action: processing ? "platform.publish_failed" : "platform.publish_cancelled",
+      action: uncertain ? "platform.publish_failed" : "platform.publish_cancelled",
       targetType: "platform_execution",
       targetId: execution.id,
-      result: processing ? "failed" : "success",
+      result: uncertain ? "failed" : "success",
       correlationId: input.correlationId,
       metadata: {
         platform: input.platform ?? "youtube",
-        reason: processing ? "channel_disconnected_during_processing" : "channel_disconnected",
+        reason: uncertain
+          ? input.platform === "instagram"
+            ? "provider_write_outcome_unknown_after_disconnect"
+            : "channel_disconnected_during_processing"
+          : "channel_disconnected",
       },
     });
   }
@@ -441,8 +491,166 @@ export interface DisconnectPreparation {
   readonly operationId: string | null;
   readonly requestReference: string | null;
   readonly tokenEnvelopeCiphertext: string | null;
+  readonly tokenKeyReference: string | null;
   readonly alreadyDisconnected: boolean;
   readonly revocationDeferred: boolean;
+}
+
+async function prepareInstagramLocalDisconnect(
+  transaction: Prisma.TransactionClient,
+  input: {
+    readonly workspaceId: string;
+    readonly actorUserId: string;
+    readonly correlationId: string;
+    readonly now: Date;
+    readonly deadlineAt: Date;
+  },
+  channel: {
+    readonly id: string;
+    readonly state: ChannelState;
+    readonly externalAccountId: string | null;
+    readonly tokenCiphertextReference: string | null;
+  },
+): Promise<DisconnectPreparation> {
+  if (channel.state === ChannelState.DISCONNECTED) {
+    return {
+      channelId: channel.id,
+      operationId: null,
+      requestReference: null,
+      tokenEnvelopeCiphertext: null,
+      tokenKeyReference: null,
+      alreadyDisconnected: true,
+      revocationDeferred: false,
+    };
+  }
+  const current = await transaction.channel.findUniqueOrThrow({
+    where: { id: channel.id },
+    include: {
+      consent: { select: { userId: true } },
+      instagramCallbackCorrelation: true,
+    },
+  });
+  const accountReference = current.externalAccountId;
+  await transaction.channel.update({
+    where: { id: current.id },
+    data: {
+      state: ChannelState.DISCONNECTING,
+      deniedAt: input.now,
+      disconnectRequestedAt: input.now,
+      operationGeneration: { increment: 1 },
+      revokeFailureCategory: null,
+      revokeAttemptCount: 0,
+    },
+  });
+  let authorizedAuditTargetIds: readonly string[] = [current.id];
+  if (accountReference) {
+    await terminalizeDisconnectedYouTubeExecutions(transaction, {
+      workspaceId: input.workspaceId,
+      accountReference,
+      actorUserId: input.actorUserId,
+      correlationId: input.correlationId,
+      now: input.now,
+      platform: "instagram",
+    });
+    authorizedAuditTargetIds = await pseudonymizePlatformAuthorizedData(transaction, {
+      platform: "instagram",
+      workspaceId: input.workspaceId,
+      channelId: current.id,
+      accountReference,
+      replacementAccountReference: `disconnected:${current.id}`,
+      replacementDisplayName: disconnectedDisplayName("instagram"),
+    });
+  }
+  await transaction.$executeRaw`SELECT pseudonymize_instagram_channel_audit(
+    ${input.workspaceId}::uuid,
+    ${current.id}::uuid,
+    ${authorizedAuditTargetIds}::text[]
+  )`;
+  await enqueueTokenKeyRetirement(transaction, {
+    workspaceId: input.workspaceId,
+    channelId: current.id,
+    ...(current.consent?.userId ? { subjectUserId: current.consent.userId } : {}),
+    keyReference: current.tokenCiphertextReference,
+    correlationId: input.correlationId,
+    deadlineAt: input.deadlineAt,
+    now: input.now,
+  });
+  const removalState = current.instagramCallbackCorrelation
+    ? current.instagramCallbackCorrelation.state === ProviderRemovalState.CONFIRMED
+      ? ProviderRemovalState.CONFIRMED
+      : ProviderRemovalState.PENDING_USER_ACTION
+    : ProviderRemovalState.NOT_APPLICABLE;
+  if (current.instagramCallbackCorrelation) {
+    await transaction.instagramCallbackCorrelation.update({
+      where: { channelId: current.id },
+      data: {
+        state: removalState,
+        retentionExpiresAt: new Date(input.now.getTime() + lifecycleRetentionMs),
+      },
+    });
+  }
+  await transaction.channel.update({
+    where: { id: current.id },
+    data: {
+      state: ChannelState.DISCONNECTED,
+      providerRemovalState: removalState,
+      externalAccountId: null,
+      displayName: null,
+      authorizationSubjectReference: null,
+      oauthStateDigest: null,
+      grantedScopes: [],
+      consentRecordId: null,
+      tokenCiphertextReference: null,
+      tokenEnvelopeCiphertext: null,
+      authorizedAt: null,
+      refreshedAt: null,
+      authorizedDataExpiresAt: null,
+      disconnectedAt: input.now,
+      operationLeaseId: null,
+      operationLeaseUntil: null,
+      operationLeaseGeneration: null,
+    },
+  });
+  await appendAudit(transaction, {
+    workspaceId: input.workspaceId,
+    actorUserId: input.actorUserId,
+    action: "channel.disconnected",
+    targetType: "channel",
+    targetId: current.id,
+    result: "success",
+    correlationId: input.correlationId,
+    metadata: {
+      platform: "instagram",
+      authorized_data_deleted: true,
+      provider_removal_state:
+        removalState === ProviderRemovalState.CONFIRMED ? "confirmed" : "pending_user_action",
+    },
+  });
+  await appendAudit(transaction, {
+    workspaceId: input.workspaceId,
+    actorUserId: input.actorUserId,
+    action: "data.retention_deleted",
+    targetType: "channel",
+    targetId: current.id,
+    result: "success",
+    correlationId: input.correlationId,
+    metadata: {
+      platform: "instagram",
+      reason: "user_revocation",
+      within_days: 7,
+      provider_removal_state:
+        removalState === ProviderRemovalState.CONFIRMED ? "confirmed" : "pending_user_action",
+    },
+  });
+  return {
+    channelId: current.id,
+    operationId: null,
+    requestReference: null,
+    tokenEnvelopeCiphertext: null,
+    tokenKeyReference: current.tokenCiphertextReference,
+    alreadyDisconnected: false,
+    revocationDeferred: false,
+  };
 }
 
 export async function prepareYouTubeDisconnect(
@@ -468,12 +676,27 @@ export async function prepareYouTubeDisconnect(
     });
     if (!channel) throw new Error("channel_not_found");
     const platform = authorizedPlatform(channel.platform);
+    const clock = await readLifecycleClock(transaction, input.now);
+    if (platform === "instagram") {
+      return prepareInstagramLocalDisconnect(
+        transaction,
+        {
+          workspaceId: input.workspaceId,
+          actorUserId: input.actorUserId,
+          correlationId: input.correlationId,
+          now: clock.now,
+          deadlineAt: input.deadlineAt ?? clock.deletionDeadline,
+        },
+        channel,
+      );
+    }
     if (channel.state === ChannelState.DISCONNECTED) {
       return {
         channelId: channel.id,
         operationId: null,
         requestReference: null,
         tokenEnvelopeCiphertext: null,
+        tokenKeyReference: null,
         alreadyDisconnected: true,
         revocationDeferred: false,
       };
@@ -487,7 +710,6 @@ export async function prepareYouTubeDisconnect(
     ) {
       throw new Error("channel_not_disconnectable");
     }
-    const clock = await readLifecycleClock(transaction, input.now);
     const now = clock.now;
     let operation = await transaction.lifecycleOperation.findFirst({
       where: {
@@ -617,6 +839,7 @@ export async function prepareYouTubeDisconnect(
       operationId: operation?.id ?? null,
       requestReference: operation?.requestReference ?? null,
       tokenEnvelopeCiphertext: channel.tokenEnvelopeCiphertext,
+      tokenKeyReference: channel.tokenCiphertextReference,
       alreadyDisconnected: false,
       revocationDeferred,
     };
@@ -1831,6 +2054,7 @@ export async function recordExpiredAuthorizedDataDeletion(
       !retentionScope ||
       (retentionScope.platform !== "youtube" &&
         retentionScope.platform !== "facebook" &&
+        retentionScope.platform !== "instagram" &&
         retentionScope.platform !== "tiktok")
     ) {
       throw new Error("unsupported_channel_platform");

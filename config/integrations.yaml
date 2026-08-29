@@ -1,11 +1,11 @@
 schema_version: 1
-revision: 28
+revision: 32
 status: approved
-effective_date: "2026-08-28"
+effective_date: "2026-08-29"
 owner: JINGTANG Integration Owner
-last_policy_verification_date: "2026-08-28"
+last_policy_verification_date: "2026-08-29"
 revision_note: >-
-  The R3 Facebook and R4 TikTok controlled-access technical slices are complete and accepted while their external submission work remains deferred to R5. R4.5 Instagram scope and lifecycle are approved under Social Platform Review Baseline Revision 8: a separate Instagram Login App, exactly instagram_business_basic and instagram_business_content_publish, one controlled Professional account, one confirmed MP4 Reel, share_to_feed false, short-lived private-COS pull, and local immediate disconnect followed by user removal and verified deauthorization-callback confirmation. R4.5 remains unimplemented and externally unconfigured; callback mapping, actual App configuration and COS fetch compatibility are pending evidence. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false; implementation, external configuration, credentials, deployment, publishing, external review, public availability, commit and push are separately gated.
+  Revision 9 replaces TikTok R4 FILE_UPLOAD with a local PULL_FROM_URL implementation for server-stored media. COS remains private; only the final-confirmed object is exposed to TikTok through a 65-minute provider-only HTTPS grant bound to object key, hash, size and GET. TikTok Dashboard reports review.jingtangai.com as a verified Domain property; deployment, credentials, API calls and publishing remain external and unperformed. R4.5 Instagram remains paused. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false.
 
 authority:
   owns:
@@ -88,10 +88,10 @@ policy_sources:
     verified_on: "2026-08-27"
   tiktok_content_sharing_guidelines:
     url: https://developers.tiktok.com/doc/content-sharing-guidelines
-    verified_on: "2026-08-27"
+    verified_on: "2026-08-29"
   tiktok_app_review:
     url: https://developers.tiktok.com/doc/app-review-guidelines
-    verified_on: "2026-08-27"
+    verified_on: "2026-08-29"
 
 integrations:
   youtube:
@@ -312,7 +312,7 @@ integrations:
     delivery_role: r4_5_instagram_review_slice
     public_status: coming_soon
     production_available: false
-    implementation_stage: scope_approved_revision_8_implementation_not_started
+    implementation_stage: r4_5_paused_controlled_professional_account_unavailable
     capabilities:
       connect: {state: not_available, public_label: Coming Soon}
       publish_now: {state: not_available, public_label: Coming Soon}
@@ -326,7 +326,7 @@ integrations:
       account_boundary: one_company_controlled_professional_account
       requested_scopes:
         - scope: instagram_business_basic
-          request_state: approved_not_implemented
+          request_state: approved_provider_independent_candidate_only
           purpose: bind the exact authorized Professional account and display only user_id and username
           baseline_trace:
             - AC-15
@@ -345,7 +345,7 @@ integrations:
           api_methods:
             - GET /me?fields=user_id,username
         - scope: instagram_business_content_publish
-          request_state: approved_not_implemented
+          request_state: approved_provider_independent_candidate_only
           purpose: create and publish one explicitly confirmed MP4 Reel and track only that returned container and media
           baseline_trace:
             - AC-15
@@ -378,7 +378,9 @@ integrations:
           reason: R4.5 uses a separate Instagram Login App and does not reuse the R3 Facebook Login authorization path
     current_constraints:
       - public status remains Coming Soon and no public executable entry is rendered
-      - scope and lifecycle are approved, but no Instagram implementation, App configuration, credential use or provider call has started
+      - provider-independent domain, persistence, contracts, UI skeleton and deterministic fixtures are implemented locally
+      - a separate Business Portfolio-owned Instagram Login App and exact Review redirect are configured; deauthorization and data-deletion callback fields were observed but left empty because no callback-capable candidate is deployed
+      - the company-controlled Professional account could not complete registration/review in a searchable state, so tester binding, Standard Access, OAuth and callback evidence are paused by Human Owner decision on 2026-08-29
       - one company-controlled Professional account, one approved MP4 Reel, user-confirmed caption, media_type REELS, fixed share_to_feed false and Publish Now only
       - the worker may generate a server-to-Meta HTTPS URL only after immutable confirmation; it is object/method-bound, shortest feasible and at most 60 minutes, and must never reach browser, persistence, logs, audit, metrics, screenshots or reviewer media
       - disconnect denies and fences immediately, cancels queued work, destroys the local token key and authorization/account data, stops refresh and requires the user to remove the App in Instagram
@@ -389,9 +391,12 @@ integrations:
     r4_5_entry_gates:
       - scope_approval: passed_2026_08_28_baseline_revision_8
       - registry_design_architecture_security_data_legal_test_operations_alignment: passed_2026_08_28_full_verify
-      - implementation_authorization: not_granted
-      - callback_identity_mapping: external_evidence_pending_separate_authorization
-      - dedicated_app_and_standard_access_configuration: external_evidence_pending_separate_authorization
+      - provider_independent_implementation: local_candidate_complete_code_review_passed_2026_08_28
+      - provider_dependent_implementation_authorization: not_granted
+      - dedicated_app_configuration: separate_instagram_login_app_and_review_redirect_configured_2026_08_28
+      - controlled_professional_account: blocked_registration_review_not_searchable_paused_2026_08_29
+      - callback_identity_mapping: blocked_controlled_account_and_callback_deployment_pending
+      - standard_access_configuration: blocked_controlled_account_binding_pending
       - cos_fetch_and_ttl_compatibility: external_evidence_pending_separate_authorization
       - deployment_and_real_publish: not_authorized
 
@@ -413,7 +418,7 @@ integrations:
       mechanism: tiktok_login_kit_web_oauth_2
       app_ownership: company_tiktok_organization_durable_app_identity
       api_version_intent: v2
-      media_transfer: file_upload_only
+      media_transfer: pull_from_url_only
       automatic_scopes:
         - scope: user.info.basic
           purpose: bind the OAuth result to the exact TikTok user by open_id and render the minimum connected-account identity without reading the user's feed
@@ -435,8 +440,7 @@ integrations:
             - authorized Publisher manually selects an allowed privacy value and explicitly confirms the exact account, media and fields
           api_methods:
             - POST /v2/post/publish/creator_info/query/
-            - POST /v2/post/publish/video/init/ with FILE_UPLOAD
-            - PUT exact returned upload_url using sequential chunks
+            - POST /v2/post/publish/video/init/ with PULL_FROM_URL and the final-confirmed provider-only HTTPS URL
             - POST /v2/post/publish/status/fetch/ for the returned publish_id
       excluded_scopes:
         - scope: video.upload
@@ -450,10 +454,13 @@ integrations:
       - before TikTok audit, only a controlled private account and a manually selected SELF_ONLY value returned by fresh Creator Info are permitted
       - privacy has no default; Comment, Duet and Stitch are off by default and remain disabled when Creator Info disallows them
       - commercial-content and AI disclosures plus applicable Music and Branded Content policy consent are part of the immutable final confirmation
-      - media transfer is FILE_UPLOAD only; the private COS object is streamed after final consent and PULL_FROM_URL is prohibited
+      - media transfer is PULL_FROM_URL only; COS remains private and the final-confirmed object is exposed through a provider-only HTTPS URL bound to object key, SHA-256, byte size, GET and a fixed 65-minute lifetime
+      - the provider-only media URL is secret-equivalent and must not enter browsers, databases, task payloads, audit events, logs, metrics, errors, screenshots or review videos; the ingress access log skips the exact media route
+      - TikTok Dashboard reports review.jingtangai.com as a verified Domain property for the provider-only media route; deployment and provider-use evidence remain separate gates
       - a private unaudited post may complete without a public post ID or external link; the UI must not fabricate one
       - disconnect denies first, invokes the TikTok revoke endpoint, retires the token key and removes local authorization data without claiming to delete a TikTok-hosted post
       - company TikTok Organization owns the durable App identity; Review secrets, tokens, redirect URLs, Sandbox users, data and runtime configuration are retired before future production cutover
+      - Revision 9 approved PULL_FROM_URL remediation locally on 2026-08-29 and the exact Review Domain property was subsequently verified; submission readiness still requires separately authorized deployment and fresh Human E2E evidence
     r4_entry_gates:
       scope_approval_package: prepared_2026_08_27
       scope_approval: passed_2026_08_27
@@ -463,6 +470,9 @@ integrations:
       acceptance_review: passed_2026_08_28
       technical_stage_acceptance: passed_2026_08_28
       external_review_submission: unified_r5_separately_gated
+      revision_9_local_implementation: passed_verification_and_code_review_2026_08_29
+      revision_9_url_property: review_domain_verified_2026_08_29
+      r5_policy_revalidation: revision_9_pull_from_url_local_and_domain_verification_complete_deployment_evidence_pending_2026_08_29
 
   linkedin:
     display_name: LinkedIn

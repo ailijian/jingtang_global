@@ -11,6 +11,10 @@ app.jingtangai.com {
 	# must never enter the ingress access log.
 	@youtube_oauth_callback path /api/v1/channels/youtube/oauth/callback
 	log_skip @youtube_oauth_callback
+	# The TikTok media token is a secret-equivalent capability and must not enter
+	# ingress access logs.
+	@tiktok_media path /api/v1/media/tiktok
+	log_skip @tiktok_media
 
 	header {
 		-Server

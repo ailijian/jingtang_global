@@ -52,6 +52,14 @@ enum ChannelState {
   @@map("channel_state")
 }
 
+enum ProviderRemovalState {
+  NOT_APPLICABLE      @map("not_applicable")
+  PENDING_USER_ACTION @map("pending_user_action")
+  CONFIRMED           @map("confirmed")
+
+  @@map("provider_removal_state")
+}
+
 enum ContentStatus {
   DRAFT            @map("draft")
   PENDING_APPROVAL @map("pending_approval")
@@ -70,18 +78,29 @@ enum SourceAssetStatus {
 }
 
 enum Platform {
-  YOUTUBE  @map("youtube")
-  FACEBOOK @map("facebook")
-  TIKTOK   @map("tiktok")
+  YOUTUBE   @map("youtube")
+  FACEBOOK  @map("facebook")
+  INSTAGRAM @map("instagram")
+  TIKTOK    @map("tiktok")
 
   @@map("platform")
 }
 
+enum ProviderWriteState {
+  NOT_STARTED @map("not_started")
+  STARTED     @map("started")
+  SUCCEEDED   @map("succeeded")
+  AMBIGUOUS   @map("ambiguous")
+  FAILED      @map("failed")
+
+  @@map("provider_write_state")
+}
+
 enum PrivacyStatus {
   UNSELECTED @map("unselected")
-  PRIVATE  @map("private")
-  UNLISTED @map("unlisted")
-  PUBLIC   @map("public")
+  PRIVATE    @map("private")
+  UNLISTED   @map("unlisted")
+  PUBLIC     @map("public")
 
   @@map("privacy_status")
 }
@@ -216,30 +235,31 @@ model User {
 }
 
 model Workspace {
-  id                           String                        @id @default(uuid()) @db.Uuid
-  name                         String                        @db.VarChar(160)
-  createdByUserId              String                        @map("created_by_user_id") @db.Uuid
-  createdAt                    DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                    DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  lifecycleState               WorkspaceLifecycleState       @default(ACTIVE) @map("lifecycle_state")
-  deletionRequestedAt          DateTime?                     @map("deletion_requested_at") @db.Timestamptz(3)
-  deletedAt                    DateTime?                     @map("deleted_at") @db.Timestamptz(3)
-  createdBy                    User                          @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  memberships                  Membership[]
-  invitations                  Invitation[]
-  auditEvents                  AuditEvent[]
-  channels                     Channel[]
-  sourceAssets                 SourceAsset[]
-  contents                     Content[]
-  contentRevisions             ContentRevision[]
-  platformVersions             PlatformVersion[]
-  approvalDecisions            ApprovalDecision[]
-  publishingIntents            PublishingIntent[]
-  platformExecutions           PlatformExecution[]
-  outboxMessages               OutboxMessage[]
-  dataDeletionRequests         DataDeletionRequest[]
-  lifecycleOperations          LifecycleOperation[]
-  facebookConnectionCandidates FacebookConnectionCandidate[]
+  id                            String                         @id @default(uuid()) @db.Uuid
+  name                          String                         @db.VarChar(160)
+  createdByUserId               String                         @map("created_by_user_id") @db.Uuid
+  createdAt                     DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                     DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lifecycleState                WorkspaceLifecycleState        @default(ACTIVE) @map("lifecycle_state")
+  deletionRequestedAt           DateTime?                      @map("deletion_requested_at") @db.Timestamptz(3)
+  deletedAt                     DateTime?                      @map("deleted_at") @db.Timestamptz(3)
+  createdBy                     User                           @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships                   Membership[]
+  invitations                   Invitation[]
+  auditEvents                   AuditEvent[]
+  channels                      Channel[]
+  sourceAssets                  SourceAsset[]
+  contents                      Content[]
+  contentRevisions              ContentRevision[]
+  platformVersions              PlatformVersion[]
+  approvalDecisions             ApprovalDecision[]
+  publishingIntents             PublishingIntent[]
+  platformExecutions            PlatformExecution[]
+  outboxMessages                OutboxMessage[]
+  dataDeletionRequests          DataDeletionRequest[]
+  lifecycleOperations           LifecycleOperation[]
+  facebookConnectionCandidates  FacebookConnectionCandidate[]
+  instagramCallbackCorrelations InstagramCallbackCorrelation[]
 
   @@index([createdByUserId])
   @@map("workspaces")
@@ -342,10 +362,45 @@ model Channel {
   workspace                     Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   consent                       ConsentRecord?                @relation("ChannelConsent", fields: [consentRecordId], references: [id], onDelete: Restrict)
   facebookConnectionCandidates  FacebookConnectionCandidate[]
+  providerRemovalState          ProviderRemovalState          @default(NOT_APPLICABLE) @map("provider_removal_state")
+  instagramCallbackCorrelation  InstagramCallbackCorrelation?
 
   @@unique([workspaceId, platform])
   @@index([workspaceId, state])
   @@map("channels")
+}
+
+model InstagramCallbackCorrelation {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  workspaceId            String                     @map("workspace_id") @db.Uuid
+  channelId              String                     @unique @map("channel_id") @db.Uuid
+  subjectCorrelationHash String                     @unique @map("subject_correlation_hash") @db.Char(64)
+  state                  ProviderRemovalState       @default(NOT_APPLICABLE)
+  confirmedAt            DateTime?                  @map("confirmed_at") @db.Timestamptz(3)
+  retentionExpiresAt     DateTime                   @map("retention_expires_at") @db.Timestamptz(3)
+  createdAt              DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace              Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel                Channel                    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  receipts               InstagramCallbackReceipt[]
+
+  @@index([workspaceId, state, updatedAt(sort: Desc)])
+  @@index([retentionExpiresAt])
+  @@map("instagram_callback_correlations")
+}
+
+model InstagramCallbackReceipt {
+  id                 String                       @id @default(uuid()) @db.Uuid
+  correlationId      String                       @map("correlation_id") @db.Uuid
+  replayDigest       String                       @unique @map("replay_digest") @db.Char(64)
+  callbackKind       String                       @map("callback_kind") @db.VarChar(40)
+  receivedAt         DateTime                     @default(now()) @map("received_at") @db.Timestamptz(3)
+  retentionExpiresAt DateTime                     @map("retention_expires_at") @db.Timestamptz(3)
+  correlation        InstagramCallbackCorrelation @relation(fields: [correlationId], references: [id], onDelete: Cascade)
+
+  @@index([correlationId, receivedAt(sort: Desc)])
+  @@index([retentionExpiresAt])
+  @@map("instagram_callback_receipts")
 }
 
 model FacebookConnectionCandidate {
@@ -525,23 +580,27 @@ model PublishingIntent {
 }
 
 model PlatformExecution {
-  id                 String                 @id @default(uuid()) @db.Uuid
-  workspaceId        String                 @map("workspace_id") @db.Uuid
-  publishingIntentId String                 @map("publishing_intent_id") @db.Uuid
-  platformVersionId  String                 @map("platform_version_id") @db.Uuid
-  operation          String                 @db.VarChar(40)
-  attempt            Int
-  idempotencyKey     String                 @map("idempotency_key") @db.VarChar(255)
-  state              PlatformExecutionState @default(NOT_STARTED)
-  failureCategory    String?                @map("failure_category") @db.VarChar(80)
-  providerId         String?                @map("provider_id") @db.VarChar(255)
-  providerUrl        String?                @map("provider_url") @db.VarChar(1000)
-  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
-  workspace          Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  publishingIntent   PublishingIntent       @relation(fields: [publishingIntentId], references: [id], onDelete: Cascade)
-  platformVersion    PlatformVersion        @relation(fields: [platformVersionId], references: [id], onDelete: Restrict)
-  outboxMessage      OutboxMessage?
+  id                   String                 @id @default(uuid()) @db.Uuid
+  workspaceId          String                 @map("workspace_id") @db.Uuid
+  publishingIntentId   String                 @map("publishing_intent_id") @db.Uuid
+  platformVersionId    String                 @map("platform_version_id") @db.Uuid
+  operation            String                 @db.VarChar(40)
+  attempt              Int
+  idempotencyKey       String                 @map("idempotency_key") @db.VarChar(255)
+  state                PlatformExecutionState @default(NOT_STARTED)
+  failureCategory      String?                @map("failure_category") @db.VarChar(80)
+  providerId           String?                @map("provider_id") @db.VarChar(255)
+  providerUrl          String?                @map("provider_url") @db.VarChar(1000)
+  providerCreateState  ProviderWriteState?    @map("provider_create_state")
+  providerPublishState ProviderWriteState?    @map("provider_publish_state")
+  providerResourceId   String?                @map("provider_resource_id") @db.VarChar(255)
+  providerResultId     String?                @map("provider_result_id") @db.VarChar(255)
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  workspace            Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  publishingIntent     PublishingIntent       @relation(fields: [publishingIntentId], references: [id], onDelete: Cascade)
+  platformVersion      PlatformVersion        @relation(fields: [platformVersionId], references: [id], onDelete: Restrict)
+  outboxMessage        OutboxMessage?
 
   @@unique([publishingIntentId, platformVersionId])
   @@unique([workspaceId, idempotencyKey])

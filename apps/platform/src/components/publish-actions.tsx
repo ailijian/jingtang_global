@@ -1,6 +1,6 @@
 "use client";
 
-import type { Locale } from "@jingtang/domain";
+import type { Locale, Platform } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 import { Button, StatusMessage } from "@jingtang/ui";
 import { useRouter } from "next/navigation";
@@ -35,7 +35,7 @@ export function PublishActions({
   readonly description: string;
   readonly channel: string;
   readonly madeForKids: boolean;
-  readonly platform: "youtube" | "facebook" | "tiktok";
+  readonly platform: Platform;
   readonly channelId: string | null;
   readonly durationSeconds: number | null;
 }) {
@@ -107,6 +107,15 @@ export function PublishActions({
           revisionId,
           idempotencyKey: idempotencyKey.current,
           confirmed: true,
+          ...(platform === "instagram"
+            ? {
+                instagram: {
+                  mediaType: "REELS",
+                  shareToFeed: false,
+                  publishMode: "IMMEDIATE",
+                },
+              }
+            : {}),
           ...(platform === "tiktok" && channelId
             ? {
                 tiktok: {
@@ -150,7 +159,9 @@ export function PublishActions({
         </div>
         <strong>{title}</strong>
         <small>{channel}</small>
-        <p>{description || t("composer.preview.noDescription")}</p>
+        {platform !== "instagram" ? (
+          <p>{description || t("composer.preview.noDescription")}</p>
+        ) : null}
       </aside>
       <dl className="review-list">
         <div>
@@ -165,16 +176,20 @@ export function PublishActions({
                 ? "Facebook 视频标题"
                 : platform === "facebook"
                   ? "Facebook video title"
-                  : locale === "zh-CN"
-                    ? "TikTok 标题/说明"
-                    : "TikTok title/caption"}
+                  : platform === "instagram"
+                    ? "Instagram caption"
+                    : locale === "zh-CN"
+                      ? "TikTok 标题/说明"
+                      : "TikTok title/caption"}
           </dt>
           <dd>{title}</dd>
         </div>
-        <div>
-          <dt>{t("composer.descriptionField")}</dt>
-          <dd>{description || t("composer.preview.noDescription")}</dd>
-        </div>
+        {platform !== "instagram" ? (
+          <div>
+            <dt>{t("composer.descriptionField")}</dt>
+            <dd>{description || t("composer.preview.noDescription")}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>
             {t(hasExecution ? "detail.publish.channel" : "composer.platform.connectedChannel")}
@@ -188,7 +203,11 @@ export function PublishActions({
               ? t("composer.privacy.private")
               : platform === "facebook"
                 ? t("composer.privacy.public")
-                : tikTokPrivacy || (locale === "zh-CN" ? "未选择" : "Not selected")}
+                : platform === "instagram"
+                  ? locale === "zh-CN"
+                    ? "Reels 标签页（share_to_feed=false）"
+                    : "Reels tab only (share_to_feed=false)"
+                  : tikTokPrivacy || (locale === "zh-CN" ? "未选择" : "Not selected")}
           </dd>
         </div>
         {platform === "youtube" ? (
@@ -201,6 +220,12 @@ export function PublishActions({
           <dt>{t("detail.publish.mode")}</dt>
           <dd>{t("detail.publish.mode.now")}</dd>
         </div>
+        {platform === "instagram" ? (
+          <div>
+            <dt>{locale === "zh-CN" ? "Instagram 媒体类型" : "Instagram media type"}</dt>
+            <dd>REELS · share_to_feed=false</dd>
+          </div>
+        ) : null}
       </dl>
       {canRetry ? (
         <StatusMessage tone="info">{t("detail.publish.retryAvailable")}</StatusMessage>
@@ -345,9 +370,13 @@ export function PublishActions({
                   ? "我确认将此准确 MP4、标题和描述立即发布为所选公司 Facebook Page 的原生视频帖子。"
                   : platform === "facebook"
                     ? "I confirm this exact MP4, title, and description for immediate publication as a native video post on the selected company Facebook Page."
-                    : locale === "zh-CN"
-                      ? "我确认将此准确 MP4 与标题通过 FILE_UPLOAD 立即发布到所选 TikTok 私密账号，隐私为 SELF_ONLY。"
-                      : "I confirm this exact MP4 and title for immediate FILE_UPLOAD to the selected private TikTok account as SELF_ONLY."}
+                    : platform === "instagram"
+                      ? locale === "zh-CN"
+                        ? "我确认将此准确 MP4 与 caption 立即发布到所选 Instagram Professional 账号，media_type=REELS、share_to_feed=false；断开不会删除 Instagram 托管的 Reel。"
+                        : "I confirm this exact MP4 and caption for immediate publication to the selected Instagram Professional account with media_type=REELS and share_to_feed=false. Disconnecting does not delete the Instagram-hosted Reel."
+                      : locale === "zh-CN"
+                        ? "我确认将此准确 MP4 与标题通过受限的 PULL_FROM_URL 媒体传输立即发布到所选 TikTok 私密账号，隐私为 SELF_ONLY。"
+                        : "I confirm this exact MP4 and title for immediate provider-only PULL_FROM_URL transfer to the selected private TikTok account as SELF_ONLY."}
             </span>
           </label>
           <Button
@@ -368,16 +397,24 @@ export function PublishActions({
                 ? t("detail.publish.retryWorking")
                 : platform === "facebook"
                   ? t("detail.publish.facebook.working")
-                  : platform === "tiktok"
-                    ? t("detail.publish.tiktok.working")
-                    : t("detail.publish.working")
+                  : platform === "instagram"
+                    ? locale === "zh-CN"
+                      ? "正在创建已确认的 Reel…"
+                      : "Creating the confirmed Reel…"
+                    : platform === "tiktok"
+                      ? t("detail.publish.tiktok.working")
+                      : t("detail.publish.working")
               : canRetry
                 ? t("detail.publish.retryAction")
                 : platform === "facebook"
                   ? t("detail.publish.facebook.action")
-                  : platform === "tiktok"
-                    ? t("detail.publish.tiktok.action")
-                    : t("detail.publish.action")}
+                  : platform === "instagram"
+                    ? locale === "zh-CN"
+                      ? "立即发布 Instagram Reel"
+                      : "Publish Instagram Reel now"
+                    : platform === "tiktok"
+                      ? t("detail.publish.tiktok.action")
+                      : t("detail.publish.action")}
           </Button>
         </>
       ) : null}
@@ -389,9 +426,11 @@ export function PublishActions({
           {t(
             platform === "facebook"
               ? "detail.publish.facebook.queued"
-              : platform === "tiktok"
-                ? "detail.publish.tiktok.queued"
-                : "detail.publish.queued",
+              : platform === "instagram"
+                ? "detail.publish.instagram.queued"
+                : platform === "tiktok"
+                  ? "detail.publish.tiktok.queued"
+                  : "detail.publish.queued",
           )}
         </StatusMessage>
       ) : null}
@@ -400,9 +439,11 @@ export function PublishActions({
           {t(
             platform === "facebook"
               ? "detail.publish.facebook.failed"
-              : platform === "tiktok"
-                ? "detail.publish.tiktok.failed"
-                : "detail.publish.failed",
+              : platform === "instagram"
+                ? "detail.publish.instagram.failed"
+                : platform === "tiktok"
+                  ? "detail.publish.tiktok.failed"
+                  : "detail.publish.failed",
           )}
         </StatusMessage>
       ) : null}

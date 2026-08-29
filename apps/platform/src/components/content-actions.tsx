@@ -1,6 +1,6 @@
 "use client";
 
-import type { ContentStatus, Locale, PrivacyStatus } from "@jingtang/domain";
+import type { ContentStatus, Locale, Platform, PrivacyStatus } from "@jingtang/domain";
 import { translate } from "@jingtang/i18n";
 import { Button, StatusMessage } from "@jingtang/ui";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface VersionInput {
-  readonly platform: "youtube" | "facebook" | "tiktok";
+  readonly platform: Platform;
   readonly accountReference: string;
   readonly accountDisplayName: string;
   readonly title: string;
@@ -197,30 +197,45 @@ export function ContentActions({
                       ? "Facebook 视频标题"
                       : draftVersion.platform === "facebook"
                         ? "Facebook video title"
-                        : locale === "zh-CN"
-                          ? "TikTok 标题/说明"
-                          : "TikTok title/caption"}
+                        : draftVersion.platform === "instagram"
+                          ? "Instagram caption"
+                          : locale === "zh-CN"
+                            ? "TikTok 标题/说明"
+                            : "TikTok title/caption"}
                 </span>
                 <input
                   name="editPlatformTitle"
                   value={draftVersion.title}
-                  maxLength={draftVersion.platform === "tiktok" ? 2200 : 100}
+                  maxLength={
+                    draftVersion.platform === "instagram" || draftVersion.platform === "tiktok"
+                      ? 2200
+                      : 100
+                  }
                   onChange={(event) =>
                     setDraftVersion((current) => ({ ...current, title: event.target.value }))
                   }
                 />
               </label>
               <label className="content-field">
-                <span>{t("composer.descriptionField")}</span>
-                <textarea
-                  name="editDescription"
-                  value={draftVersion.description}
-                  maxLength={5000}
-                  rows={5}
-                  onChange={(event) =>
-                    setDraftVersion((current) => ({ ...current, description: event.target.value }))
-                  }
-                />
+                {draftVersion.platform === "instagram"
+                  ? locale === "zh-CN"
+                    ? "Instagram 只有上方 caption 字段；没有第二个说明字段。"
+                    : "Instagram uses the caption above and exposes no second description field."
+                  : t("composer.descriptionField")}
+                {draftVersion.platform !== "instagram" ? (
+                  <textarea
+                    name="editDescription"
+                    value={draftVersion.description}
+                    maxLength={5000}
+                    rows={5}
+                    onChange={(event) =>
+                      setDraftVersion((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                  />
+                ) : null}
               </label>
               {draftVersion.platform === "youtube" ? (
                 <div className="field-grid">
@@ -264,9 +279,13 @@ export function ContentActions({
                     ? locale === "zh-CN"
                       ? "此修订将作为原生视频帖子发布到所选 Facebook Page。"
                       : "This revision will publish as a native video post on the selected Facebook Page."
-                    : locale === "zh-CN"
-                      ? "TikTok 隐私不在修订阶段预设；最终发布时重新读取 Creator Info 并手动确认 SELF_ONLY。"
-                      : "TikTok privacy is not preselected in the revision; final publish reloads Creator Info and requires manual SELF_ONLY confirmation."}
+                    : draftVersion.platform === "instagram"
+                      ? locale === "zh-CN"
+                        ? "此修订固定为 REELS、share_to_feed=false 和 Publish Now；最终发布仍需单独确认。"
+                        : "This revision is fixed to REELS, share_to_feed=false, and Publish Now; final publishing still requires a separate confirmation."
+                      : locale === "zh-CN"
+                        ? "TikTok 隐私不在修订阶段预设；最终发布时重新读取 Creator Info 并手动确认 SELF_ONLY。"
+                        : "TikTok privacy is not preselected in the revision; final publish reloads Creator Info and requires manual SELF_ONLY confirmation."}
                 </p>
               )}
               <Button

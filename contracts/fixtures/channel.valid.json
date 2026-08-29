@@ -5,6 +5,7 @@
   "external_account_id": null,
   "display_name": null,
   "state": "not_connected",
+  "provider_removal_state": "not_applicable",
   "granted_scopes": [],
   "capabilities": { "publish": "not_available", "schedule": "not_available" },
   "authorized_at": null,

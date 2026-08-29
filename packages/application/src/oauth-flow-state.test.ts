@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertFacebookOAuthFlowBinding,
+  assertInstagramOAuthFlowBinding,
   assertTikTokOAuthFlowBinding,
   assertYouTubeOAuthFlowBinding,
   createOAuthPkce,
   facebookOAuthStateDigest,
   FacebookOAuthFlowStateCodec,
+  instagramOAuthStateDigest,
+  InstagramOAuthFlowStateCodec,
   TikTokOAuthFlowStateCodec,
   YouTubeOAuthFlowStateCodec,
 } from "./oauth-flow-state.js";
@@ -151,6 +154,37 @@ describe("TikTok OAuth flow state", () => {
     expect(() => codec.open(sealed, "wrong-state")).toThrow();
     expect(() =>
       assertTikTokOAuthFlowBinding(tikTokContext, {
+        sessionId: "session-id",
+        userId: "user-id",
+        workspaceId: "other-workspace",
+        locale: "en",
+      }),
+    ).toThrow();
+  });
+});
+
+describe("Instagram OAuth flow state", () => {
+  const instagramContext = {
+    state: "instagram-state",
+    sessionId: "session-id",
+    userId: "user-id",
+    workspaceId: "workspace-id",
+    channelId: "channel-id",
+    consentRecordId: "consent-record-id",
+    locale: "en" as const,
+    expiresAt: Date.now() + 600_000,
+  };
+
+  it("uses its own opaque state domain and active Workspace binding", () => {
+    const codec = new InstagramOAuthFlowStateCodec(secret);
+    const sealed = codec.seal(instagramContext);
+    expect(sealed).not.toContain("workspace-id");
+    expect(codec.open(sealed, "instagram-state")).toEqual(instagramContext);
+    expect(instagramOAuthStateDigest("instagram-state")).not.toBe(
+      facebookOAuthStateDigest("instagram-state"),
+    );
+    expect(() =>
+      assertInstagramOAuthFlowBinding(instagramContext, {
         sessionId: "session-id",
         userId: "user-id",
         workspaceId: "other-workspace",

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { tikTokOAuthScopes } from "@jingtang/application";
+import { TikTokMediaAccessTokenCodec, tikTokOAuthScopes } from "@jingtang/application";
 
 import { TikTokDirectPostProvider, tikTokFailureDiagnostics } from "./tiktok-direct-post.js";
 
@@ -9,15 +9,6 @@ function provider(fetchImplementation: typeof fetch = vi.fn<typeof fetch>()) {
     clientKey: "company-client-key",
     clientSecret: "company-client-secret",
     fetchImplementation,
-  });
-}
-
-function stream(bytes: readonly number[]): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new Uint8Array(bytes));
-      controller.close();
-    },
   });
 }
 
@@ -32,6 +23,17 @@ const settings = {
   musicUsageConfirmed: true as const,
   creatorInfoConfirmed: true as const,
 };
+
+function mediaUrl() {
+  return new TikTokMediaAccessTokenCodec(
+    "a-dedicated-tiktok-media-signing-secret",
+    "https://review.jingtangai.com",
+  ).issueReadUrl({
+    objectKey: "workspaces/workspace/source-assets/asset/video.mp4",
+    expectedByteSize: 3,
+    expectedSha256: "a".repeat(64),
+  });
+}
 
 describe("TikTok Login Kit and Direct Post provider", () => {
   it("builds Login Kit Web authorization with exactly the approved scopes", () => {
@@ -106,7 +108,7 @@ describe("TikTok Login Kit and Direct Post provider", () => {
     });
   });
 
-  it("queries fresh Creator Info and initializes only SELF_ONLY FILE_UPLOAD", async () => {
+  it("queries fresh Creator Info and initializes only SELF_ONLY PULL_FROM_URL", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
@@ -125,10 +127,7 @@ describe("TikTok Login Kit and Direct Post provider", () => {
       )
       .mockResolvedValueOnce(
         Response.json({
-          data: {
-            publish_id: "publish-id",
-            upload_url: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
-          },
+          data: { publish_id: "publish-id" },
           error: { code: "ok", message: "", log_id: "log" },
         }),
       );
@@ -139,19 +138,15 @@ describe("TikTok Login Kit and Direct Post provider", () => {
       duetDisabled: true,
       maximumVideoDurationSeconds: 60,
     });
+    const url = mediaUrl();
     await expect(
       instance.initializeDirectPost({
         accessToken: "access-token",
         title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
+        mediaUrl: url,
         settings,
       }),
-    ).resolves.toEqual({
-      publishId: "publish-id",
-      uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
-    });
+    ).resolves.toEqual({ publishId: "publish-id" });
     const [, init] = fetchImplementation.mock.calls[1] ?? [];
     const body = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as {
       post_info?: Record<string, unknown>;
@@ -162,181 +157,89 @@ describe("TikTok Login Kit and Direct Post provider", () => {
       brand_content_toggle: false,
     });
     expect(body.source_info).toEqual({
-      source: "FILE_UPLOAD",
-      video_size: 3,
-      chunk_size: 3,
-      total_chunk_count: 1,
+      source: "PULL_FROM_URL",
+      video_url: url.revealForProviderRequest(),
     });
+    expect(JSON.stringify(url)).not.toContain("token=");
   });
 
-  it("uploads exact byte ranges and rejects non-TikTok upload hosts", async () => {
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(null, { status: 201 }));
-    await provider(fetchImplementation).uploadVideo({
-      uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
-      body: stream([1, 2, 3]),
-      byteSize: 3,
-      chunkSize: 3,
-      totalChunkCount: 1,
-    });
-    const [, request] = fetchImplementation.mock.calls[0] ?? [];
-    expect(new Headers(request?.headers).get("content-range")).toBe("bytes 0-2/3");
-    expect(new Headers(request?.headers).get("content-type")).toBe("video/mp4");
-
-    const invalidHostFetch = vi.fn<typeof fetch>().mockResolvedValue(
-      Response.json({
-        data: { publish_id: "publish-id", upload_url: "https://example.com/upload" },
-        error: { code: "ok" },
-      }),
-    );
-    let invalidHostError: unknown;
-    try {
-      await provider(invalidHostFetch).initializeDirectPost({
-        accessToken: "access-token",
-        title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
-        settings,
-      });
-    } catch (error) {
-      invalidHostError = error;
-    }
-    expect(invalidHostError).toMatchObject({ code: "service_unavailable" });
-    expect(tikTokFailureDiagnostics(invalidHostError)).toEqual({
-      operation: "direct_post_init",
-      httpStatus: 200,
-      providerCode: "upload_host_rejected",
-      providerHost: "example.com",
-    });
-  });
-
-  it("accepts provider-controlled regional TikTok upload hosts", async () => {
-    const uploadUrl =
-      "https://open-upload-region.tiktokapis.com/video/?upload_id=opaque&upload_token=opaque";
-    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json({
-        data: { publish_id: "publish-id", upload_url: uploadUrl },
-        error: { code: "ok" },
-      }),
-    );
-
-    await expect(
-      provider(fetchImplementation).initializeDirectPost({
-        accessToken: "access-token",
-        title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
-        settings,
-      }),
-    ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
-  });
-
-  it("accepts the TikTok Sandbox upload domain", async () => {
-    const uploadUrl =
-      "https://open-upload.tiktokapis.us/video/?upload_id=opaque&upload_token=opaque";
-    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json({
-        data: { publish_id: "publish-id", upload_url: uploadUrl },
-        error: { code: "ok" },
-      }),
-    );
-
-    await expect(
-      provider(fetchImplementation).initializeDirectPost({
-        accessToken: "access-token",
-        title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
-        settings,
-      }),
-    ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
-  });
-
-  it("rejects hosts that only resemble a TikTok upload domain", async () => {
-    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json({
-        data: {
-          publish_id: "publish-id",
-          upload_url: "https://open-upload.tiktokapis.us.example.com/video/",
-        },
-        error: { code: "ok" },
-      }),
-    );
-
-    await expect(
-      provider(fetchImplementation).initializeDirectPost({
-        accessToken: "access-token",
-        title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
-        settings,
-      }),
-    ).rejects.toMatchObject({ code: "service_unavailable" });
-  });
-
-  it("accepts provider-controlled TikTok upload paths as opaque", async () => {
-    const uploadUrl =
-      "https://open-upload-region.tiktokapis.com/direct-post-transfer?upload_id=opaque";
-    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json({
-        data: { publish_id: "publish-id", upload_url: uploadUrl },
-        error: { code: "ok" },
-      }),
-    );
-
-    await expect(
-      provider(fetchImplementation).initializeDirectPost({
-        accessToken: "access-token",
-        title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
-        settings,
-      }),
-    ).resolves.toEqual({ publishId: "publish-id", uploadUrl });
-  });
-
-  it("keeps non-authorization Direct Post 403 failures terminal without disconnecting", async () => {
-    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json(
-        {
-          data: {},
-          error: {
-            code: "unaudited_client_can_only_post_to_private_accounts",
-            message: "must not be logged",
-            log_id: "must-not-be-logged",
-          },
-        },
-        { status: 403 },
-      ),
-    );
+  it("treats an ambiguous initialization network result as non-repeatable", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockRejectedValue(new Error("timeout"));
     let caught: unknown;
     try {
       await provider(fetchImplementation).initializeDirectPost({
         accessToken: "access-token",
         title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
+        mediaUrl: mediaUrl(),
         settings,
       });
     } catch (error) {
       caught = error;
     }
-    expect(caught).toMatchObject({ code: "invalid_input" });
+    expect(caught).toMatchObject({ code: "conflict" });
     expect(tikTokFailureDiagnostics(caught)).toEqual({
       operation: "direct_post_init",
-      httpStatus: 403,
-      providerCode: "unaudited_client_can_only_post_to_private_accounts",
+      httpStatus: 0,
+      providerCode: "network_ambiguous",
     });
-    expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("message");
-    expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("logId");
   });
+
+  it("treats an unreadable successful initialization response as non-repeatable", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("not-json", { status: 200 }));
+    let caught: unknown;
+    try {
+      await provider(fetchImplementation).initializeDirectPost({
+        accessToken: "access-token",
+        title: "Private test",
+        mediaUrl: mediaUrl(),
+        settings,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({ code: "conflict" });
+    expect(tikTokFailureDiagnostics(caught)).toEqual({
+      operation: "direct_post_init",
+      httpStatus: 200,
+      providerCode: "invalid_response_ambiguous",
+    });
+  });
+
+  it.each(["unaudited_client_can_only_post_to_private_accounts", "url_ownership_unverified"])(
+    "keeps Direct Post policy failure %s terminal without disconnecting",
+    async (code) => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValueOnce(
+        Response.json(
+          {
+            data: {},
+            error: { code, message: "must not be logged", log_id: "must-not-be-logged" },
+          },
+          { status: 403 },
+        ),
+      );
+      let caught: unknown;
+      try {
+        await provider(fetchImplementation).initializeDirectPost({
+          accessToken: "access-token",
+          title: "Private test",
+          mediaUrl: mediaUrl(),
+          settings,
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toMatchObject({ code: "invalid_input" });
+      expect(tikTokFailureDiagnostics(caught)).toEqual({
+        operation: "direct_post_init",
+        httpStatus: 403,
+        providerCode: code,
+      });
+      expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("message");
+      expect(tikTokFailureDiagnostics(caught)).not.toHaveProperty("logId");
+    },
+  );
 
   it("reserves permission failure for an explicit missing TikTok scope", async () => {
     const fetchImplementation = vi
@@ -351,15 +254,13 @@ describe("TikTok Login Kit and Direct Post provider", () => {
       provider(fetchImplementation).initializeDirectPost({
         accessToken: "access-token",
         title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
+        mediaUrl: mediaUrl(),
         settings,
       }),
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
-  it("diagnoses successful Direct Post responses that omit upload data", async () => {
+  it("diagnoses successful Direct Post responses that omit the publish reference", async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json({ data: {}, error: { code: "ok" } }));
@@ -368,74 +269,18 @@ describe("TikTok Login Kit and Direct Post provider", () => {
       await provider(fetchImplementation).initializeDirectPost({
         accessToken: "access-token",
         title: "Private test",
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
+        mediaUrl: mediaUrl(),
         settings,
       });
     } catch (error) {
       caught = error;
     }
+    expect(caught).toMatchObject({ code: "conflict" });
     expect(tikTokFailureDiagnostics(caught)).toEqual({
       operation: "direct_post_init",
       httpStatus: 200,
-      providerCode: "upload_data_missing",
+      providerCode: "publish_reference_missing",
     });
-  });
-
-  it("merges trailing bytes into the final sequential chunk", async () => {
-    const fetchImplementation = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(null, { status: 206 }))
-      .mockResolvedValueOnce(new Response(null, { status: 201 }));
-    await provider(fetchImplementation).uploadVideo({
-      uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
-      body: stream([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
-      byteSize: 10,
-      chunkSize: 4,
-      totalChunkCount: 2,
-    });
-    expect(new Headers(fetchImplementation.mock.calls[0]?.[1]?.headers).get("content-range")).toBe(
-      "bytes 0-3/10",
-    );
-    expect(new Headers(fetchImplementation.mock.calls[1]?.[1]?.headers).get("content-range")).toBe(
-      "bytes 4-9/10",
-    );
-  });
-
-  it("retries the same upload chunk on explicit 5xx responses with a bounded limit", async () => {
-    const recoveringFetch = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(null, { status: 500 }))
-      .mockResolvedValueOnce(new Response(null, { status: 201 }));
-    await provider(recoveringFetch).uploadVideo({
-      uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
-      body: stream([1, 2, 3]),
-      byteSize: 3,
-      chunkSize: 3,
-      totalChunkCount: 1,
-    });
-    expect(recoveringFetch).toHaveBeenCalledTimes(2);
-    expect(new Headers(recoveringFetch.mock.calls[0]?.[1]?.headers).get("content-range")).toBe(
-      "bytes 0-2/3",
-    );
-    expect(new Headers(recoveringFetch.mock.calls[1]?.[1]?.headers).get("content-range")).toBe(
-      "bytes 0-2/3",
-    );
-
-    const exhaustedFetch = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(new Response(null, { status: 503 }));
-    await expect(
-      provider(exhaustedFetch).uploadVideo({
-        uploadUrl: "https://open-upload.tiktokapis.com/video/?upload_id=opaque",
-        body: stream([1, 2, 3]),
-        byteSize: 3,
-        chunkSize: 3,
-        totalChunkCount: 1,
-      }),
-    ).rejects.toMatchObject({ code: "service_unavailable" });
-    expect(exhaustedFetch).toHaveBeenCalledTimes(3);
   });
 
   it("maps TikTok publish completion without exposing provider diagnostics", async () => {

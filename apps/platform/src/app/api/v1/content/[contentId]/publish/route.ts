@@ -17,6 +17,13 @@ const schema = z.object({
   revisionId: z.uuid(),
   idempotencyKey: z.uuid(),
   confirmed: z.literal(true),
+  instagram: z
+    .object({
+      mediaType: z.literal("REELS"),
+      shareToFeed: z.literal(false),
+      publishMode: z.literal("IMMEDIATE"),
+    })
+    .optional(),
   tiktok: z
     .object({
       channelId: z.uuid(),
@@ -64,6 +71,17 @@ export async function POST(request: NextRequest, context: Context) {
           readonly maximumVideoDurationSeconds: number;
         }
       | undefined;
+    if (version.platform === "instagram") {
+      if (!body.instagram || body.tiktok) {
+        throw new ApplicationError(
+          "invalid_input",
+          "Instagram requires exact REELS, share_to_feed=false, and Publish Now confirmation",
+          400,
+        );
+      }
+    } else if (body.instagram) {
+      throw new ApplicationError("invalid_input", "Instagram settings do not apply here", 400);
+    }
     if (version.platform === "tiktok") {
       if (!body.tiktok) {
         throw new ApplicationError(
@@ -122,6 +140,7 @@ export async function POST(request: NextRequest, context: Context) {
       consentVersion: getRuntime().config.DATA_PURPOSE_VERSION,
       idempotencyKey: body.idempotencyKey,
       correlationId: requestId,
+      ...(body.instagram ? { instagramSettings: body.instagram } : {}),
       ...(tikTokSettings ? { tikTokSettings } : {}),
     });
     return NextResponse.json(

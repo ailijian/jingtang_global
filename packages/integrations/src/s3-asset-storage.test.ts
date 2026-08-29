@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 
 import {
+  GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -93,6 +94,35 @@ describe("S3AssetStorage", () => {
     expect(send.mock.calls[0]?.[0]).toBeInstanceOf(HeadObjectCommand);
     expect(send.mock.calls[1]?.[0]).toBeInstanceOf(ListObjectsV2Command);
     expect((send.mock.calls[2]?.[0] as ListObjectsV2Command).input.ContinuationToken).toBe("next");
+  });
+
+  it("streams only the requested private object byte range", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([2, 3, 4]));
+        controller.close();
+      },
+    });
+    const send = vi.spyOn(S3Client.prototype, "send").mockResolvedValueOnce({
+      Body: { transformToWebStream: () => body },
+      ContentType: "video/mp4",
+      ContentLength: 3,
+      ContentRange: "bytes 2-4/7",
+    } as never);
+
+    await expect(
+      storage().open("workspaces/w/source-assets/a/video.mp4", { start: 2, end: 4 }),
+    ).resolves.toMatchObject({
+      body,
+      contentType: "video/mp4",
+      contentLength: 3,
+      contentRange: "bytes 2-4/7",
+    });
+    expect(send.mock.calls[0]?.[0]).toBeInstanceOf(GetObjectCommand);
+    expect((send.mock.calls[0]?.[0] as GetObjectCommand).input.Range).toBe("bytes=2-4");
+    await expect(storage().open("object", { start: 5, end: 4 })).rejects.toThrow(
+      "source_asset_range_invalid",
+    );
   });
 
   it("defers to the COS KMS bucket default without an object-level AES override", async () => {

@@ -16,6 +16,7 @@ for required_absent in \
   database-admin-url database-app-url database-worker-url \
   platform-session-cookie worker-config-secret youtube-state-secret \
   facebook-state-secret tiktok-state-secret \
+  tiktok-media-url-signing-secret \
   oauth-token-encryption-key backup-encryption-key reviewer-password; do
   if [[ -e "$secret_root/$required_absent" ]]; then
     echo "Refusing to replace existing secret: $required_absent" >&2
@@ -46,6 +47,7 @@ install_value "$service_uid" worker-config-secret "$(openssl rand -base64 48 | t
 install_value "$service_uid" youtube-state-secret "$(openssl rand -base64 48 | tr -d '\n')"
 install_value "$service_uid" facebook-state-secret "$(openssl rand -base64 48 | tr -d '\n')"
 install_value "$service_uid" tiktok-state-secret "$(openssl rand -base64 48 | tr -d '\n')"
+install_value "$service_uid" tiktok-media-url-signing-secret "$(openssl rand -base64 48 | tr -d '\n')"
 install_value "$service_uid" oauth-token-encryption-key "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 install_value "$service_uid" backup-encryption-key "$(openssl rand -base64 32 | tr -d '\n')"
 install_value "$service_uid" reviewer-password "$(openssl rand -base64 24 | tr -d '\n')"

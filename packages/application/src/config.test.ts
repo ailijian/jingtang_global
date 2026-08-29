@@ -184,6 +184,7 @@ describe("environment isolation", () => {
       TIKTOK_CLIENT_KEY: "test-tiktok-client-key",
       TIKTOK_CLIENT_SECRET: "test-tiktok-client-secret",
       TIKTOK_OAUTH_STATE_SECRET: "a-separate-tiktok-state-secret-value",
+      TIKTOK_MEDIA_URL_SIGNING_SECRET: "a-separate-tiktok-media-signing-secret",
       OAUTH_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       LOCAL_TOKEN_KEY_STORE_PATH: "/tmp/jingtang-test-oauth-token-keys.json",
     };
@@ -193,6 +194,12 @@ describe("environment isolation", () => {
       parseAppConfig({
         ...tiktok,
         TIKTOK_CLIENT_SECRET: tiktok.TIKTOK_OAUTH_STATE_SECRET,
+      }),
+    ).toThrow("Session, provider, state, and token-encryption secrets must be distinct");
+    expect(() =>
+      parseAppConfig({
+        ...tiktok,
+        TIKTOK_MEDIA_URL_SIGNING_SECRET: tiktok.TIKTOK_CLIENT_SECRET,
       }),
     ).toThrow("Session, provider, state, and token-encryption secrets must be distinct");
   });

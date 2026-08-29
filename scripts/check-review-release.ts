@@ -94,6 +94,7 @@ for (const marker of [
   "TIKTOK_CLIENT_KEY: ${REVIEW_TIKTOK_CLIENT_KEY:?required}",
   "TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret",
   "TIKTOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/tiktok-state-secret",
+  "TIKTOK_MEDIA_URL_SIGNING_SECRET_FILE: /run/jingtang-secrets/tiktok-media-url-signing-secret",
   "/srv/jingtang/review/secrets/oauth-token-encryption-key:/run/jingtang-secrets/oauth-token-encryption-key:ro",
   "DATABASE_URL_FILE:",
   "profiles: [tools]",
@@ -153,6 +154,10 @@ if (
     `TikTok provider endpoint literals must match the approved R4 allow-list: ${implementedTikTokEndpointLiterals.join(", ")}`,
   );
 }
+requireText(tikTokProviderSource, 'source: "PULL_FROM_URL"', "TikTok provider");
+if (tikTokProviderSource.includes("FILE_UPLOAD") || tikTokProviderSource.includes("upload_url")) {
+  throw new Error("TikTok server-stored media must use PULL_FROM_URL only");
+}
 
 const caddy = read("infra/tencent/public-site/Caddyfile");
 for (const marker of [
@@ -164,6 +169,7 @@ for (const marker of [
   'X-Robots-Tag "noindex, nofollow, noarchive"',
   "log_skip @sensitive_callback",
   "/api/v1/channels/tiktok/oauth/callback",
+  "/api/v1/media/tiktok",
   "https://*.cos.ap-seoul.myqcloud.com",
 ]) {
   requireText(caddy, marker, "public-site Caddyfile");
@@ -248,6 +254,90 @@ const contentComposer = read("apps/platform/src/components/content-composer.tsx"
 const englishCatalog = read("packages/i18n/src/catalogs/en.ts");
 const chineseCatalog = read("packages/i18n/src/catalogs/zh-CN.ts");
 const publicSiteConfig = read("config/public-site.yaml");
+const integrationsConfig = parse(read("config/integrations.yaml")) as {
+  integrations?: Record<
+    string,
+    {
+      public_status?: string;
+      production_available?: boolean;
+      capabilities?: Record<string, { state?: string }>;
+    }
+  >;
+};
+const instagramRegistry = integrationsConfig.integrations?.instagram;
+if (
+  instagramRegistry?.public_status !== "coming_soon" ||
+  instagramRegistry.production_available !== false ||
+  Object.values(instagramRegistry.capabilities ?? {}).some(
+    (capability) => capability.state !== "not_available",
+  )
+) {
+  throw new Error("Instagram must remain publicly Coming Soon and non-executable in R4.5 I1-I3");
+}
+const instagramContract = read("packages/application/src/instagram.ts");
+const deterministicInstagramProvider = read(
+  "packages/integrations/src/deterministic-instagram-provider.ts",
+);
+const integrationsIndex = read("packages/integrations/src/index.ts");
+const workerSource = read("apps/worker/src/index.ts");
+const instagramDisconnectRoute = read(
+  "apps/platform/src/app/api/v1/channels/instagram/disconnect/route.ts",
+);
+for (const marker of [
+  '"instagram_business_basic"',
+  '"instagram_business_content_publish"',
+  'fields: ["access_token", "caption", "media_type=REELS", "share_to_feed=false", "video_url"]',
+  'readonly method: "GET"',
+  "expiresInSeconds > 3_600",
+  'return "[REDACTED_INSTAGRAM_MEDIA_URL]"',
+]) {
+  requireText(instagramContract, marker, "Instagram provider-independent contract");
+}
+if (instagramContract.includes("revokeAuthorization")) {
+  throw new Error("Instagram provider contract must not claim a programmatic revoke operation");
+}
+for (const marker of [
+  "https://instagram.local.invalid",
+  "https://cos.local.invalid",
+  "DeterministicInstagramProvider",
+]) {
+  requireText(deterministicInstagramProvider, marker, "deterministic Instagram provider");
+}
+requireText(
+  integrationsIndex,
+  "./deterministic-instagram-provider.js",
+  "Instagram integration export",
+);
+requireText(
+  workerSource,
+  'message.topic === "platform.instagram.publish.v1"',
+  "Instagram worker deny gate",
+);
+requireText(
+  workerSource,
+  'failureCategory: "instagram_provider_evidence_required"',
+  "Instagram worker deny gate",
+);
+if (
+  instagramDisconnectRoute.includes("revokeAuthorization") ||
+  instagramDisconnectRoute.includes("fetch(")
+) {
+  throw new Error("Instagram local disconnect must not invoke a provider or network revocation");
+}
+for (const forbidden of [
+  "INSTAGRAM_APP_ID",
+  "INSTAGRAM_APP_SECRET",
+  "INSTAGRAM_OAUTH_ENABLED",
+  "INSTAGRAM_ACCESS_TOKEN",
+]) {
+  if (
+    composeText.includes(forbidden) ||
+    runtimeEnvExample.includes(forbidden) ||
+    config.includes(forbidden)
+  ) {
+    throw new Error(`R4.5 I1-I3 must not configure external Instagram credential: ${forbidden}`);
+  }
+}
 for (const [marker, sources] of [
   ["REVIEW ENVIRONMENT · NOT FOR SALE", [platformLayout, englishCatalog]],
   ["审核环境 · 非销售用途", [platformLayout, chineseCatalog]],
@@ -282,6 +372,7 @@ for (const marker of [
   "oauth-token-encryption-key",
   "facebook-state-secret",
   "tiktok-state-secret",
+  "tiktok-media-url-signing-secret",
   "openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n'",
 ]) {
   requireText(internalSecrets, marker, "review internal-secret generator");

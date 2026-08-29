@@ -224,8 +224,6 @@ export const en = {
   "composer.platform.connectedChannel": "Connected channel",
   "composer.platform.noConnectedChannel": "Connect a YouTube channel before continuing",
   "composer.platform.accountName": "Account display name",
-  "composer.platform.comingSoon": "Coming Soon",
-  "composer.platform.noAction": "Connection is not available for these platforms.",
   "composer.customize.title": "Customize YouTube version",
   "composer.internalTitle": "Internal content title",
   "composer.internalTitle.help":
@@ -296,6 +294,11 @@ export const en = {
   "detail.publish.facebook.failed":
     "The Page publish could not be queued. No duplicate publish was created; it is safe to retry.",
   "detail.publish.facebook.openVideo": "Open Facebook Page video",
+  "detail.publish.instagram.queued":
+    "The Instagram Reel intent is queued for the provider-independent local candidate.",
+  "detail.publish.instagram.failed":
+    "The Instagram Reel intent could not be queued; no provider write was made.",
+  "detail.publish.instagram.openReel": "Open Instagram Reel",
   "detail.publish.tiktok.action": "Confirm SELF_ONLY publish",
   "detail.publish.tiktok.working": "Queueing private TikTok publish…",
   "detail.publish.tiktok.queued":
@@ -329,7 +332,11 @@ export const en = {
   "detail.execution.facebook.processing": "Facebook is processing the video",
   "detail.execution.facebook.published": "Published publicly",
   "detail.execution.facebook.failed": "Facebook publish failed",
-  "detail.execution.tiktok.publishing": "Uploading to TikTok",
+  "detail.execution.instagram.publishing": "Preparing the confirmed Instagram Reel",
+  "detail.execution.instagram.processing": "Instagram is processing the Reel",
+  "detail.execution.instagram.published": "Published to the Instagram Reels tab",
+  "detail.execution.instagram.failed": "Instagram Reel publish failed",
+  "detail.execution.tiktok.publishing": "TikTok is securely retrieving the video",
   "detail.execution.tiktok.processing": "TikTok is processing the video",
   "detail.execution.tiktok.published": "Published privately on TikTok",
   "detail.execution.tiktok.failed": "TikTok publish failed",
@@ -393,7 +400,7 @@ export const en = {
   "activity.action.content.rejected": "Content rejected",
   "activity.action.publishing.confirmed": "Publishing confirmed",
   "activity.action.platform.publish_started": "Platform publishing started",
-  "activity.action.platform.uploaded": "Platform upload accepted",
+  "activity.action.platform.uploaded": "Platform media transfer accepted",
   "activity.action.platform.publish_initialized": "Platform publish initialized",
   "activity.action.platform.published": "Platform publishing completed",
   "activity.action.platform.publish_failed": "Platform publishing failed",

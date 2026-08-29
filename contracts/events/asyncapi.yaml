@@ -19,6 +19,11 @@ channels:
     messages:
       facebookPublish:
         $ref: "#/components/messages/FacebookPublish"
+  instagramPublish:
+    address: platform.instagram.publish.v1
+    messages:
+      instagramPublish:
+        $ref: "#/components/messages/InstagramPublish"
   tiktokPublish:
     address: platform.tiktok.publish.v1
     messages:
@@ -43,6 +48,12 @@ operations:
       $ref: "#/channels/facebookPublish"
     messages:
       - $ref: "#/channels/facebookPublish/messages/facebookPublish"
+  executeInstagramPublish:
+    action: receive
+    channel:
+      $ref: "#/channels/instagramPublish"
+    messages:
+      - $ref: "#/channels/instagramPublish/messages/instagramPublish"
   executeTikTokPublish:
     action: receive
     channel:
@@ -68,6 +79,18 @@ components:
           platform_execution_id: { type: string, format: uuid }
     FacebookPublish:
       name: FacebookPublish
+      contentType: application/json
+      payload:
+        type: object
+        additionalProperties: false
+        required: [workspace_id, platform_execution_id]
+        properties:
+          workspace_id: { type: string, format: uuid }
+          platform_execution_id: { type: string, format: uuid }
+    InstagramPublish:
+      name: InstagramPublish
+      title: Provider-independent Instagram publish checkpoint command
+      summary: Carries identifiers only; no token, caption, source object key, or signed media URL.
       contentType: application/json
       payload:
         type: object

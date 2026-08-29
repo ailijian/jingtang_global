@@ -8,6 +8,7 @@ import {
   LifecycleOperationKind,
   Locale as DbLocale,
   MembershipStatus,
+  ProviderRemovalState,
   type PrismaClient,
   Role as DbRole,
   WorkspaceLifecycleState,
@@ -175,6 +176,7 @@ export async function recordConsent(
       | "registration_checkbox"
       | "youtube_connection_checkbox"
       | "facebook_connection_checkbox"
+      | "instagram_connection_checkbox"
       | "tiktok_connection_checkbox";
   },
 ): Promise<{ readonly id: string }> {
@@ -211,6 +213,7 @@ export interface ChannelView {
   readonly disconnectRequestedAt: Date | null;
   readonly disconnectedAt: Date | null;
   readonly revokeFailureCategory: string | null;
+  readonly providerRemovalState: "not_applicable" | "pending_user_action" | "confirmed";
 }
 
 const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> = {
@@ -222,9 +225,18 @@ const channelStateFromDb: Readonly<Record<ChannelState, ChannelView["state"]>> =
   DISCONNECTED: "disconnected",
 };
 
+const providerRemovalStateFromDb: Readonly<
+  Record<ProviderRemovalState, ChannelView["providerRemovalState"]>
+> = {
+  NOT_APPLICABLE: "not_applicable",
+  PENDING_USER_ACTION: "pending_user_action",
+  CONFIRMED: "confirmed",
+};
+
 export const YOUTUBE_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 export const FACEBOOK_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 export const TIKTOK_OAUTH_FLOW_TTL_MS = 10 * 60_000;
+export const INSTAGRAM_OAUTH_FLOW_TTL_MS = 10 * 60_000;
 
 function channelView(channel: {
   readonly id: string;
@@ -240,10 +252,12 @@ function channelView(channel: {
   readonly disconnectRequestedAt: Date | null;
   readonly disconnectedAt: Date | null;
   readonly revokeFailureCategory: string | null;
+  readonly providerRemovalState: ProviderRemovalState;
 }): ChannelView {
   if (
     channel.platform !== "youtube" &&
     channel.platform !== "facebook" &&
+    channel.platform !== "instagram" &&
     channel.platform !== "tiktok"
   ) {
     throw new Error("unsupported_channel_platform");
@@ -262,6 +276,7 @@ function channelView(channel: {
     disconnectRequestedAt: channel.disconnectRequestedAt,
     disconnectedAt: channel.disconnectedAt,
     revokeFailureCategory: channel.revokeFailureCategory,
+    providerRemovalState: providerRemovalStateFromDb[channel.providerRemovalState],
   };
 }
 
@@ -298,6 +313,13 @@ export async function listTikTokChannels(
   workspaceId: string,
 ): Promise<readonly ChannelView[]> {
   return listPlatformChannels(client, workspaceId, "tiktok");
+}
+
+export async function listInstagramChannels(
+  client: PrismaClient,
+  workspaceId: string,
+): Promise<readonly ChannelView[]> {
+  return listPlatformChannels(client, workspaceId, "instagram");
 }
 
 export async function readConnectedChannelAuthorization(
@@ -398,10 +420,17 @@ async function beginPlatformConnection(
       select: {
         id: true,
         state: true,
+        providerRemovalState: true,
         tokenEnvelopeCiphertext: true,
         tokenCiphertextReference: true,
       },
     });
+    if (
+      input.platform === "instagram" &&
+      current?.providerRemovalState === ProviderRemovalState.PENDING_USER_ACTION
+    ) {
+      throw new Error("instagram_provider_removal_pending");
+    }
     if (
       current &&
       current.state !== ChannelState.NOT_CONNECTED &&
@@ -424,6 +453,7 @@ async function beginPlatformConnection(
             grantedScopes: [],
             authorizationSubjectReference: null,
             oauthStateDigest: input.oauthStateDigest ?? null,
+            providerRemovalState: ProviderRemovalState.NOT_APPLICABLE,
           },
           select: { id: true },
         })
@@ -480,6 +510,13 @@ export async function beginTikTokConnection(
   return beginPlatformConnection(client, { ...input, platform: "tiktok" });
 }
 
+export async function beginInstagramConnection(
+  client: PrismaClient,
+  input: Parameters<typeof beginYouTubeConnection>[1] & { readonly oauthStateDigest: string },
+): Promise<{ readonly id: string }> {
+  return beginPlatformConnection(client, { ...input, platform: "instagram" });
+}
+
 export async function claimFacebookOAuthCallback(
   client: PrismaClient,
   input: {
@@ -525,6 +562,26 @@ export async function claimTikTokOAuthCallback(
   });
 }
 
+export async function claimInstagramOAuthCallback(
+  client: PrismaClient,
+  input: Parameters<typeof claimFacebookOAuthCallback>[1],
+): Promise<boolean> {
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    const claimed = await transaction.channel.updateMany({
+      where: {
+        id: input.channelId,
+        workspaceId: input.workspaceId,
+        platform: "instagram",
+        state: ChannelState.CONNECTING,
+        consentRecordId: input.consentRecordId,
+        oauthStateDigest: input.oauthStateDigest,
+      },
+      data: { oauthStateDigest: null },
+    });
+    return claimed.count === 1;
+  });
+}
+
 async function completePlatformConnection(
   client: PrismaClient,
   input: {
@@ -540,6 +597,7 @@ async function completePlatformConnection(
     readonly tokenEnvelopeCiphertext: string;
     readonly tokenCiphertextReference: string;
     readonly correlationId: string;
+    readonly callbackSubjectCorrelationHash?: string;
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -569,9 +627,31 @@ async function completePlatformConnection(
         disconnectRequestedAt: null,
         disconnectedAt: null,
         revokeFailureCategory: null,
+        providerRemovalState: ProviderRemovalState.NOT_APPLICABLE,
       },
     });
     if (result.count !== 1) throw new Error("channel_not_found");
+    if (input.platform === "instagram") {
+      if (!input.callbackSubjectCorrelationHash) {
+        throw new Error("instagram_callback_correlation_required");
+      }
+      await transaction.instagramCallbackCorrelation.upsert({
+        where: { channelId: input.channelId },
+        create: {
+          workspaceId: input.workspaceId,
+          channelId: input.channelId,
+          subjectCorrelationHash: input.callbackSubjectCorrelationHash,
+          state: ProviderRemovalState.NOT_APPLICABLE,
+          retentionExpiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60_000),
+        },
+        update: {
+          subjectCorrelationHash: input.callbackSubjectCorrelationHash,
+          state: ProviderRemovalState.NOT_APPLICABLE,
+          confirmedAt: null,
+          retentionExpiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60_000),
+        },
+      });
+    }
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       actorUserId: input.actorUserId,
@@ -608,6 +688,22 @@ export async function completeTikTokConnection(
   input: Parameters<typeof completeYouTubeConnection>[1],
 ): Promise<void> {
   await completePlatformConnection(client, { ...input, platform: "tiktok" });
+}
+
+export async function completeInstagramConnection(
+  client: PrismaClient,
+  input: Parameters<typeof completeYouTubeConnection>[1] & {
+    readonly callbackSubjectCorrelationHash: string;
+  },
+): Promise<void> {
+  const exactScopes = ["instagram_business_basic", "instagram_business_content_publish"] as const;
+  if (
+    input.grantedScopes.length !== exactScopes.length ||
+    !exactScopes.every((scope) => input.grantedScopes.includes(scope))
+  ) {
+    throw new Error("instagram_granted_scopes_invalid");
+  }
+  await completePlatformConnection(client, { ...input, platform: "instagram" });
 }
 
 async function denyPlatformConnection(
@@ -675,6 +771,108 @@ export async function denyTikTokConnection(
   input: Parameters<typeof denyYouTubeConnection>[1],
 ): Promise<void> {
   await denyPlatformConnection(client, { ...input, platform: "tiktok" });
+}
+
+export async function denyInstagramConnection(
+  client: PrismaClient,
+  input: Parameters<typeof denyYouTubeConnection>[1],
+): Promise<void> {
+  await denyPlatformConnection(client, { ...input, platform: "instagram" });
+}
+
+export async function confirmInstagramProviderRemoval(
+  client: PrismaClient,
+  input: {
+    readonly workspaceId: string;
+    readonly subjectCorrelationHash: string;
+    readonly replayDigest: string;
+    readonly callbackKind: "deauthorization" | "data_deletion";
+    readonly correlationId: string;
+    readonly now?: Date;
+  },
+): Promise<{
+  readonly outcome: "confirmed" | "recorded" | "replayed";
+  readonly channelId: string;
+}> {
+  if (
+    !/^[0-9a-f]{64}$/u.test(input.subjectCorrelationHash) ||
+    !/^[0-9a-f]{64}$/u.test(input.replayDigest)
+  ) {
+    throw new Error("instagram_callback_digest_invalid");
+  }
+  return withTenant(client, input.workspaceId, async (transaction) => {
+    await transaction.$executeRaw`SELECT pg_advisory_xact_lock(
+      hashtextextended(${input.subjectCorrelationHash}, 8)
+    )`;
+    const correlation = await transaction.instagramCallbackCorrelation.findFirst({
+      where: {
+        workspaceId: input.workspaceId,
+        subjectCorrelationHash: input.subjectCorrelationHash,
+      },
+      include: { channel: true },
+    });
+    if (!correlation || correlation.channel.platform !== "instagram") {
+      throw new Error("instagram_callback_correlation_not_found");
+    }
+    const replay = await transaction.instagramCallbackReceipt.findUnique({
+      where: { replayDigest: input.replayDigest },
+      select: { callbackKind: true },
+    });
+    if (replay) {
+      if (replay.callbackKind !== input.callbackKind) {
+        throw new Error("instagram_callback_replay_conflict");
+      }
+      return { outcome: "replayed", channelId: correlation.channelId };
+    }
+    const now = input.now ?? new Date();
+    await transaction.instagramCallbackReceipt.create({
+      data: {
+        correlationId: correlation.id,
+        replayDigest: input.replayDigest,
+        callbackKind: input.callbackKind,
+        receivedAt: now,
+        retentionExpiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60_000),
+      },
+    });
+    if (input.callbackKind === "data_deletion") {
+      return { outcome: "recorded", channelId: correlation.channelId };
+    }
+    if (
+      correlation.channel.state !== ChannelState.DISCONNECTED ||
+      correlation.channel.tokenCiphertextReference ||
+      correlation.channel.tokenEnvelopeCiphertext ||
+      correlation.channel.externalAccountId ||
+      correlation.channel.grantedScopes.length > 0
+    ) {
+      throw new Error("instagram_callback_local_cleanup_required");
+    }
+    await transaction.instagramCallbackCorrelation.update({
+      where: { id: correlation.id },
+      data: {
+        state: ProviderRemovalState.CONFIRMED,
+        confirmedAt: now,
+        retentionExpiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60_000),
+      },
+    });
+    await transaction.channel.update({
+      where: { id: correlation.channelId },
+      data: { providerRemovalState: ProviderRemovalState.CONFIRMED },
+    });
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "channel.disconnected",
+      targetType: "channel",
+      targetId: correlation.channelId,
+      result: "success",
+      correlationId: input.correlationId,
+      metadata: {
+        platform: "instagram",
+        source: "verified_deauthorization_callback",
+        provider_removal_state: "confirmed",
+      },
+    });
+    return { outcome: "confirmed", channelId: correlation.channelId };
+  });
 }
 
 export async function createFacebookConnectionCandidate(

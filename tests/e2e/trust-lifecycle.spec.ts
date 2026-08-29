@@ -76,6 +76,53 @@ test("YouTube connection locks the form after the first valid submission", async
   ).toBe(1);
 });
 
+test("Instagram local disconnect keeps manual removal prominent until verified fixture confirmation", async ({
+  page,
+}) => {
+  await createWorkspace(page, "instagram-removal");
+  expect(
+    await page.evaluate(
+      async () => (await fetch("/api/v1/testing/instagram-channel", { method: "POST" })).status,
+    ),
+  ).toBe(201);
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("/app/channels");
+  const card = page.locator(".channel-card", {
+    has: page.getByRole("heading", { name: "Instagram" }),
+  });
+  await expect(card.getByText("@jingtang_e2e")).toBeVisible();
+  await card.getByRole("button", { name: "Disconnect Instagram" }).click();
+  const dialog = page.getByRole("dialog", { name: "Disconnect Instagram locally in JINGTANG?" });
+  await expect(dialog).toContainText("remove the App in Instagram");
+  await expect(dialog).toContainText("Reels already hosted by Instagram are not deleted");
+  await dialog.getByRole("button", { name: "Disconnect locally" }).click();
+  await expect(page).toHaveURL(/instagram=disconnected/u);
+  await expect(
+    page.getByText("JINGTANG is locally disconnected — remove the App in Instagram"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Instagram → Website permissions → Apps and websites → Active → Remove"),
+  ).toBeVisible();
+  await expect(page.getByText("Provider revocation confirmed", { exact: true })).not.toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+
+  expect(
+    await page.evaluate(
+      async () =>
+        (
+          await fetch("/api/v1/testing/instagram-channel?action=confirm-removal", {
+            method: "POST",
+          })
+        ).status,
+    ),
+  ).toBe(200);
+  await page.reload();
+  await expect(card.getByText("Provider revocation confirmed", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("JINGTANG is locally disconnected — remove the App in Instagram"),
+  ).not.toBeVisible();
+});
+
 test("Workspace data deletion requires exact confirmation and returns a durable reference", async ({
   page,
 }) => {

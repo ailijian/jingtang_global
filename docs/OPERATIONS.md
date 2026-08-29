@@ -1,8 +1,8 @@
 # JINGTANG Operations Authority
 
 - Status: Approved operating procedure; production evidence pending D7
-- Operations Revision: 22
-- Effective Date: 2026-08-28
+- Operations Revision: 24
+- Effective Date: 2026-08-29
 - Owner: JINGTANG Operations Owner
 - Architecture dependency: [`docs/architecture/README.md`](architecture/README.md)
 - Security/Data dependency: [`docs/security-and-data/README.md`](security-and-data/README.md)
@@ -85,6 +85,13 @@ No operator may configure an Instagram Login App, install credentials, run OAuth
 3. After a reviewed local candidate exposes safe callbacks, perform one controlled OAuth → user removal observation. Verify signature, replay denial, tenant-safe match, immediate local cleanup and the `provider_revocation_confirmed` transition without retaining the raw signed request.
 4. Only after the adapter and COS URL redaction tests pass, perform one separately authorized container-create compatibility probe for the exact approved MP4. Record Meta's HTTPS redirect, `HEAD`/`GET`/Range/header/fetch timing behavior and smallest successful TTL. Do not call `media_publish`; delete/expire the temporary URL and clean any local probe state.
 5. Amend the Evidence Gate with observed facts and rerun Code Review before installing Review runtime credentials or requesting a real-publish authorization. Any mismatch returns to Baseline/Design/Architecture/Security/Data review rather than widening permissions or making the object public.
+
+### TikTok provider-only media grant
+
+1. Install one dedicated `TIKTOK_MEDIA_URL_SIGNING_SECRET` for both Review platform and worker through their role-allowlisted `0400` secret-file mounts; keep it distinct from the TikTok Client Secret, OAuth state Secret, session Secret and token-encryption key. Staging/production use their role-scoped sealed bundles instead of plaintext runtime files.
+2. Keep the source Bucket private. After final confirmation, the worker re-verifies the exact MP4/hash/size and issues only the fixed 65-minute `/api/v1/media/tiktok` grant. Never copy its URL/token into a browser, database, task/event payload, audit, terminal output, log, metric, error, screenshot, reviewer instruction or demo video.
+3. Keep Caddy `log_skip` on the exact media path and reject redirects. Before any separately authorized deployment/provider call, verify the exact owned URL property in TikTok Dashboard and smoke-test HEAD plus single-byte-range behavior without printing the token.
+4. Treat an ambiguous Direct Post init as `needs_attention`; reconcile externally under separate authority instead of automatically issuing another init/publish. Rotation or teardown invalidates the signing Secret, removes the route from the verified property/runtime, and follows the existing private-COS deletion lifecycle.
 
 ### Instagram disconnect and callback confirmation
 
@@ -181,3 +188,5 @@ Every change runs lint, type/static checks, tests, secret scanning, and producti
 - Revision 20 — 2026-08-25: recorded the authorized R2 formal-presentation deployment. Commit `15213db673cc8ff15357c96d4bba841a1681cc87` passed blocking CI, local and remote Review-archive SHA256 validation, immutable Review activation, the protected public-website workflow, all 19 authoritative website production-smoke routes, bilingual formal-copy and policy-version checks, exact Sign in navigation, HTTPS/`noindex` checks, and zero-restart runtime health checks. The Seoul Review runtime and website release pointers both identify that commit. This evidence applies only to the temporary account-controlled Review service; it does not claim D7 production deployment, remove `noindex`, open self-registration or authorize promotion.
 - Revision 21 — 2026-08-25: added the derived manual deployment and Seoul maintenance runbook for a clean host, immutable website/Review activation, protected secret installation, DNS cutover validation, routine health/log/capacity checks, encrypted backup and isolated restore drills, controlled restart and compatibility-gated rollback. It preserves the Review-versus-D7 boundary and makes live-data continuity a separate migration stop condition. This documentation revision performs no cloud, DNS, credential or deployment write.
 - Revision 22 — 2026-08-28: aligned operations with Human-approved Social Platform Review Baseline Revision 8. It adds the separately gated Instagram App/callback/COS evidence sequence, immediate local deny/key erasure and refresh prohibition, user-directed Instagram removal, verified callback-only provider confirmation, callback/media-URL non-observability, duplicate-safe evidence and account/Workspace deletion behavior that never waits on user removal. This revision configured no App, used no credential, made no provider call, deployed or published nothing, and did not authorize commit or push.
+- Revision 23 — 2026-08-29: aligned operations with Human-approved Social Platform Review Baseline Revision 9. TikTok server-stored media now uses a private-COS provider-only `PULL_FROM_URL` grant with a dedicated signing Secret, fixed 65-minute object/hash/size/GET binding, exact-route ingress log exclusion and ambiguous-init stop/reconciliation behavior. Dashboard URL-property verification, credential use, deployment, API calls, publishing, commit and push remain unperformed and unauthorized.
+- Revision 24 — 2026-08-29: recorded the separately performed TikTok Domain-property Gate. The Human Operator verified `review.jingtangai.com` through TikTok's DNS TXT flow after both GoDaddy authoritative nameservers and Google/Cloudflare public resolvers returned the record; TikTok then reported `Verified`. The prior apex-domain verification record was preserved. No signed media URL, credential, API call, deployment, publishing, commit or push was used or authorized by this evidence step.

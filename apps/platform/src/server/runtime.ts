@@ -5,6 +5,7 @@ import {
   type FacebookOAuthProvider,
   type IdentityProvider,
   type TokenEnvelopeVault,
+  TikTokMediaAccessTokenCodec,
   type TikTokOAuthProvider,
   type YouTubeOAuthProvider,
 } from "@jingtang/application";
@@ -29,6 +30,7 @@ interface Runtime {
   readonly youtubeOAuth?: YouTubeOAuthProvider;
   readonly facebookOAuth?: FacebookOAuthProvider;
   readonly tiktokOAuth?: TikTokOAuthProvider;
+  readonly tiktokMediaAccess?: TikTokMediaAccessTokenCodec;
   readonly tokenVault?: TokenEnvelopeVault;
 }
 
@@ -59,6 +61,12 @@ export function getRuntime(): Runtime {
         clientKey: config.TIKTOK_CLIENT_KEY ?? "",
         clientSecret: config.TIKTOK_CLIENT_SECRET ?? "",
       })
+    : undefined;
+  const tiktokMediaAccess = config.TIKTOK_OAUTH_ENABLED
+    ? new TikTokMediaAccessTokenCodec(
+        config.TIKTOK_MEDIA_URL_SIGNING_SECRET ?? "",
+        config.APP_BASE_URL,
+      )
     : undefined;
   const tokenVault =
     config.YOUTUBE_OAUTH_ENABLED || config.FACEBOOK_OAUTH_ENABLED || config.TIKTOK_OAUTH_ENABLED
@@ -115,6 +123,7 @@ export function getRuntime(): Runtime {
     ...(youtubeOAuth ? { youtubeOAuth } : {}),
     ...(facebookOAuth ? { facebookOAuth } : {}),
     ...(tiktokOAuth ? { tiktokOAuth } : {}),
+    ...(tiktokMediaAccess ? { tiktokMediaAccess } : {}),
     ...(tokenVault ? { tokenVault } : {}),
   };
   globalThis.__jingtangRuntime = runtime;

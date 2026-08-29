@@ -7,8 +7,6 @@ import {
 } from "@jingtang/application";
 
 const requestTimeoutMs = 30_000;
-const uploadTimeoutMs = 15 * 60_000;
-const maximumUploadAttemptsPerChunk = 3;
 const maximumJsonResponseBytes = 1024 * 1024;
 
 type TikTokOperation =
@@ -17,7 +15,6 @@ type TikTokOperation =
   | "authorization_revocation"
   | "creator_info"
   | "direct_post_init"
-  | "video_upload"
   | "publish_status";
 
 export interface TikTokFailureDiagnostics {
@@ -116,6 +113,7 @@ function tikTokError(
       "privacy_level_option_mismatch",
       "reached_active_user_cap",
       "unaudited_client_can_only_post_to_private_accounts",
+      "url_ownership_unverified",
     ].includes(code ?? "")
   ) {
     return diagnostic("invalid_input", 400);
@@ -155,68 +153,6 @@ function bearer(accessToken: string): HeadersInit {
     authorization: `Bearer ${accessToken}`,
     "content-type": "application/json; charset=UTF-8",
   };
-}
-
-function isTikTokUploadUrl(uploadUrl: URL): boolean {
-  const hostname = uploadUrl.hostname.toLowerCase().replace(/\.$/u, "");
-  const isProviderUploadHost = ["tiktokapis.com", "tiktokapis.us"].some(
-    (providerDomain) => hostname === providerDomain || hostname.endsWith(`.${providerDomain}`),
-  );
-  return (
-    uploadUrl.protocol === "https:" &&
-    uploadUrl.username === "" &&
-    uploadUrl.password === "" &&
-    uploadUrl.port === "" &&
-    isProviderUploadHost
-  );
-}
-
-async function* streamChunks(
-  body: ReadableStream<Uint8Array>,
-  targetSize: number,
-  totalByteSize: number,
-  totalChunkCount: number,
-): AsyncGenerator<Uint8Array> {
-  const reader = body.getReader();
-  let parts: Uint8Array[] = [];
-  let bufferedBytes = 0;
-  let emittedBytes = 0;
-  let emittedChunks = 0;
-  try {
-    for (;;) {
-      const result = await reader.read();
-      if (result.done) break;
-      let value = result.value;
-      while (value.byteLength > 0) {
-        const desiredSize =
-          emittedChunks === totalChunkCount - 1 ? totalByteSize - emittedBytes : targetSize;
-        if (desiredSize < 1 || emittedChunks >= totalChunkCount) {
-          throw new ApplicationError("invalid_input", "TikTok video size changed", 400);
-        }
-        const remaining = desiredSize - bufferedBytes;
-        const taken = value.subarray(0, remaining);
-        parts.push(taken);
-        bufferedBytes += taken.byteLength;
-        value = value.subarray(taken.byteLength);
-        if (bufferedBytes === desiredSize) {
-          yield Buffer.concat(parts, bufferedBytes);
-          emittedBytes += bufferedBytes;
-          emittedChunks += 1;
-          parts = [];
-          bufferedBytes = 0;
-        }
-      }
-    }
-    if (
-      bufferedBytes !== 0 ||
-      emittedBytes !== totalByteSize ||
-      emittedChunks !== totalChunkCount
-    ) {
-      throw new ApplicationError("invalid_input", "TikTok video size changed", 400);
-    }
-  } finally {
-    reader.releaseLock();
-  }
 }
 
 export class TikTokDirectPostProvider implements TikTokOAuthProvider {
@@ -397,34 +333,56 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
 
   public async initializeDirectPost(
     input: Parameters<TikTokOAuthProvider["initializeDirectPost"]>[0],
-  ): Promise<{ readonly publishId: string; readonly uploadUrl: string }> {
+  ): Promise<{ readonly publishId: string }> {
     if (input.settings.privacyLevel !== "SELF_ONLY" || input.settings.brandContentToggle) {
       throw new ApplicationError("invalid_input", "R4 TikTok publishing is private-only", 400);
     }
-    const response = await this.#fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
-      method: "POST",
-      headers: bearer(input.accessToken),
-      body: JSON.stringify({
-        post_info: {
-          title: input.title,
-          privacy_level: "SELF_ONLY",
-          disable_comment: input.settings.disableComment,
-          disable_duet: input.settings.disableDuet,
-          disable_stitch: input.settings.disableStitch,
-          brand_content_toggle: false,
-          brand_organic_toggle: input.settings.brandOrganicToggle,
-          is_aigc: input.settings.isAigc,
-        },
-        source_info: {
-          source: "FILE_UPLOAD",
-          video_size: input.byteSize,
-          chunk_size: input.chunkSize,
-          total_chunk_count: input.totalChunkCount,
-        },
-      }),
-      signal: AbortSignal.timeout(requestTimeoutMs),
-    });
-    const body = await readJson(response, "direct_post_init");
+    let response: Response;
+    try {
+      response = await this.#fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
+        method: "POST",
+        headers: bearer(input.accessToken),
+        body: JSON.stringify({
+          post_info: {
+            title: input.title,
+            privacy_level: "SELF_ONLY",
+            disable_comment: input.settings.disableComment,
+            disable_duet: input.settings.disableDuet,
+            disable_stitch: input.settings.disableStitch,
+            brand_content_toggle: false,
+            brand_organic_toggle: input.settings.brandOrganicToggle,
+            is_aigc: input.settings.isAigc,
+          },
+          source_info: {
+            source: "PULL_FROM_URL",
+            video_url: input.mediaUrl.revealForProviderRequest(),
+          },
+        }),
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
+    } catch {
+      throw requestError(
+        "conflict",
+        "TikTok Direct Post initialization result is ambiguous",
+        409,
+        "direct_post_init",
+        0,
+        "network_ambiguous",
+      );
+    }
+    let body: unknown;
+    try {
+      body = await readJson(response, "direct_post_init");
+    } catch {
+      throw requestError(
+        "conflict",
+        "TikTok Direct Post initialization result is ambiguous",
+        409,
+        "direct_post_init",
+        response.status,
+        "invalid_response_ambiguous",
+      );
+    }
     if (!apiSucceeded(response, body)) {
       throw tikTokError(
         response,
@@ -434,89 +392,17 @@ export class TikTokDirectPostProvider implements TikTokOAuthProvider {
       );
     }
     const data = isRecord(body) && isRecord(body.data) ? body.data : undefined;
-    if (!data || typeof data.publish_id !== "string" || typeof data.upload_url !== "string") {
+    if (!data || typeof data.publish_id !== "string") {
       throw requestError(
-        "service_unavailable",
-        "TikTok omitted upload data",
-        503,
+        "conflict",
+        "TikTok omitted the publish reference",
+        409,
         "direct_post_init",
         response.status,
-        "upload_data_missing",
+        "publish_reference_missing",
       );
     }
-    const uploadUrl = new URL(data.upload_url);
-    if (!isTikTokUploadUrl(uploadUrl)) {
-      throw requestError(
-        "service_unavailable",
-        "TikTok returned an invalid upload host",
-        503,
-        "direct_post_init",
-        response.status,
-        "upload_host_rejected",
-        uploadUrl.hostname.toLowerCase().replace(/\.$/u, ""),
-      );
-    }
-    return { publishId: data.publish_id, uploadUrl: uploadUrl.toString() };
-  }
-
-  public async uploadVideo(
-    input: Parameters<TikTokOAuthProvider["uploadVideo"]>[0],
-  ): Promise<void> {
-    let offset = 0;
-    for await (const chunk of streamChunks(
-      input.body,
-      input.chunkSize,
-      input.byteSize,
-      input.totalChunkCount,
-    )) {
-      const end = offset + chunk.byteLength - 1;
-      const payload = new Uint8Array(chunk.byteLength);
-      payload.set(chunk);
-      const isFinal = end + 1 === input.byteSize;
-      for (let attempt = 1; attempt <= maximumUploadAttemptsPerChunk; attempt += 1) {
-        let response: Response;
-        try {
-          response = await this.#fetch(input.uploadUrl, {
-            method: "PUT",
-            headers: {
-              "content-type": "video/mp4",
-              "content-length": String(chunk.byteLength),
-              "content-range": `bytes ${offset}-${end}/${input.byteSize}`,
-            },
-            body: payload.buffer,
-            signal: input.signal
-              ? AbortSignal.any([input.signal, AbortSignal.timeout(uploadTimeoutMs)])
-              : AbortSignal.timeout(uploadTimeoutMs),
-          });
-        } catch {
-          throw requestError(
-            "conflict",
-            "TikTok upload result is ambiguous",
-            409,
-            "video_upload",
-            0,
-            "network_ambiguous",
-          );
-        }
-        const accepted = isFinal ? response.status === 201 : response.status === 206;
-        if (accepted) break;
-        await response.body?.cancel().catch(() => undefined);
-        if (response.status < 500 || attempt === maximumUploadAttemptsPerChunk) {
-          throw requestError(
-            "service_unavailable",
-            "TikTok rejected the video upload",
-            503,
-            "video_upload",
-            response.status,
-            "upload_rejected",
-          );
-        }
-      }
-      offset = end + 1;
-    }
-    if (offset !== input.byteSize) {
-      throw new ApplicationError("invalid_input", "TikTok video size changed during upload", 400);
-    }
+    return { publishId: data.publish_id };
   }
 
   public async readPostStatus(

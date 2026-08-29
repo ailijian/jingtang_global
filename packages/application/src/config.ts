@@ -123,6 +123,7 @@ const schema = z
     TIKTOK_CLIENT_KEY: optionalSecret,
     TIKTOK_CLIENT_SECRET: optionalSecret,
     TIKTOK_OAUTH_STATE_SECRET: optionalStateSecret,
+    TIKTOK_MEDIA_URL_SIGNING_SECRET: optionalStateSecret,
     YOUTUBE_TEST_FAULT: z
       .enum(["none", "timeout", "quota", "oauth_expired", "processing_failed", "ambiguous_upload"])
       .default("none"),
@@ -246,7 +247,11 @@ const schema = z
       }
     }
     if (value.TIKTOK_OAUTH_ENABLED) {
-      for (const key of ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET"] as const) {
+      for (const key of [
+        "TIKTOK_CLIENT_KEY",
+        "TIKTOK_CLIENT_SECRET",
+        "TIKTOK_MEDIA_URL_SIGNING_SECRET",
+      ] as const) {
         if (!value[key]) {
           context.addIssue({
             code: "custom",
@@ -538,6 +543,7 @@ const schema = z
         value.FACEBOOK_OAUTH_STATE_SECRET,
         value.TIKTOK_CLIENT_SECRET,
         value.TIKTOK_OAUTH_STATE_SECRET,
+        value.TIKTOK_MEDIA_URL_SIGNING_SECRET,
         value.OAUTH_TOKEN_ENCRYPTION_KEY,
       ].filter((entry): entry is string => Boolean(entry));
       if (new Set(secretValues).size !== secretValues.length) {

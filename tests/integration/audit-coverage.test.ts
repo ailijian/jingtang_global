@@ -38,7 +38,7 @@ import {
   recordAuthorizationDenied,
   recordConsent,
   recordTikTokPublishInitialized,
-  recordTikTokUploadCompleted,
+  recordTikTokTransferAccepted,
   recordUserScopedAudit,
   recordYouTubeExecutionFailure,
   recordYouTubeExecutionPublished,
@@ -718,7 +718,7 @@ describe("AC-11 runtime Audit coverage", () => {
       channelId: tikTokWork.channelId,
       leaseGeneration: tikTokWork.leaseGeneration,
     });
-    await recordTikTokUploadCompleted(db, {
+    await recordTikTokTransferAccepted(db, {
       workspaceId: owner.workspace.id,
       executionId: tikTokPublish.executionId,
       publishId: "audit-tiktok-publish-id",

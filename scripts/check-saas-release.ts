@@ -120,7 +120,7 @@ requireText(
 
 const runtimeExample = read("infra/tencent/saas/runtime.env.example");
 if (
-  /^(?:DATABASE_(?:ADMIN_)?URL|DATABASE_WORKER_URL|CIAM_CLIENT_SECRET|SESSION_COOKIE_SECRET|TDMQ_AMQP_URL|YOUTUBE_OAUTH_CLIENT_SECRET|YOUTUBE_OAUTH_STATE_SECRET|FACEBOOK_APP_SECRET|FACEBOOK_OAUTH_STATE_SECRET|TIKTOK_CLIENT_SECRET|TIKTOK_OAUTH_STATE_SECRET|TENCENT_CLOUD_SECRET_(?:ID|KEY))=/mu.test(
+  /^(?:DATABASE_(?:ADMIN_)?URL|DATABASE_WORKER_URL|CIAM_CLIENT_SECRET|SESSION_COOKIE_SECRET|TDMQ_AMQP_URL|YOUTUBE_OAUTH_CLIENT_SECRET|YOUTUBE_OAUTH_STATE_SECRET|FACEBOOK_APP_SECRET|FACEBOOK_OAUTH_STATE_SECRET|TIKTOK_CLIENT_SECRET|TIKTOK_OAUTH_STATE_SECRET|TIKTOK_MEDIA_URL_SIGNING_SECRET|TENCENT_CLOUD_SECRET_(?:ID|KEY))=/mu.test(
     runtimeExample,
   )
 ) {
@@ -157,6 +157,8 @@ requireText(
   "Caddyfile",
 );
 requireText(caddyfile, "log_skip @youtube_oauth_callback", "Caddyfile");
+requireText(caddyfile, "@tiktok_media path /api/v1/media/tiktok", "Caddyfile");
+requireText(caddyfile, "log_skip @tiktok_media", "Caddyfile");
 
 const healthRoute = read("apps/platform/src/app/api/v1/health/route.ts");
 requireText(healthRoute, `'dispatching'::"outbox_state"`, "production health route");

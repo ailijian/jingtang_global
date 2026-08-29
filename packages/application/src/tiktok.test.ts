@@ -4,10 +4,10 @@ import {
   parseStoredTikTokAuthorization,
   tikTokAuthorizationRequiresRefresh,
   tikTokExecutionFailureDisposition,
+  TikTokMediaAccessTokenCodec,
   tikTokOAuthScopes,
   tikTokPublishStatusFailureDisposition,
-  tikTokUploadChunkSize,
-  tikTokUploadPlan,
+  tikTokMediaUrlTtlSeconds,
 } from "./tiktok.js";
 
 describe("TikTok R4 policy", () => {
@@ -36,30 +36,82 @@ describe("TikTok R4 policy", () => {
     expect(tikTokAuthorizationRequiresRefresh("invalid", now)).toBe(true);
   });
 
-  it("uses exact TikTok upload plans without an undersized trailing chunk", () => {
-    const mebibyte = 1024 * 1024;
-    expect(tikTokUploadPlan(4 * mebibyte)).toEqual({
-      chunkSize: 4 * mebibyte,
-      totalChunkCount: 1,
+  it("issues a redacted provider-only URL bound to object integrity, method, and lifetime", () => {
+    const now = Date.parse("2026-08-29T12:00:00.000Z");
+    const codec = new TikTokMediaAccessTokenCodec(
+      "a-dedicated-tiktok-media-signing-secret",
+      "https://review.jingtangai.com",
+    );
+    const mediaUrl = codec.issueReadUrl(
+      {
+        objectKey: "workspaces/workspace/source-assets/asset/video.mp4",
+        expectedByteSize: 7,
+        expectedSha256: "a".repeat(64),
+      },
+      now,
+    );
+    const providerUrl = new URL(mediaUrl.revealForProviderRequest());
+    const token = providerUrl.searchParams.get("token") ?? "";
+
+    expect(providerUrl.origin + providerUrl.pathname).toBe(
+      "https://review.jingtangai.com/api/v1/media/tiktok",
+    );
+    expect(codec.verifyToken(token, now)).toEqual({
+      objectKey: "workspaces/workspace/source-assets/asset/video.mp4",
+      expectedByteSize: 7,
+      expectedSha256: "a".repeat(64),
+      method: "GET",
+      issuedAt: Math.floor(now / 1000),
+      expiresAt: Math.floor(now / 1000) + tikTokMediaUrlTtlSeconds,
     });
-    expect(tikTokUploadPlan(64 * mebibyte)).toEqual({
-      chunkSize: 64 * mebibyte,
-      totalChunkCount: 1,
-    });
-    expect(tikTokUploadPlan(65 * mebibyte)).toEqual({
-      chunkSize: Math.floor((65 * mebibyte) / 2),
-      totalChunkCount: 2,
-    });
-    expect(tikTokUploadPlan(500 * mebibyte)).toEqual({
-      chunkSize: Math.floor((500 * mebibyte) / 8),
-      totalChunkCount: 8,
-    });
-    expect(tikTokUploadChunkSize(100 * mebibyte)).toBe(50 * mebibyte);
-    expect(() => tikTokUploadChunkSize(0)).toThrow("invalid_video_size");
+    expect(String(mediaUrl)).toBe("[REDACTED_TIKTOK_MEDIA_URL]");
+    expect(JSON.stringify({ mediaUrl })).not.toContain(token);
+  });
+
+  it("rejects tampered, expired, oversized, or non-Workspace TikTok media grants", () => {
+    const now = Date.parse("2026-08-29T12:00:00.000Z");
+    const codec = new TikTokMediaAccessTokenCodec(
+      "a-dedicated-tiktok-media-signing-secret",
+      "https://review.jingtangai.com",
+    );
+    const mediaUrl = codec.issueReadUrl(
+      {
+        objectKey: "workspaces/workspace/source-assets/asset/video.mp4",
+        expectedByteSize: 7,
+        expectedSha256: "b".repeat(64),
+      },
+      now,
+    );
+    const token = new URL(mediaUrl.revealForProviderRequest()).searchParams.get("token") ?? "";
+
+    expect(() => codec.verifyToken(`${token.slice(0, -1)}x`, now)).toThrow(
+      "tiktok_media_token_invalid",
+    );
+    expect(() => codec.verifyToken(token, now + (tikTokMediaUrlTtlSeconds + 1) * 1000)).toThrow(
+      "tiktok_media_token_expired",
+    );
+    expect(() =>
+      codec.issueReadUrl({
+        objectKey: "backups/postgres/not-media",
+        expectedByteSize: 7,
+        expectedSha256: "b".repeat(64),
+      }),
+    ).toThrow("tiktok_media_url_request_invalid");
+    expect(() =>
+      codec.issueReadUrl({
+        objectKey: "workspaces/workspace/source-assets/asset/video.mp4",
+        expectedByteSize: 500 * 1024 * 1024 + 1,
+        expectedSha256: "b".repeat(64),
+      }),
+    ).toThrow("tiktok_media_url_request_invalid");
   });
 
   it("never retries policy or identity drift as an unattended operation", () => {
     expect(tikTokExecutionFailureDisposition("creator_info_changed", 1)).toEqual({
+      needsAttention: true,
+      terminal: true,
+    });
+    expect(tikTokExecutionFailureDisposition("conflict", 1)).toEqual({
       needsAttention: true,
       terminal: true,
     });

@@ -5,6 +5,7 @@ import {
 } from "@jingtang/application";
 import {
   listFacebookChannels,
+  listInstagramChannels,
   listTikTokChannels,
   listYouTubeChannels,
   readFacebookConnectionCandidate,
@@ -25,6 +26,7 @@ export default async function ChannelsPage({
   readonly searchParams: Promise<{
     readonly youtube?: string | readonly string[];
     readonly facebook?: string | readonly string[];
+    readonly instagram?: string | readonly string[];
     readonly tiktok?: string | readonly string[];
   }>;
 }) {
@@ -33,14 +35,17 @@ export default async function ChannelsPage({
     searchParams,
   ]);
   const runtime = getRuntime();
-  const [channels, facebookChannels, tiktokChannels, facebookCandidate] = await Promise.all([
-    listYouTubeChannels(runtime.db, workspaceId),
-    listFacebookChannels(runtime.db, workspaceId),
-    listTikTokChannels(runtime.db, workspaceId),
-    readFacebookConnectionCandidate(runtime.db, workspaceId, session.user.id),
-  ]);
+  const [channels, facebookChannels, instagramChannels, tiktokChannels, facebookCandidate] =
+    await Promise.all([
+      listYouTubeChannels(runtime.db, workspaceId),
+      listFacebookChannels(runtime.db, workspaceId),
+      listInstagramChannels(runtime.db, workspaceId),
+      listTikTokChannels(runtime.db, workspaceId),
+      readFacebookConnectionCandidate(runtime.db, workspaceId, session.user.id),
+    ]);
   const result = typeof query.youtube === "string" ? query.youtube : undefined;
   const facebookResult = typeof query.facebook === "string" ? query.facebook : undefined;
+  const instagramResult = typeof query.instagram === "string" ? query.instagram : undefined;
   const tiktokResult = typeof query.tiktok === "string" ? query.tiktok : undefined;
   const connected = channels.find((channel) => channel.state === "connected");
   const reauthorization = channels.find((channel) => channel.state === "reauthorization_required");
@@ -82,6 +87,19 @@ export default async function ChannelsPage({
     hasPermission(role, "channel.connect") &&
     runtime.config.TIKTOK_OAUTH_ENABLED &&
     allowsTikTokReviewOAuth(runtime.config.APP_ENV);
+  const instagramConnected = instagramChannels.find((channel) => channel.state === "connected");
+  const instagramConnecting = instagramChannels.find((channel) => channel.state === "connecting");
+  const instagramReauthorization = instagramChannels.find(
+    (channel) => channel.state === "reauthorization_required",
+  );
+  const instagramDisconnected = instagramChannels.find(
+    (channel) => channel.state === "disconnected",
+  );
+  const instagramRemovalPending =
+    instagramDisconnected?.providerRemovalState === "pending_user_action";
+  const instagramRemovalConfirmed = instagramDisconnected?.providerRemovalState === "confirmed";
+  const instagramActive =
+    instagramConnected ?? instagramConnecting ?? instagramReauthorization ?? instagramDisconnected;
   const legalLocale = locale === "zh-CN" ? "zh-cn" : "en";
   const connectionForm = (
     <>
@@ -284,7 +302,8 @@ export default async function ChannelsPage({
           (tiktokResult === "disconnecting" &&
             Boolean(tiktokDisconnecting) &&
             !tiktokDisconnectFailed &&
-            !tiktokDisconnectCompleted)
+            !tiktokDisconnectCompleted) ||
+          Boolean(instagramRemovalPending)
         }
       />
       <header className="page-heading">
@@ -444,8 +463,8 @@ export default async function ChannelsPage({
               ) : null}
               <p>
                 {locale === "zh-CN"
-                  ? "当前只允许 FILE_UPLOAD、手动 SELF_ONLY，互动默认关闭。"
-                  : "Current access permits FILE_UPLOAD and manual SELF_ONLY only, with interactions off by default."}
+                  ? "当前只允许受限 PULL_FROM_URL、手动 SELF_ONLY，互动默认关闭。"
+                  : "Current access permits provider-only PULL_FROM_URL and manual SELF_ONLY only, with interactions off by default."}
               </p>
               {(tiktokConnected || tiktokDisconnecting) && canDisconnect ? (
                 <DestructiveActionDialog
@@ -626,6 +645,143 @@ export default async function ChannelsPage({
           ) : (
             facebookConnectionForm
           )}
+        </section>
+        <section className="channel-card" aria-labelledby="instagram-channel-title">
+          <div className="channel-card__heading">
+            <div>
+              <p className="detail-kicker">INSTAGRAM · CONTROLLED REELS PUBLISHING</p>
+              <h2 id="instagram-channel-title">Instagram</h2>
+            </div>
+            <span
+              className={`channel-status channel-status--${instagramConnected || instagramRemovalConfirmed ? "connected" : "pending"}`}
+            >
+              {instagramConnected
+                ? translate(locale, "channel.status.connected")
+                : instagramConnecting
+                  ? locale === "zh-CN"
+                    ? "连接中"
+                    : "Connecting"
+                  : instagramRemovalPending
+                    ? locale === "zh-CN"
+                      ? "等待 Instagram 移除"
+                      : "Instagram removal pending"
+                    : instagramRemovalConfirmed
+                      ? locale === "zh-CN"
+                        ? "平台侧撤销已确认"
+                        : "Provider revocation confirmed"
+                      : locale === "zh-CN"
+                        ? "未连接"
+                        : "Not connected"}
+            </span>
+          </div>
+          {instagramResult === "disconnect_failed" ? (
+            <p className="channel-notice channel-notice--error" role="alert">
+              {locale === "zh-CN"
+                ? "Instagram 本地断开未能安全完成；没有发起任何 Meta 撤销调用。请重试。"
+                : "The Instagram local disconnect did not complete safely. No Meta revocation call was made; try again."}
+            </p>
+          ) : null}
+          {instagramRemovalPending ? (
+            <div className="channel-notice" role="status" aria-live="polite">
+              <strong>
+                {locale === "zh-CN"
+                  ? "JINGTANG 已在本地断开——请在 Instagram 移除 App"
+                  : "JINGTANG is locally disconnected — remove the App in Instagram"}
+              </strong>
+              <p>
+                {locale === "zh-CN"
+                  ? "本地 token、账号授权数据和新操作已清理/停止；这不代表 Meta 侧授权已经撤销。"
+                  : "Local tokens, account authorization data, and new operations are cleared or stopped. This does not mean Meta-side authorization has been revoked."}
+              </p>
+              <p>
+                <strong>
+                  Instagram → Website permissions → Apps and websites → Active → Remove
+                </strong>
+              </p>
+              <small>
+                {locale === "zh-CN"
+                  ? "只有验证 deauthorization callback 后，页面才会显示平台侧撤销已确认；页面会自动更新。"
+                  : "Provider revocation is shown as confirmed only after a verified deauthorization callback. This page refreshes automatically."}
+              </small>
+            </div>
+          ) : null}
+          {instagramRemovalConfirmed ? (
+            <p className="channel-notice channel-notice--success" role="status">
+              {locale === "zh-CN"
+                ? "平台侧撤销已确认。此状态仅来自已验证的 Instagram deauthorization callback。"
+                : "Provider revocation is confirmed. This state comes only from a verified Instagram deauthorization callback."}
+            </p>
+          ) : null}
+          {instagramConnected ? (
+            <div className="channel-identity">
+              <strong>@{instagramConnected.displayName ?? "Instagram"}</strong>
+              {instagramConnected.externalAccountId ? (
+                <span>{instagramConnected.externalAccountId}</span>
+              ) : null}
+              <p>
+                {locale === "zh-CN"
+                  ? "仅限一个 Professional 账号、一个明确确认的 MP4 Reel、REELS、share_to_feed=false 与立即发布。"
+                  : "Limited to one Professional account and one explicitly confirmed MP4 Reel using REELS, share_to_feed=false, and Publish Now."}
+              </p>
+              {canDisconnect ? (
+                <DestructiveActionDialog
+                  action="/api/v1/channels/instagram/disconnect"
+                  triggerLabel={locale === "zh-CN" ? "断开 Instagram" : "Disconnect Instagram"}
+                  title={
+                    locale === "zh-CN"
+                      ? "在 JINGTANG 本地断开 Instagram？"
+                      : "Disconnect Instagram locally in JINGTANG?"
+                  }
+                  description={
+                    locale === "zh-CN"
+                      ? "JINGTANG 会立即禁止新操作、取消排队工作、删除本地 token 与账号授权数据；随后仍需你在 Instagram 移除 App。"
+                      : "JINGTANG immediately blocks new operations, cancels queued work, and deletes local tokens and account authorization data. You must then remove the App in Instagram."
+                  }
+                  consequences={[
+                    locale === "zh-CN"
+                      ? "JINGTANG 不会调用 Facebook Login 的程序化 revoke。"
+                      : "JINGTANG does not call Facebook Login's programmatic revoke.",
+                    locale === "zh-CN"
+                      ? "在 callback 确认前，状态保持等待 Instagram 移除。"
+                      : "The state remains removal pending until callback confirmation.",
+                    locale === "zh-CN"
+                      ? "Instagram 已托管的 Reel 不会被删除。"
+                      : "Reels already hosted by Instagram are not deleted.",
+                  ]}
+                  submitLabel={locale === "zh-CN" ? "确认本地断开" : "Disconnect locally"}
+                  pendingLabel={translate(locale, "channel.disconnect.pending")}
+                  cancelLabel={translate(locale, "action.cancel")}
+                  hiddenFields={{ channel_id: instagramConnected.id, confirmation: "disconnect" }}
+                />
+              ) : null}
+            </div>
+          ) : instagramActive && !instagramDisconnected ? (
+            <p className="channel-notice">
+              {locale === "zh-CN"
+                ? "Instagram 连接尚未完成；当前候选不使用任何 Meta 凭证。"
+                : "Instagram connection is not complete. This candidate uses no Meta credential."}
+            </p>
+          ) : !instagramDisconnected ? (
+            <div className="channel-consent">
+              <p>
+                {locale === "zh-CN"
+                  ? "本地候选已冻结以下最小权限与 UI 边界；在 callback/COS 证据和独立 App 配置通过后才可启用连接。"
+                  : "The local candidate freezes the minimum permissions and UI boundary below. Connection remains disabled until callback/COS evidence and dedicated App configuration pass."}
+              </p>
+              <ul className="channel-scope-list">
+                <li>instagram_business_basic — user_id, username</li>
+                <li>instagram_business_content_publish — one confirmed MP4 Reel</li>
+              </ul>
+              <button className="jt-button jt-button--primary" type="button" disabled>
+                {locale === "zh-CN" ? "连接 Instagram" : "Connect Instagram"}
+              </button>
+              <small>
+                {locale === "zh-CN"
+                  ? "当前不可用：未配置 Meta App、外部凭证或 provider-dependent callback。"
+                  : "Unavailable: no Meta App, external credential, or provider-dependent callback is configured."}
+              </small>
+            </div>
+          ) : null}
         </section>
       </div>
     </>

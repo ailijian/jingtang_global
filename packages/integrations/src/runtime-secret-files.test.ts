@@ -49,6 +49,23 @@ describe("review runtime secret files", () => {
     },
   );
 
+  it.each(["platform", "worker"] as const)(
+    "loads the dedicated TikTok media URL key for the %s role",
+    (role) => {
+      const environment: NodeJS.ProcessEnv = {
+        APP_ENV: "review",
+        TIKTOK_MEDIA_URL_SIGNING_SECRET_FILE: secretFile(
+          "a-dedicated-tiktok-media-url-signing-secret",
+        ),
+      };
+      loadRuntimeSecretFiles(environment, role);
+      expect(environment.TIKTOK_MEDIA_URL_SIGNING_SECRET).toBe(
+        "a-dedicated-tiktok-media-url-signing-secret",
+      );
+      expect(environment.TIKTOK_MEDIA_URL_SIGNING_SECRET_FILE).toBeUndefined();
+    },
+  );
+
   it("loads only the role-allowlisted Facebook Review secrets", () => {
     const platformEnvironment: NodeJS.ProcessEnv = {
       APP_ENV: "review",

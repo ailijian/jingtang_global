@@ -213,6 +213,13 @@ paths:
       description: Blocks new work and durably schedules TikTok revocation plus local OAuth and Authorized Data deletion.
       responses:
         "303": { description: Redirect to the asynchronous disconnect result. }
+  /channels/instagram/disconnect:
+    post:
+      operationId: disconnectInstagramLocally
+      description: Immediately fences and cancels new Instagram work, erases local token and account authorization data, and enters manual-removal pending without calling a Meta revocation endpoint.
+      responses:
+        "303":
+          { description: Redirect to the distinct local-disconnected/manual-removal-pending state. }
   /content/assets:
     post:
       operationId: uploadSourceAsset
@@ -324,6 +331,14 @@ paths:
                 revisionId: { type: string, format: uuid }
                 idempotencyKey: { type: string, format: uuid }
                 confirmed: { type: boolean, const: true }
+                instagram:
+                  type: object
+                  additionalProperties: false
+                  required: [mediaType, shareToFeed, publishMode]
+                  properties:
+                    mediaType: { const: REELS }
+                    shareToFeed: { const: false }
+                    publishMode: { const: IMMEDIATE }
                 tiktok:
                   type: object
                   additionalProperties: false
@@ -351,7 +366,7 @@ paths:
                     creatorInfoConfirmed: { const: true }
       responses:
         "202":
-          description: Exact approved private YouTube upload, native Facebook Page MP4 publication, or manually confirmed TikTok SELF_ONLY FILE_UPLOAD accepted for asynchronous execution.
+          description: Exact approved private YouTube upload, native Facebook Page MP4 publication, provider-independent Instagram REELS/share_to_feed=false intent, or manually confirmed TikTok SELF_ONLY PULL_FROM_URL accepted for asynchronous execution. Instagram provider writes remain blocked until the evidence-dependent adapter is implemented and enabled.
           content:
             application/json:
               schema:
@@ -372,6 +387,48 @@ paths:
           {
             description: The exact revision is no longer publishable or conflicts with the idempotency key.,
           }
+  /media/tiktok:
+    get:
+      operationId: readTikTokProviderMedia
+      summary: Serve one final-confirmed private MP4 to TikTok
+      description: Provider-only endpoint. The secret-equivalent token is bound to the exact private object key, SHA-256, byte size, GET method and 65-minute lifetime and must never enter a browser, database, task payload, audit event, log, metric, screenshot or review video.
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 4096 }
+      responses:
+        "200":
+          description: Complete MP4 body.
+          headers:
+            Accept-Ranges: { schema: { type: string, const: bytes } }
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        "206":
+          description: Single requested byte range.
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        "404": { description: Missing, invalid, expired, or object-integrity-mismatched grant. }
+        "416": { description: Unsatisfiable or unsupported range. }
+        "503": { description: Private object storage is temporarily unavailable. }
+    head:
+      operationId: inspectTikTokProviderMedia
+      summary: Inspect one final-confirmed private MP4 grant
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 4096 }
+      responses:
+        "200": { description: Complete-object metadata without a response body. }
+        "206": { description: Requested-range metadata without a response body. }
+        "404": { description: Missing, invalid, expired, or object-integrity-mismatched grant. }
+        "416": { description: Unsatisfiable or unsupported range. }
+        "503": { description: Private object storage is temporarily unavailable. }
   /activity:
     get:
       operationId: listActivity

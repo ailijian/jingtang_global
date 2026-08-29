@@ -127,6 +127,8 @@ services:
       TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret
       TIKTOK_OAUTH_STATE_SECRET: ""
       TIKTOK_OAUTH_STATE_SECRET_FILE: /run/jingtang-secrets/tiktok-state-secret
+      TIKTOK_MEDIA_URL_SIGNING_SECRET: ""
+      TIKTOK_MEDIA_URL_SIGNING_SECRET_FILE: /run/jingtang-secrets/tiktok-media-url-signing-secret
       PORT: "3100"
     volumes:
       - /srv/jingtang/review/state:/var/lib/jingtang
@@ -141,6 +143,7 @@ services:
       - /srv/jingtang/review/secrets/facebook-state-secret:/run/jingtang-secrets/facebook-state-secret:ro
       - /srv/jingtang/review/secrets/tiktok-client-secret:/run/jingtang-secrets/tiktok-client-secret:ro
       - /srv/jingtang/review/secrets/tiktok-state-secret:/run/jingtang-secrets/tiktok-state-secret:ro
+      - /srv/jingtang/review/secrets/tiktok-media-url-signing-secret:/run/jingtang-secrets/tiktok-media-url-signing-secret:ro
     mem_limit: 768m
     cpus: 0.60
     healthcheck:
@@ -187,6 +190,8 @@ services:
       FACEBOOK_APP_SECRET_FILE: /run/jingtang-secrets/facebook-app-secret
       TIKTOK_CLIENT_SECRET: ""
       TIKTOK_CLIENT_SECRET_FILE: /run/jingtang-secrets/tiktok-client-secret
+      TIKTOK_MEDIA_URL_SIGNING_SECRET: ""
+      TIKTOK_MEDIA_URL_SIGNING_SECRET_FILE: /run/jingtang-secrets/tiktok-media-url-signing-secret
     volumes:
       - /srv/jingtang/review/state:/var/lib/jingtang
       - /srv/jingtang/review/secrets/database-worker-url:/run/jingtang-secrets/database-worker-url:ro
@@ -197,6 +202,7 @@ services:
       - /srv/jingtang/review/secrets/youtube-client-secret:/run/jingtang-secrets/youtube-client-secret:ro
       - /srv/jingtang/review/secrets/facebook-app-secret:/run/jingtang-secrets/facebook-app-secret:ro
       - /srv/jingtang/review/secrets/tiktok-client-secret:/run/jingtang-secrets/tiktok-client-secret:ro
+      - /srv/jingtang/review/secrets/tiktok-media-url-signing-secret:/run/jingtang-secrets/tiktok-media-url-signing-secret:ro
     mem_limit: 768m
     cpus: 0.75
 

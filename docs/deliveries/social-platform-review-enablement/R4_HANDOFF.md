@@ -2,6 +2,8 @@
 
 > Transient execution handoff for continuing this Delivery in a new Codex window. This file is not product, architecture, integration-status, or approval authority. Resolve any conflict in favor of [`BASELINE.md`](BASELINE.md), [`PLAN.md`](PLAN.md), `config/integrations.yaml`, current code/contracts, and the repository Knowledge Map.
 
+> Revision 9 supersession (2026-08-29): the `FILE_UPLOAD` boundary and evidence below are historical only. Current authority requires private-COS, provider-only `PULL_FROM_URL`. No prior deployment or Human E2E evidence proves the new transfer path.
+
 ## Resume Point
 
 - Date: 2026-08-28 (Asia/Shanghai).

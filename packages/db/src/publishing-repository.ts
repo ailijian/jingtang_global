@@ -8,6 +8,8 @@ import {
   Platform,
   PlatformExecutionState,
   PrivacyStatus,
+  ProviderRemovalState,
+  ProviderWriteState,
   PublishingIntentState,
   PublishingMode,
   SourceAssetStatus,
@@ -34,6 +36,11 @@ export interface PlatformExecutionView {
   readonly failureCategory: string | null;
   readonly providerId: string | null;
   readonly providerUrl: string | null;
+  readonly providerCreateState:
+    "not_started" | "started" | "succeeded" | "ambiguous" | "failed" | null;
+  readonly providerPublishState: PlatformExecutionView["providerCreateState"];
+  readonly providerResourceId: string | null;
+  readonly providerResultId: string | null;
   readonly retryable: boolean;
   readonly updatedAt: Date;
 }
@@ -50,12 +57,26 @@ const executionStateToDomain: Readonly<
   CANCELLED: "cancelled",
 };
 
+const providerWriteStateToDomain: Readonly<
+  Record<ProviderWriteState, Exclude<PlatformExecutionView["providerCreateState"], null>>
+> = {
+  NOT_STARTED: "not_started",
+  STARTED: "started",
+  SUCCEEDED: "succeeded",
+  AMBIGUOUS: "ambiguous",
+  FAILED: "failed",
+};
+
 export function platformExecutionView(entry: {
   readonly id: string;
   readonly state: PlatformExecutionState;
   readonly failureCategory: string | null;
   readonly providerId: string | null;
   readonly providerUrl: string | null;
+  readonly providerCreateState?: ProviderWriteState | null;
+  readonly providerPublishState?: ProviderWriteState | null;
+  readonly providerResourceId?: string | null;
+  readonly providerResultId?: string | null;
   readonly outboxState: OutboxState | null;
   readonly updatedAt: Date;
 }): PlatformExecutionView {
@@ -65,6 +86,14 @@ export function platformExecutionView(entry: {
     failureCategory: entry.failureCategory,
     providerId: entry.providerId,
     providerUrl: entry.providerUrl,
+    providerCreateState: entry.providerCreateState
+      ? providerWriteStateToDomain[entry.providerCreateState]
+      : null,
+    providerPublishState: entry.providerPublishState
+      ? providerWriteStateToDomain[entry.providerPublishState]
+      : null,
+    providerResourceId: entry.providerResourceId ?? null,
+    providerResultId: entry.providerResultId ?? null,
     retryable: platformExecutionRetryable(entry),
     updatedAt: entry.updatedAt,
   };
@@ -74,12 +103,24 @@ export function platformExecutionRetryable(entry: {
   readonly state: PlatformExecutionState;
   readonly providerId: string | null;
   readonly providerUrl: string | null;
+  readonly providerCreateState?: ProviderWriteState | null;
+  readonly providerPublishState?: ProviderWriteState | null;
+  readonly providerResourceId?: string | null;
+  readonly providerResultId?: string | null;
   readonly outboxState: OutboxState | null;
 }): boolean {
   return (
     entry.state === PlatformExecutionState.FAILED &&
     entry.providerId === null &&
     entry.providerUrl === null &&
+    !entry.providerResourceId &&
+    !entry.providerResultId &&
+    entry.providerCreateState !== ProviderWriteState.STARTED &&
+    entry.providerCreateState !== ProviderWriteState.AMBIGUOUS &&
+    entry.providerCreateState !== ProviderWriteState.SUCCEEDED &&
+    entry.providerPublishState !== ProviderWriteState.STARTED &&
+    entry.providerPublishState !== ProviderWriteState.AMBIGUOUS &&
+    entry.providerPublishState !== ProviderWriteState.SUCCEEDED &&
     entry.outboxState === OutboxState.DEAD
   );
 }
@@ -98,6 +139,11 @@ export async function confirmContentPublishing(
     readonly consentVersion: string;
     readonly idempotencyKey: string;
     readonly correlationId: string;
+    readonly instagramSettings?: {
+      readonly mediaType: "REELS";
+      readonly shareToFeed: false;
+      readonly publishMode: "IMMEDIATE";
+    };
     readonly tikTokSettings?: {
       readonly privacyLevel: "SELF_ONLY";
       readonly disableComment: boolean;
@@ -150,6 +196,10 @@ export async function confirmContentPublishing(
             state: true,
             providerId: true,
             providerUrl: true,
+            providerCreateState: true,
+            providerPublishState: true,
+            providerResourceId: true,
+            providerResultId: true,
             outboxMessage: { select: { state: true } },
           },
           orderBy: { updatedAt: "desc" },
@@ -201,6 +251,7 @@ export async function confirmContentPublishing(
       revision.platformVersions.length !== 1 ||
       (version.platform !== Platform.YOUTUBE &&
         version.platform !== Platform.FACEBOOK &&
+        version.platform !== Platform.INSTAGRAM &&
         version.platform !== Platform.TIKTOK)
     ) {
       throw new Error("unsupported_platform_selection");
@@ -224,6 +275,19 @@ export async function confirmContentPublishing(
       throw new Error("facebook_video_too_large");
     }
     if (
+      version.platform === Platform.INSTAGRAM &&
+      (version.privacyStatus !== PrivacyStatus.UNSELECTED ||
+        version.madeForKids ||
+        content.sourceAsset.mediaType !== "video/mp4" ||
+        content.sourceAsset.byteSize > BigInt(500 * 1024 * 1024) ||
+        !input.instagramSettings ||
+        input.instagramSettings.mediaType !== "REELS" ||
+        input.instagramSettings.shareToFeed ||
+        input.instagramSettings.publishMode !== "IMMEDIATE")
+    ) {
+      throw new Error("instagram_reel_publish_settings_invalid");
+    }
+    if (
       version.platform === Platform.TIKTOK &&
       (version.privacyStatus !== PrivacyStatus.UNSELECTED ||
         version.madeForKids ||
@@ -239,18 +303,27 @@ export async function confirmContentPublishing(
     ) {
       throw new Error("tiktok_private_publish_settings_invalid");
     }
+    if (version.platform !== Platform.INSTAGRAM && input.instagramSettings) {
+      throw new Error("instagram_settings_not_applicable");
+    }
+    if (version.platform !== Platform.TIKTOK && input.tikTokSettings) {
+      throw new Error("tiktok_settings_not_applicable");
+    }
     const platform =
       version.platform === Platform.YOUTUBE
         ? "youtube"
         : version.platform === Platform.FACEBOOK
           ? "facebook"
-          : "tiktok";
+          : version.platform === Platform.INSTAGRAM
+            ? "instagram"
+            : "tiktok";
     const channel = await transaction.channel.findFirst({
       where: {
         workspaceId: input.workspaceId,
         platform,
         externalAccountId: version.accountReference,
         state: ChannelState.CONNECTED,
+        providerRemovalState: ProviderRemovalState.NOT_APPLICABLE,
       },
       select: { id: true },
     });
@@ -272,11 +345,16 @@ export async function confirmContentPublishing(
                 ? "public"
                 : "unselected",
           made_for_kids: platform === "youtube" ? version.madeForKids : false,
+          ...(platform === "instagram"
+            ? {
+                instagram_settings: input.instagramSettings,
+              }
+            : {}),
           ...(platform === "tiktok"
             ? {
                 tiktok_settings: {
                   ...input.tikTokSettings,
-                  source: "FILE_UPLOAD",
+                  source: "PULL_FROM_URL",
                 },
               }
             : {}),
@@ -313,6 +391,12 @@ export async function confirmContentPublishing(
         attempt: 1,
         idempotencyKey: `${input.idempotencyKey}:${platform}`,
         state: PlatformExecutionState.NOT_STARTED,
+        ...(platform === "instagram"
+          ? {
+              providerCreateState: ProviderWriteState.NOT_STARTED,
+              providerPublishState: ProviderWriteState.NOT_STARTED,
+            }
+          : {}),
       },
       select: { id: true },
     });
@@ -349,7 +433,10 @@ export interface ClaimedOutboxMessage {
   readonly claimOwner: string;
   readonly claimGeneration: bigint;
   readonly topic:
-    "platform.youtube.publish.v1" | "platform.facebook.publish.v1" | "platform.tiktok.publish.v1";
+    | "platform.youtube.publish.v1"
+    | "platform.facebook.publish.v1"
+    | "platform.instagram.publish.v1"
+    | "platform.tiktok.publish.v1";
 }
 
 export interface ClaimedOutboxDispatch {
@@ -523,9 +610,11 @@ export async function claimQueuedOutboxMessage(
         topic:
           row.topic === "platform.facebook.publish.v1"
             ? "platform.facebook.publish.v1"
-            : row.topic === "platform.tiktok.publish.v1"
-              ? "platform.tiktok.publish.v1"
-              : "platform.youtube.publish.v1",
+            : row.topic === "platform.instagram.publish.v1"
+              ? "platform.instagram.publish.v1"
+              : row.topic === "platform.tiktok.publish.v1"
+                ? "platform.tiktok.publish.v1"
+                : "platform.youtube.publish.v1",
       },
     };
   }
@@ -593,9 +682,11 @@ export async function claimNextOutboxMessage(
         topic:
           row.topic === "platform.facebook.publish.v1"
             ? "platform.facebook.publish.v1"
-            : row.topic === "platform.tiktok.publish.v1"
-              ? "platform.tiktok.publish.v1"
-              : "platform.youtube.publish.v1",
+            : row.topic === "platform.instagram.publish.v1"
+              ? "platform.instagram.publish.v1"
+              : row.topic === "platform.tiktok.publish.v1"
+                ? "platform.tiktok.publish.v1"
+                : "platform.youtube.publish.v1",
       }
     : null;
 }
@@ -755,10 +846,14 @@ export async function releaseYouTubeChannelOperationLease(
 
 export interface YouTubeExecutionWorkItem {
   readonly executionId: string;
-  readonly platform: "youtube" | "facebook" | "tiktok";
+  readonly platform: "youtube" | "facebook" | "instagram" | "tiktok";
   readonly workspaceId: string;
   readonly state: PlatformExecutionView["state"];
   readonly providerId: string | null;
+  readonly providerCreateState: ProviderWriteState | null;
+  readonly providerPublishState: ProviderWriteState | null;
+  readonly providerResourceId: string | null;
+  readonly providerResultId: string | null;
   readonly channelId: string;
   readonly externalAccountId: string;
   readonly tokenEnvelopeCiphertext: string;
@@ -785,6 +880,12 @@ export interface YouTubeExecutionWorkItem {
     readonly creatorUsername: string;
     readonly creatorNickname: string;
     readonly maximumVideoDurationSeconds: number;
+    readonly source: "PULL_FROM_URL";
+  };
+  readonly instagramSettings?: {
+    readonly mediaType: "REELS";
+    readonly shareToFeed: false;
+    readonly publishMode: "IMMEDIATE";
   };
 }
 
@@ -812,6 +913,35 @@ export async function readTikTokExecutionWorkItem(
   return readPlatformExecutionWorkItem(client, workspaceId, executionId, Platform.TIKTOK);
 }
 
+export async function readInstagramExecutionWorkItem(
+  client: PrismaClient,
+  workspaceId: string,
+  executionId: string,
+): Promise<YouTubeExecutionWorkItem> {
+  return readPlatformExecutionWorkItem(client, workspaceId, executionId, Platform.INSTAGRAM);
+}
+
+function instagramSettingsFromSnapshot(
+  value: Prisma.JsonValue,
+): YouTubeExecutionWorkItem["instagramSettings"] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const versions = "versions" in value && Array.isArray(value.versions) ? value.versions : [];
+  const version = versions[0];
+  if (typeof version !== "object" || version === null || Array.isArray(version)) return undefined;
+  const settings = "instagram_settings" in version ? version.instagram_settings : undefined;
+  if (
+    typeof settings !== "object" ||
+    settings === null ||
+    Array.isArray(settings) ||
+    settings.mediaType !== "REELS" ||
+    settings.shareToFeed !== false ||
+    settings.publishMode !== "IMMEDIATE"
+  ) {
+    return undefined;
+  }
+  return { mediaType: "REELS", shareToFeed: false, publishMode: "IMMEDIATE" };
+}
+
 function tikTokSettingsFromSnapshot(
   value: Prisma.JsonValue,
 ): YouTubeExecutionWorkItem["tikTokSettings"] {
@@ -834,7 +964,8 @@ function tikTokSettingsFromSnapshot(
     settings.creatorInfoConfirmed !== true ||
     typeof settings.creatorUsername !== "string" ||
     typeof settings.creatorNickname !== "string" ||
-    typeof settings.maximumVideoDurationSeconds !== "number"
+    typeof settings.maximumVideoDurationSeconds !== "number" ||
+    settings.source !== "PULL_FROM_URL"
   ) {
     return undefined;
   }
@@ -851,6 +982,7 @@ function tikTokSettingsFromSnapshot(
     creatorUsername: settings.creatorUsername,
     creatorNickname: settings.creatorNickname,
     maximumVideoDurationSeconds: settings.maximumVideoDurationSeconds,
+    source: "PULL_FROM_URL",
   };
 }
 
@@ -883,7 +1015,11 @@ async function readPlatformExecutionWorkItem(
     ) {
       throw new Error("execution_terminal");
     }
-    if (execution.state === PlatformExecutionState.PUBLISHING && !execution.providerId) {
+    if (
+      execution.state === PlatformExecutionState.PUBLISHING &&
+      expectedPlatform !== Platform.INSTAGRAM &&
+      !execution.providerId
+    ) {
       throw new Error("execution_recovery_required");
     }
     const version = execution.platformVersion;
@@ -899,6 +1035,8 @@ async function readPlatformExecutionWorkItem(
       (expectedPlatform === Platform.YOUTUBE && version.privacyStatus !== PrivacyStatus.PRIVATE) ||
       (expectedPlatform === Platform.FACEBOOK &&
         (version.privacyStatus !== PrivacyStatus.PUBLIC || version.madeForKids)) ||
+      (expectedPlatform === Platform.INSTAGRAM &&
+        (version.privacyStatus !== PrivacyStatus.UNSELECTED || version.madeForKids)) ||
       (expectedPlatform === Platform.TIKTOK &&
         (version.privacyStatus !== PrivacyStatus.UNSELECTED || version.madeForKids)) ||
       version.validationStatus !== ValidationStatus.VALID ||
@@ -912,6 +1050,14 @@ async function readPlatformExecutionWorkItem(
       throw new Error("facebook_mp4_required");
     }
     if (
+      expectedPlatform === Platform.INSTAGRAM &&
+      (content.sourceAsset.mediaType !== "video/mp4" ||
+        content.sourceAsset.byteSize > BigInt(500 * 1024 * 1024) ||
+        !instagramSettingsFromSnapshot(execution.publishingIntent.payloadSnapshot))
+    ) {
+      throw new Error("instagram_reel_publish_settings_invalid");
+    }
+    if (
       expectedPlatform === Platform.FACEBOOK &&
       content.sourceAsset.byteSize > BigInt(500 * 1024 * 1024)
     ) {
@@ -920,6 +1066,10 @@ async function readPlatformExecutionWorkItem(
     const tikTokSettings =
       expectedPlatform === Platform.TIKTOK
         ? tikTokSettingsFromSnapshot(execution.publishingIntent.payloadSnapshot)
+        : undefined;
+    const instagramSettings =
+      expectedPlatform === Platform.INSTAGRAM
+        ? instagramSettingsFromSnapshot(execution.publishingIntent.payloadSnapshot)
         : undefined;
     if (
       expectedPlatform === Platform.TIKTOK &&
@@ -936,13 +1086,16 @@ async function readPlatformExecutionWorkItem(
         ? "youtube"
         : expectedPlatform === Platform.FACEBOOK
           ? "facebook"
-          : "tiktok";
+          : expectedPlatform === Platform.INSTAGRAM
+            ? "instagram"
+            : "tiktok";
     const channel = await transaction.channel.findFirst({
       where: {
         workspaceId,
         platform,
         externalAccountId: version.accountReference,
         state: ChannelState.CONNECTED,
+        providerRemovalState: ProviderRemovalState.NOT_APPLICABLE,
       },
     });
     if (!channel?.tokenEnvelopeCiphertext || !channel.externalAccountId) {
@@ -990,6 +1143,10 @@ async function readPlatformExecutionWorkItem(
           ? "publishing"
           : executionStateToDomain[execution.state],
       providerId: execution.providerId,
+      providerCreateState: execution.providerCreateState,
+      providerPublishState: execution.providerPublishState,
+      providerResourceId: execution.providerResourceId,
+      providerResultId: execution.providerResultId,
       channelId: channel.id,
       externalAccountId: channel.externalAccountId,
       tokenEnvelopeCiphertext: channel.tokenEnvelopeCiphertext,
@@ -1004,6 +1161,7 @@ async function readPlatformExecutionWorkItem(
       description: version.description,
       madeForKids: version.madeForKids,
       ...(tikTokSettings ? { tikTokSettings } : {}),
+      ...(instagramSettings ? { instagramSettings } : {}),
     };
   });
 }
@@ -1029,6 +1187,380 @@ export async function resetYouTubeExecutionForRetry(
       data: { state: PlatformExecutionState.NOT_STARTED },
     });
     if (updated.count !== 1) throw new Error("execution_retry_reset_rejected");
+  });
+}
+
+interface InstagramWriteFence {
+  readonly workspaceId: string;
+  readonly executionId: string;
+  readonly channelId: string;
+  readonly leaseGeneration: bigint;
+}
+
+export async function claimInstagramContainerCreate(
+  client: PrismaClient,
+  input: InstagramWriteFence,
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const claimed = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: PlatformExecutionState.PUBLISHING,
+        providerCreateState: { in: [ProviderWriteState.NOT_STARTED, ProviderWriteState.FAILED] },
+        providerPublishState: ProviderWriteState.NOT_STARTED,
+        providerResourceId: null,
+        providerResultId: null,
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      data: {
+        providerCreateState: ProviderWriteState.STARTED,
+        failureCategory: null,
+      },
+    });
+    if (claimed.count !== 1) throw new Error("instagram_container_create_claim_rejected");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.publish_initialized",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "success",
+      correlationId: input.executionId,
+      metadata: { platform: "instagram", operation: "container_create", checkpoint: "started" },
+    });
+  });
+}
+
+export async function recordInstagramContainerCreated(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly containerId: string },
+): Promise<void> {
+  if (!input.containerId || input.containerId.length > 255) {
+    throw new Error("instagram_container_reference_invalid");
+  }
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const recorded = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: { in: [PlatformExecutionState.PUBLISHING, PlatformExecutionState.NEEDS_ATTENTION] },
+        providerCreateState: { in: [ProviderWriteState.STARTED, ProviderWriteState.AMBIGUOUS] },
+        providerPublishState: ProviderWriteState.NOT_STARTED,
+        providerResourceId: null,
+        providerResultId: null,
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      data: {
+        state: PlatformExecutionState.PUBLISHING,
+        providerCreateState: ProviderWriteState.SUCCEEDED,
+        providerResourceId: input.containerId,
+        failureCategory: null,
+      },
+    });
+    if (recorded.count !== 1) throw new Error("instagram_container_result_superseded");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.uploaded",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "success",
+      correlationId: input.executionId,
+      metadata: { platform: "instagram", provider_reference_recorded: true },
+    });
+  });
+}
+
+async function recordInstagramWriteFailure(
+  client: PrismaClient,
+  input: InstagramWriteFence & {
+    readonly operation: "container_create" | "media_publish";
+    readonly ambiguous: boolean;
+    readonly failureCategory: string;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const state = input.ambiguous ? ProviderWriteState.AMBIGUOUS : ProviderWriteState.FAILED;
+    const recorded = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: PlatformExecutionState.PUBLISHING,
+        ...(input.operation === "container_create"
+          ? {
+              providerCreateState: ProviderWriteState.STARTED,
+              providerPublishState: ProviderWriteState.NOT_STARTED,
+              providerResourceId: null,
+              providerResultId: null,
+            }
+          : {
+              providerCreateState: ProviderWriteState.SUCCEEDED,
+              providerPublishState: ProviderWriteState.STARTED,
+              providerResourceId: { not: null },
+              providerResultId: null,
+            }),
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      data: {
+        state: input.ambiguous
+          ? PlatformExecutionState.NEEDS_ATTENTION
+          : PlatformExecutionState.FAILED,
+        ...(input.operation === "container_create"
+          ? { providerCreateState: state }
+          : { providerPublishState: state }),
+        failureCategory: input.failureCategory,
+      },
+    });
+    if (recorded.count !== 1) throw new Error("instagram_write_result_superseded");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.publish_failed",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "failed",
+      correlationId: input.executionId,
+      metadata: {
+        platform: "instagram",
+        operation: input.operation,
+        outcome: input.ambiguous ? "ambiguous" : "failed",
+        failure_category: input.failureCategory,
+      },
+    });
+  });
+}
+
+export async function recordInstagramContainerCreateFailed(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly failureCategory: string },
+): Promise<void> {
+  return recordInstagramWriteFailure(client, {
+    ...input,
+    operation: "container_create",
+    ambiguous: false,
+  });
+}
+
+export async function recordInstagramContainerCreateAmbiguous(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly failureCategory: string },
+): Promise<void> {
+  return recordInstagramWriteFailure(client, {
+    ...input,
+    operation: "container_create",
+    ambiguous: true,
+  });
+}
+
+export async function claimInstagramMediaPublish(
+  client: PrismaClient,
+  input: InstagramWriteFence,
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const claimed = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: PlatformExecutionState.PUBLISHING,
+        providerCreateState: ProviderWriteState.SUCCEEDED,
+        providerPublishState: { in: [ProviderWriteState.NOT_STARTED, ProviderWriteState.FAILED] },
+        providerResourceId: { not: null },
+        providerResultId: null,
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      data: {
+        providerPublishState: ProviderWriteState.STARTED,
+        failureCategory: null,
+      },
+    });
+    if (claimed.count !== 1) throw new Error("instagram_media_publish_claim_rejected");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.publish_initialized",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "success",
+      correlationId: input.executionId,
+      metadata: { platform: "instagram", operation: "media_publish", checkpoint: "started" },
+    });
+  });
+}
+
+export async function recordInstagramMediaPublished(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly mediaId: string },
+): Promise<void> {
+  if (!input.mediaId || input.mediaId.length > 255) {
+    throw new Error("instagram_media_reference_invalid");
+  }
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const recorded = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: { in: [PlatformExecutionState.PUBLISHING, PlatformExecutionState.NEEDS_ATTENTION] },
+        providerCreateState: ProviderWriteState.SUCCEEDED,
+        providerPublishState: { in: [ProviderWriteState.STARTED, ProviderWriteState.AMBIGUOUS] },
+        providerResourceId: { not: null },
+        providerResultId: null,
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      data: {
+        state: PlatformExecutionState.PUBLISHED,
+        providerPublishState: ProviderWriteState.SUCCEEDED,
+        providerResultId: input.mediaId,
+        failureCategory: null,
+      },
+    });
+    if (recorded.count !== 1) throw new Error("instagram_publish_result_superseded");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.published",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "success",
+      correlationId: input.executionId,
+      metadata: { platform: "instagram", provider_reference_recorded: true },
+    });
+  });
+}
+
+export async function recordInstagramMediaPublishFailed(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly failureCategory: string },
+): Promise<void> {
+  return recordInstagramWriteFailure(client, {
+    ...input,
+    operation: "media_publish",
+    ambiguous: false,
+  });
+}
+
+export async function recordInstagramMediaPublishAmbiguous(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly failureCategory: string },
+): Promise<void> {
+  return recordInstagramWriteFailure(client, {
+    ...input,
+    operation: "media_publish",
+    ambiguous: true,
+  });
+}
+
+async function recordInstagramAmbiguousWriteAbsent(
+  client: PrismaClient,
+  input: InstagramWriteFence & {
+    readonly operation: "container_create" | "media_publish";
+    readonly failureCategory: string;
+  },
+): Promise<void> {
+  await withTenant(client, input.workspaceId, async (transaction) => {
+    await assertYouTubePublishFence(transaction, input);
+    const recorded = await transaction.platformExecution.updateMany({
+      where: {
+        id: input.executionId,
+        workspaceId: input.workspaceId,
+        state: PlatformExecutionState.NEEDS_ATTENTION,
+        ...(input.operation === "container_create"
+          ? {
+              providerCreateState: ProviderWriteState.AMBIGUOUS,
+              providerPublishState: ProviderWriteState.NOT_STARTED,
+              providerResourceId: null,
+              providerResultId: null,
+            }
+          : {
+              providerCreateState: ProviderWriteState.SUCCEEDED,
+              providerPublishState: ProviderWriteState.AMBIGUOUS,
+              providerResourceId: { not: null },
+              providerResultId: null,
+            }),
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      data: {
+        state: PlatformExecutionState.FAILED,
+        ...(input.operation === "container_create"
+          ? { providerCreateState: ProviderWriteState.FAILED }
+          : { providerPublishState: ProviderWriteState.FAILED }),
+        failureCategory: input.failureCategory,
+      },
+    });
+    if (recorded.count !== 1) throw new Error("instagram_reconciliation_superseded");
+    await appendAudit(transaction, {
+      workspaceId: input.workspaceId,
+      action: "platform.publish_failed",
+      targetType: "platform_execution",
+      targetId: input.executionId,
+      result: "failed",
+      correlationId: input.executionId,
+      metadata: {
+        platform: "instagram",
+        operation: input.operation,
+        outcome: "reconciled_absent",
+        failure_category: input.failureCategory,
+      },
+    });
+  });
+}
+
+export async function recordInstagramContainerCreateReconciledAbsent(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly failureCategory: string },
+): Promise<void> {
+  return recordInstagramAmbiguousWriteAbsent(client, {
+    ...input,
+    operation: "container_create",
+  });
+}
+
+export async function recordInstagramMediaPublishReconciledAbsent(
+  client: PrismaClient,
+  input: InstagramWriteFence & { readonly failureCategory: string },
+): Promise<void> {
+  return recordInstagramAmbiguousWriteAbsent(client, {
+    ...input,
+    operation: "media_publish",
+  });
+}
+
+export async function readInstagramExecutionCheckpoint(
+  client: PrismaClient,
+  workspaceId: string,
+  executionId: string,
+): Promise<{
+  readonly state: PlatformExecutionState;
+  readonly createState: ProviderWriteState;
+  readonly publishState: ProviderWriteState;
+  readonly containerId: string | null;
+  readonly mediaId: string | null;
+}> {
+  return withTenant(client, workspaceId, async (transaction) => {
+    const execution = await transaction.platformExecution.findFirst({
+      where: {
+        id: executionId,
+        workspaceId,
+        platformVersion: { platform: Platform.INSTAGRAM },
+      },
+      select: {
+        state: true,
+        providerCreateState: true,
+        providerPublishState: true,
+        providerResourceId: true,
+        providerResultId: true,
+      },
+    });
+    if (!execution?.providerCreateState || !execution.providerPublishState) {
+      throw new Error("instagram_execution_checkpoint_not_found");
+    }
+    return {
+      state: execution.state,
+      createState: execution.providerCreateState,
+      publishState: execution.providerPublishState,
+      containerId: execution.providerResourceId,
+      mediaId: execution.providerResultId,
+    };
   });
 }
 
@@ -1094,7 +1626,7 @@ export async function recordTikTokPublishInitialized(
   });
 }
 
-export async function recordTikTokUploadCompleted(
+export async function recordTikTokTransferAccepted(
   client: PrismaClient,
   input: {
     readonly workspaceId: string;
@@ -1116,7 +1648,7 @@ export async function recordTikTokUploadCompleted(
       },
       data: { state: PlatformExecutionState.PROCESSING, failureCategory: null },
     });
-    if (updated.count !== 1) throw new Error("tiktok_upload_completion_superseded");
+    if (updated.count !== 1) throw new Error("tiktok_transfer_acceptance_superseded");
     await appendAudit(transaction, {
       workspaceId: input.workspaceId,
       action: "platform.uploaded",
@@ -1124,7 +1656,11 @@ export async function recordTikTokUploadCompleted(
       targetId: input.executionId,
       result: "success",
       correlationId: input.executionId,
-      metadata: { platform: "tiktok", provider_reference_recorded: true },
+      metadata: {
+        platform: "tiktok",
+        provider_reference_recorded: true,
+        transfer_mode: "pull_from_url",
+      },
     });
   });
 }
@@ -1138,7 +1674,7 @@ export async function recordYouTubeUploadAccepted(
     readonly providerUrl: string;
     readonly channelId: string;
     readonly leaseGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1176,7 +1712,7 @@ export async function recordYouTubeExecutionPublished(
     readonly executionId: string;
     readonly channelId: string;
     readonly leaseGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1212,7 +1748,7 @@ export async function recordYouTubeExecutionPublishedAndCompleteOutbox(
     readonly outboxMessageId: string;
     readonly claimOwner: string;
     readonly claimGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
     readonly completedProviderId?: string;
   },
 ): Promise<void> {
@@ -1281,7 +1817,7 @@ export async function recordYouTubeExecutionFailure(
     readonly needsAttention: boolean;
     readonly channelId: string;
     readonly leaseGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1327,7 +1863,7 @@ export async function recordYouTubeExecutionFailureAndCompleteOutbox(
     readonly outboxMessageId: string;
     readonly claimOwner: string;
     readonly claimGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1404,7 +1940,7 @@ export async function recordClaimedYouTubeExecutionFailure(
     readonly claimGeneration: bigint;
     readonly failureCategory: string;
     readonly needsAttention: boolean;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1472,7 +2008,7 @@ export async function recordClaimedYouTubeExecutionFailureAndCompleteOutbox(
     readonly claimGeneration: bigint;
     readonly failureCategory: string;
     readonly needsAttention: boolean;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {
@@ -1600,7 +2136,7 @@ async function requireYouTubeReauthorizationInTransaction(
     readonly channelId: string;
     readonly executionId: string;
     readonly leaseGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   const channel = await transaction.channel.findFirst({
@@ -1684,7 +2220,7 @@ export async function requireYouTubeReauthorization(
     readonly channelId: string;
     readonly executionId: string;
     readonly leaseGeneration: bigint;
-    readonly platform?: "youtube" | "facebook" | "tiktok";
+    readonly platform?: "youtube" | "facebook" | "instagram" | "tiktok";
   },
 ): Promise<void> {
   await withTenant(client, input.workspaceId, async (transaction) => {

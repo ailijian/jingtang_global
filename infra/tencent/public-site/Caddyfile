@@ -34,7 +34,7 @@ jingtangai.com {
 review.jingtangai.com {
 	encode zstd gzip
 
-	@sensitive_callback path /api/v1/channels/youtube/oauth/callback /api/v1/channels/facebook/oauth/callback /api/v1/channels/facebook/deauthorize /api/v1/channels/facebook/data-deletion* /api/v1/channels/tiktok/oauth/callback
+	@sensitive_callback path /api/v1/channels/youtube/oauth/callback /api/v1/channels/facebook/oauth/callback /api/v1/channels/facebook/deauthorize /api/v1/channels/facebook/data-deletion* /api/v1/channels/tiktok/oauth/callback /api/v1/media/tiktok
 	log_skip @sensitive_callback
 	reverse_proxy review-platform:3100 {
 		header_up X-Forwarded-For {remote_host}
