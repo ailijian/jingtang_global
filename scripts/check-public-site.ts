@@ -4,6 +4,7 @@ import path from "node:path";
 import { parse as parseYaml } from "yaml";
 
 import { extractPublicCopy } from "./lib/public-site-copy.js";
+import { requireCoherentProductionLegalRollout } from "./lib/public-site-rollout.js";
 
 interface SiteConfig {
   readonly status: string;
@@ -77,6 +78,13 @@ for (const [id, integration] of Object.entries(registry.integrations)) {
 }
 
 if (productionCheck) {
+  const productionLegalRollout =
+    siteConfig.status === "production"
+      ? requireCoherentProductionLegalRollout({
+          deploymentStatus: siteConfig.legal.deployment_status,
+          policyRollout: siteConfig.production_readiness.legal_policy_rollout,
+        })
+      : undefined;
   const required = {
     config_status: siteConfig.status,
     legal_approval: siteConfig.legal.approval_status,
@@ -94,13 +102,13 @@ if (productionCheck) {
       ? {
           config_status: "production",
           legal_approval: "approved",
-          legal_deployment: "deployed_verified",
+          legal_deployment: productionLegalRollout,
           domain_ownership: "verified",
           dns: "deployed_verified",
           tls: "verified",
           legal_data_approval: "approved",
           rollout: "deployed_verified",
-          legal_policy_rollout: "deployed_verified",
+          legal_policy_rollout: productionLegalRollout,
           product_access_rollout: "deployed_verified",
         }
       : {
