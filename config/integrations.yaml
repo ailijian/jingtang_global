@@ -1,11 +1,11 @@
 schema_version: 1
-revision: 33
+revision: 34
 status: approved
-effective_date: "2026-08-29"
+effective_date: "2026-08-30"
 owner: JINGTANG Integration Owner
 last_policy_verification_date: "2026-08-29"
 revision_note: >-
-  Revision 9 replaces TikTok R4 FILE_UPLOAD with PULL_FROM_URL for server-stored media. Exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 is deployed to Review with hold-worker after blocking CI; COS remains private and only the final-confirmed object may be exposed to TikTok through a 65-minute provider-only HTTPS grant bound to object key, hash, size and GET. TikTok Dashboard reports review.jingtangai.com as a verified Domain property. Fresh Human E2E, Acceptance, provider credentials/API calls, publishing and external submission remain unperformed. R4.5 Instagram remains paused. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false.
+  Revision 9 replaces TikTok R4 FILE_UPLOAD with PULL_FROM_URL for server-stored media. Exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 passed one controlled private SELF_ONLY Human E2E without duplicate or signed-URL leakage; exact remediation candidate 742b575e9f6b3330c6ec58c35ae3c10ac5efb396 is deployed to Review with hold-worker after blocking CI and passed read-only UI verification and Revision 9 Acceptance Review. COS remains private and only the final-confirmed object may be exposed to TikTok through a 65-minute provider-only HTTPS grant bound to object key, hash, size and GET. TikTok Dashboard reports review.jingtangai.com as a verified Domain property. Reviewer media, final portal reconciliation, external submission and public availability remain pending. R4.5 Instagram remains paused. Facebook, TikTok and Instagram remain publicly Coming Soon and production_available false.
 
 authority:
   owns:
@@ -460,7 +460,7 @@ integrations:
       - a private unaudited post may complete without a public post ID or external link; the UI must not fabricate one
       - disconnect denies first, invokes the TikTok revoke endpoint, retires the token key and removes local authorization data without claiming to delete a TikTok-hosted post
       - company TikTok Organization owns the durable App identity; Review secrets, tokens, redirect URLs, Sandbox users, data and runtime configuration are retired before future production cutover
-      - Revision 9 approved PULL_FROM_URL remediation locally on 2026-08-29, the exact Review Domain property was verified, and exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 passed a controlled SELF_ONLY Human E2E without duplicate or signed-URL leakage; a post-E2E current-revision retry-presentation remediation remains locally verified but undeployed, and Acceptance remains pending
+      - Revision 9 approved PULL_FROM_URL remediation locally on 2026-08-29, the exact Review Domain property was verified, and exact candidate 8d35648aac362d2722671fdd8ae7d418368aa235 passed a controlled SELF_ONLY Human E2E without duplicate or signed-URL leakage; exact post-E2E remediation candidate 742b575e9f6b3330c6ec58c35ae3c10ac5efb396 passed blocking CI, hold-worker deployment, read-only UI verification and Revision 9 Acceptance Review on 2026-08-30
     r4_entry_gates:
       scope_approval_package: prepared_2026_08_27
       scope_approval: passed_2026_08_27
@@ -472,10 +472,10 @@ integrations:
       external_review_submission: unified_r5_separately_gated
       revision_9_local_implementation: passed_verification_and_code_review_2026_08_29
       revision_9_url_property: review_domain_verified_2026_08_29
-      revision_9_deployment: exact_candidate_8d35648aac362d2722671fdd8ae7d418368aa235_hold_worker_deployed_verified_2026_08_29
+      revision_9_deployment: exact_remediation_candidate_742b575e9f6b3330c6ec58c35ae3c10ac5efb396_hold_worker_deployed_verified_2026_08_30
       revision_9_human_e2e: exact_candidate_8d35648aac362d2722671fdd8ae7d418368aa235_pull_from_url_private_self_only_passed_no_duplicate_no_signed_url_leakage_2026_08_29
-      revision_9_acceptance: pending_post_e2e_ui_remediation_deployment_and_review
-      r5_policy_revalidation: revision_9_pull_from_url_local_domain_deployment_and_fresh_human_e2e_complete_acceptance_pending_2026_08_29
+      revision_9_acceptance: passed_ac_08_ac_10_ac_12_2026_08_30
+      r5_policy_revalidation: revision_9_accepted_submission_evidence_pending_2026_08_30
 
   linkedin:
     display_name: LinkedIn

@@ -4,19 +4,19 @@
 
 ## Status
 
-- As of: 2026-08-29 (Asia/Shanghai).
+- As of: 2026-08-30 (Asia/Shanghai).
 - Overall: **IN PROGRESS — NOT SUBMISSION READY**.
 - Authorized local scope: common regression/closure plus Facebook and TikTok reviewer-material preparation.
 - Not authorized by the R5 start: deployment, credential rotation, Business/Domain Verification writes, Advanced Access/Audit requests, demo-video upload, external App Review submission, public availability, checkpoint, commit or push.
 - Subsequent candidate authorization: after Revision 9 local review and Domain-property verification passed, the Human Owner authorized one candidate branch/commit/push containing the reviewed R4.5 provider-independent implementation held disabled plus Revision 9, solely to run blocking CI and stop at its result. This does not authorize deployment, provider credentials/API calls, publishing, App Review submission or public-status changes.
-- Subsequent deployment authorization and evidence: after Deployment Readiness remediation, the Human Owner separately authorized the repaired exact candidate and legal version rollout with create-only TikTok media-signing Secret provisioning and `hold-worker` activation. Candidate `8d35648aac362d2722671fdd8ae7d418368aa235` passed blocking CI run `33256764818`, deployed with both release pointers matching, and passed read-only health/legal/security verification while the worker remained exited. Evidence-only commit `a41c6f0d8545cf696deed9b933040352620d3a5b` passed blocking CI run `33257650077`. No provider credential/API call, signed media URL or publish was used; fresh Human E2E and Acceptance remain pending.
-- Subsequent reconciliation authorization: the Human Owner authorized this secret-free PLAN/Registry/R5 deployment-evidence reconciliation, focused local validation, Code Review, one independent commit/push and blocking CI. It does not authorize worker start, provider credentials/API calls, publishing, merge, App Review submission or public-status changes.
+- Subsequent deployment authorization and evidence: after Deployment Readiness remediation, the Human Owner separately authorized the repaired exact candidate and legal version rollout with create-only TikTok media-signing Secret provisioning and `hold-worker` activation. Candidate `8d35648aac362d2722671fdd8ae7d418368aa235` passed blocking CI run `33256764818`, deployed with both release pointers matching, and passed read-only health/legal/security verification while the worker remained exited. Evidence-only commit `a41c6f0d8545cf696deed9b933040352620d3a5b` passed blocking CI run `33257650077`. A separately authorized one-time Fresh Human E2E then produced one private `SELF_ONLY` result without duplication or signed-URL leakage and returned the worker to its held state.
+- Subsequent post-E2E remediation and Acceptance authorization: the Human Owner authorized candidate commit/push/CI, deployment of the exact passing SHA with `hold-worker`, read-only verification and continued execution through Revision 9 Acceptance Review. Exact candidate `742b575e9f6b3330c6ec58c35ae3c10ac5efb396` passed blocking CI run `33262517575`, deployed with both release pointers matching, and passed runtime/UI verification and Acceptance Review on 2026-08-30. No worker start, provider credential/API call, additional publish, merge, App Review submission or public-status change occurred.
 - Support contact: `developer@jingtangai.com`.
 
 | Platform | Technical slice | R5 material state | Submission state | Blocking facts |
 | --- | --- | --- | --- | --- |
 | Facebook | R3 accepted and deployed for controlled access | Draft instructions, permission trace, data lifecycle and demo script assembled below | `not_ready` | Fresh official-policy/Dashboard verification, protected reviewer account, current screencast, Business Verification/Advanced Access and explicit submission authorization remain pending |
-| TikTok | Historical R4 controlled private `SELF_ONLY` slice deployed; Revision 9 exact candidate deployed with `hold-worker` after local review and Domain-property verification | Draft instructions, Scope trace, data lifecycle and demo script assembled below | `deployment_verified_human_e2e_pending` | Private COS → provider-only `PULL_FROM_URL` implementation, local review, `review.jingtangai.com` verification and controlled deployment pass; submission still waits for a separately authorized fresh Human E2E and Acceptance evidence |
+| TikTok | Historical R4 controlled private `SELF_ONLY` slice deployed; Revision 9 transport, Fresh Human E2E, post-E2E UI remediation and Acceptance Review passed | Draft instructions, Scope trace, data lifecycle and demo script assembled below | `accepted_not_submission_ready` | Current screencast, final portal/config reconciliation, reviewer-access handoff and explicit submission authorization remain pending |
 | Instagram | I1～I3 provider-independent candidate reviewed; E1 partial | Blocker and partial configuration evidence recorded | `paused_not_ready` | Company-controlled Professional account registration/review did not yield a searchable account; Standard Access, OAuth/callback mapping, COS evidence, deployment and Human E2E are incomplete |
 
 No row above is an external approval or a public availability claim. The Registry remains the machine authority and keeps every platform `Coming Soon` / `production_available: false`.
@@ -35,8 +35,8 @@ No row above is an external approval or a public availability claim. The Registr
 - The App Review Guidelines require a functioning public-facing product, exact products/Scopes, an end-to-end demo from the actual web domain and reviewer-accessible capability. First-time review uses the Sandbox demonstration.
 - Revision 9 closes the authority decision locally: server-stored media must use `PULL_FROM_URL`. The candidate retains private COS and exposes only the final-confirmed object through a provider-only HTTPS URL bound to object key, SHA-256, byte size, GET and a fixed 65-minute lifetime.
 - URL-property evidence: the Human Operator verified `review.jingtangai.com` as a Domain property through TikTok's DNS TXT flow. Both GoDaddy authoritative nameservers and Google/Cloudflare public resolvers returned the record before TikTok reported `Verified`; no signed media URL, credential, API call, deployment or publish was used.
-- Deployment evidence: exact candidate `8d35648aac362d2722671fdd8ae7d418368aa235` passed blocking CI and was activated with `hold-worker`; both release pointers, platform/PostgreSQL health, worker-exited state, 19 HTTPS routes, legal version, security, `noindex`, health/login and method rejection passed read-only verification. The create-only signing-Secret helper exposed no value, and no provider credential/API call, signed media URL or publish was used.
-- Stop condition: do not submit the TikTok App or claim submission readiness. Local verification, Code Review, Dashboard URL-property verification and controlled deployment pass; a fresh Human E2E and Acceptance remain separately authorized external evidence.
+- Deployment and Acceptance evidence: exact candidate `8d35648aac362d2722671fdd8ae7d418368aa235` passed the controlled private Fresh Human E2E. Exact candidate `742b575e9f6b3330c6ec58c35ae3c10ac5efb396` passed blocking CI run `33262517575`, was activated with `hold-worker`, and passed exact-pointer/image-label, platform/PostgreSQL health, worker-exited, timers/capacity, 19-route website, `noindex`, health/login/method-rejection, zero-active-work, bounded log and read-only current-revision UI checks. Revision 9 Acceptance Review passed against AC-08, AC-10 and AC-12 on 2026-08-30.
+- Stop condition: do not submit the TikTok App or claim submission readiness. Current reviewer screencast, final portal/config reconciliation, protected reviewer-access handoff and explicit submission authorization remain pending.
 
 ### Instagram
 
@@ -165,7 +165,7 @@ Required closure before submission:
 
 ### TikTok readiness checklist
 
-- [x] Revision 9 local implementation, Code Review, `review.jingtangai.com` Domain-property verification, controlled deployment and fresh private `PULL_FROM_URL` Human E2E pass; post-E2E UI remediation deployment and Acceptance remain separate.
+- [x] Revision 9 local implementation, Code Review, `review.jingtangai.com` Domain-property verification, controlled deployment, fresh private `PULL_FROM_URL` Human E2E, post-E2E UI remediation deployment and Acceptance Review pass.
 - [ ] Actual Production draft and Sandbox product/Scope/domain/legal fields match the final implementation.
 - [x] Protected Sandbox user `lijiancn` completed the controlled OAuth/Creator Info/private-publish journey without storing credentials here.
 - [ ] Fresh end-to-end video recorded from the exact final web candidate and kept within current portal limits.
@@ -200,7 +200,7 @@ Resume only after the Human Owner explicitly restarts R4.5 and a company-control
 - [x] Live read-only Review checks passed HTTPS health and login `200`, health `POST` `405`, `noindex`, container health and zero restarts; the Fresh Human E2E ended with zero active work and the worker returned to `exited`.
 - [x] Tenant/RBAC, upload, submit/approve, confirmation, publish/result, disconnect/revoke/delete, migration, backup/restore, i18n, mobile/accessibility and secret scans pass through the canonical suite.
 - [x] Public pages contain no prohibited internal Delivery/environment terminology and do not claim Schedule, public platform availability or third-party approval.
-- [x] Registry is consistent with actual deployed and external state, including the Instagram pause, the exact TikTok Revision 9 deployment and Fresh Human E2E, the undeployed post-E2E UI remediation, pending Acceptance and unchanged public `Coming Soon` status.
+- [x] Registry is consistent with actual deployed and external state, including the Instagram pause, exact TikTok Revision 9 Human E2E and remediation deployment, passed Revision 9 Acceptance Review, pending submission evidence and unchanged public `Coming Soon` status.
 - [x] Final R5 diff and the preserved, previously reviewed I1～I3 worktree boundary were reviewed for unintended scope expansion and Secret/identifier leakage; no blocking R5 documentation/Registry finding remains.
 
 ## Teardown and Migration Checklist
