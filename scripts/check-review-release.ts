@@ -377,6 +377,22 @@ for (const marker of [
 ]) {
   requireText(internalSecrets, marker, "review internal-secret generator");
 }
+const tikTokMediaSecretUpgrade = read("infra/tencent/review/ensure-tiktok-media-signing-secret.sh");
+for (const marker of [
+  "tiktok-media-url-signing-secret",
+  'metadata="$(stat -c \'%a %u %g\' "$target")"',
+  'if [[ "$metadata" != "400 $service_uid $service_uid" ]]',
+  'ln "$next" "$target"',
+  "already exists and was preserved",
+]) {
+  requireText(tikTokMediaSecretUpgrade, marker, "TikTok media signing-secret upgrade");
+}
+if (
+  tikTokMediaSecretUpgrade.includes("mv -f") ||
+  tikTokMediaSecretUpgrade.includes('rm -f -- "$target"')
+) {
+  throw new Error("TikTok media signing-secret upgrade must never replace the live secret");
+}
 
 const backupScript = read("infra/tencent/review/backup-review.sh");
 for (const forbidden of [
@@ -403,6 +419,7 @@ for (const script of [
   "infra/tencent/review/package-release.sh",
   "infra/tencent/review/prepare-host.sh",
   "infra/tencent/review/generate-internal-secrets.sh",
+  "infra/tencent/review/ensure-tiktok-media-signing-secret.sh",
   "infra/tencent/review/install-external-secret.sh",
   "infra/tencent/review/install-maintenance-timers.sh",
   "infra/tencent/review/backup-review.sh",
@@ -420,7 +437,14 @@ const activation = read("infra/tencent/review/activate-release.sh");
 for (const marker of [
   "candidate_init",
   "previous_review_running",
-  "compose_live up -d postgres platform worker",
+  'readonly worker_mode="${4:-}"',
+  '[[ "$worker_mode" != "hold-worker" && "$worker_mode" != "start-worker" ]]',
+  "tiktok-media-url-signing-secret",
+  "compose_live stop worker",
+  "compose_live up -d platform",
+  'if [[ "$worker_mode" == "start-worker" ]]',
+  "compose_live up -d worker",
+  "worker_mode=$worker_mode",
   "https://jingtangai.com/",
   "https://review.jingtangai.com/api/v1/health",
   "--request POST",
@@ -441,6 +465,7 @@ for (const marker of [
   'await import("@jingtang/application")',
   "node /app/packages/db/node_modules/prisma/build/index.js validate",
   'docker save --output "$output_dir/jingtang-review-images.tar"',
+  "ensure-tiktok-media-signing-secret.sh",
 ]) {
   requireText(packageRelease, marker, "review package runtime-identity smoke");
 }

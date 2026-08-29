@@ -77,7 +77,8 @@ install -m 0755 infra/tencent/review/init/001-create-roles.sh \
 install -m 0644 infra/tencent/public-site/compose.yaml "$output_dir/public-site-compose.yaml"
 install -m 0644 infra/tencent/public-site/Caddyfile "$output_dir/public-site-Caddyfile"
 for script in \
-  activate-release.sh backup-review.sh check-capacity.sh generate-internal-secrets.sh \
+  activate-release.sh backup-review.sh check-capacity.sh ensure-tiktok-media-signing-secret.sh \
+  generate-internal-secrets.sh \
   install-external-secret.sh install-maintenance-timers.sh prepare-host.sh \
   restore-review-drill.sh transfer-release.sh; do
   install -m 0755 "infra/tencent/review/$script" "$output_dir/$script"
